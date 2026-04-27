@@ -47,5 +47,84 @@
     ],
     "winery_scene_name": "classic_cellar",
     "winery_info_text": "A placeholder cellar entry with warm stone tones, stacked casks, and a simple interactive door."
+  },
+  "environment_settings": {
+    "environment_id": "demo_classic_stone_cellar",
+    "scene_type": "classic_stone_cellar",
+    "lighting_preset": "warm_classic",
+    "wall_color": "#8B8172",
+    "floor_color": "#51483D",
+    "barrel_color": "#734A2D",
+    "door_color": "#51341F",
+    "ambience_text": "A classic stone cellar with warm amber light, stacked casks, and a quiet old-world tasting alcove.",
+    "interactables": [
+      {
+        "id": "cellar_door",
+        "title": "Cellar Door",
+        "text": "The cellar door opens toward a private tasting room prepared for the Aegean Reserve Red.",
+        "type": "door",
+        "position": [0.0, 0.0, -2.9]
+      }
+    ],
+    "props": [
+      {
+        "id": "left_oak_barrel",
+        "type": "barrel",
+        "position": [-2.45, 0.48, -2.45],
+        "rotation": [0.0, 8.0, 90.0],
+        "scale": [0.9, 0.9, 0.9],
+        "color": "#70472A",
+        "visible": true
+      },
+      {
+        "id": "right_oak_barrel",
+        "type": "barrel",
+        "position": [2.35, 0.48, -2.35],
+        "rotation": [0.0, -10.0, 90.0],
+        "scale": [0.9, 0.9, 0.9],
+        "color": "#744B2D",
+        "visible": true
+      },
+      {
+        "id": "stacked_crate",
+        "type": "crate",
+        "position": [-1.65, 0.28, -2.65],
+        "rotation": [0.0, 12.0, 0.0],
+        "scale": [0.7, 0.55, 0.55],
+        "color": "#5A3A22",
+        "visible": true
+      },
+      {
+        "id": "stone_column_marker",
+        "type": "column",
+        "position": [0.0, 0.8, -3.35],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [0.42, 1.35, 0.42],
+        "color": "#8D8476",
+        "visible": true
+      }
+    ],
+    "zones": [
+      {
+        "id": "barrel_stack_note",
+        "title": "Old Cellar Casks",
+        "text": "These placeholder casks mark where client-specific barrel stories can be attached later.",
+        "type": "info_zone",
+        "position": [-2.25, 1.0, -2.25],
+        "radius": 0.85
+      },
+      {
+        "id": "cellar_door",
+        "title": "Cellar Door",
+        "text": "The cellar door opens toward a private tasting room prepared for the Aegean Reserve Red.",
+        "type": "door",
+        "position": [0.0, 1.0, -2.9],
+        "radius": 1.0
+      }
+    ],
+    "camera_start": {
+      "position": [0.0, 0.0, 1.55],
+      "rotation": [0.0, 0.0, 0.0]
+    }
   }
 }

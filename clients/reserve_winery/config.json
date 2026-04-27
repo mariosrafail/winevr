@@ -1,0 +1,121 @@
+{
+  "client_id": "reserve_winery",
+  "winery_name": "Reserve Winery",
+  "wine_name": "Highland Barrel Select",
+  "region_name": "Douro Valley",
+  "country": "Portugal",
+  "qr_id": "qr_reserve_winery",
+  "vial_settings": {
+    "liquid_fill_amount": 0.74,
+    "liquid_color": "#4B0A1D",
+    "cap_color": "#3A2B18"
+  },
+  "experience_settings": {
+    "intro_title": "Highland Barrel Select",
+    "intro_text": "A structured reserve with blackberry depth, cedar detail, and a polished finish.",
+    "hotspots": [
+      {
+        "id": "barrel",
+        "title": "Barrel",
+        "text": "Aged in seasoned oak to round the tannins without hiding the fruit.",
+        "screen_position": [0.7, 0.32],
+        "category": "cellar",
+        "viewed_required_for_winery": true
+      },
+      {
+        "id": "texture",
+        "title": "Texture",
+        "text": "Dense but controlled, with a long graphite edge.",
+        "screen_position": [0.82, 0.52],
+        "category": "tasting",
+        "viewed_required_for_winery": true
+      },
+      {
+        "id": "parcel",
+        "title": "Parcel",
+        "text": "Selected from high-elevation vines with cool evening exposure.",
+        "screen_position": [0.58, 0.66],
+        "category": "vineyard",
+        "viewed_required_for_winery": true
+      }
+    ],
+    "scenes": [
+      "intro",
+      "vial_inspection",
+      "winery_entry",
+      "winery_interior"
+    ],
+    "winery_scene_name": "reserve_cellar",
+    "winery_info_text": "A reserve cellar placeholder focused on barrel selection, quiet lighting, and a single cellar door interaction."
+  },
+  "environment_settings": {
+    "environment_id": "reserve_dark_premium_cellar",
+    "scene_type": "premium_reserve_cellar",
+    "lighting_preset": "dark_premium",
+    "wall_color": "#24201D",
+    "floor_color": "#171412",
+    "barrel_color": "#5A3420",
+    "door_color": "#2A1A12",
+    "ambience_text": "A darker reserve cellar with low warm lighting, deeper wood tones, and a focused barrel-selection atmosphere.",
+    "interactables": [
+      {
+        "id": "reserve_cellar_door",
+        "title": "Reserve Cellar Door",
+        "text": "Behind this door is the reserve tasting room, where the Highland Barrel Select is presented from selected casks.",
+        "type": "door",
+        "position": [0.0, 0.0, -2.9]
+      }
+    ],
+    "props": [
+      {
+        "id": "reserve_center_table",
+        "type": "table",
+        "position": [0.0, 0.42, -0.9],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.25, 0.75, 0.72],
+        "color": "#3A2317",
+        "visible": true
+      },
+      {
+        "id": "reserve_left_barrel",
+        "type": "barrel",
+        "position": [-2.35, 0.48, -2.25],
+        "rotation": [0.0, 5.0, 90.0],
+        "scale": [0.82, 0.82, 0.82],
+        "color": "#4C2B1A",
+        "visible": true
+      },
+      {
+        "id": "reserve_sign",
+        "type": "sign",
+        "position": [1.95, 1.2, -3.55],
+        "rotation": [0.0, -8.0, 0.0],
+        "scale": [1.0, 0.55, 1.0],
+        "color": "#C99B58",
+        "visible": true
+      }
+    ],
+    "zones": [
+      {
+        "id": "reserve_table_note",
+        "title": "Reserve Selection Table",
+        "text": "A minimal tasting table placeholder for future reserve bottle, glass, and pairing interactions.",
+        "type": "tasting_point",
+        "position": [0.0, 1.0, -0.9],
+        "radius": 0.8
+      },
+      {
+        "id": "reserve_cellar_door",
+        "title": "Reserve Cellar Door",
+        "text": "Behind this door is the reserve tasting room, where the Highland Barrel Select is presented from selected casks.",
+        "type": "door",
+        "position": [0.0, 1.0, -2.9],
+        "radius": 1.0
+      }
+    ],
+    "camera_start": {
+      "position": [0.15, 0.0, 1.35],
+      "rotation": [0.0, -4.0, 0.0]
+    }
+  }
+}

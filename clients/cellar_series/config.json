@@ -1,0 +1,138 @@
+{
+  "client_id": "cellar_series",
+  "winery_name": "Cellar Series",
+  "wine_name": "Coastal White Vial",
+  "region_name": "Marlborough",
+  "country": "New Zealand",
+  "qr_id": "qr_cellar_series",
+  "vial_settings": {
+    "liquid_fill_amount": 0.56,
+    "liquid_color": "#D8B75F",
+    "cap_color": "#ECE7D2"
+  },
+  "experience_settings": {
+    "intro_title": "Coastal White Vial",
+    "intro_text": "A bright cellar sample with citrus lift, saline energy, and a clean mineral line.",
+    "hotspots": [
+      {
+        "id": "aromatics",
+        "title": "Aromatics",
+        "text": "Lime zest, white flowers, and a precise coastal freshness.",
+        "screen_position": [0.68, 0.35],
+        "category": "tasting",
+        "viewed_required_for_winery": true
+      },
+      {
+        "id": "clarity",
+        "title": "Clarity",
+        "text": "Pale gold color with a transparent, high-energy profile.",
+        "screen_position": [0.79, 0.55],
+        "category": "visual",
+        "viewed_required_for_winery": true
+      },
+      {
+        "id": "cellar_note",
+        "title": "Cellar Note",
+        "text": "Kept cool through fermentation to preserve tension and detail.",
+        "screen_position": [0.6, 0.7],
+        "category": "cellar",
+        "viewed_required_for_winery": false
+      }
+    ],
+    "scenes": [
+      "intro",
+      "vial_inspection",
+      "winery_entry",
+      "winery_interior"
+    ],
+    "winery_scene_name": "coastal_cellar",
+    "winery_info_text": "A lightweight cellar placeholder for the Cellar Series profile, ready for future client-specific environment modules."
+  },
+  "environment_settings": {
+    "environment_id": "cellar_series_modern_tasting_room",
+    "scene_type": "modern_tasting_room",
+    "lighting_preset": "bright_modern",
+    "wall_color": "#D8D6CE",
+    "floor_color": "#B9B29F",
+    "barrel_color": "#C89B5A",
+    "door_color": "#E7DDC5",
+    "ambience_text": "A brighter modern tasting room with pale mineral surfaces, clean light, and an open coastal cellar feel.",
+    "interactables": [
+      {
+        "id": "modern_tasting_room_door",
+        "title": "Tasting Room Door",
+        "text": "The door leads into a bright tasting space designed around the citrus and saline profile of Coastal White Vial.",
+        "type": "door",
+        "position": [0.0, 0.0, -2.9]
+      }
+    ],
+    "props": [
+      {
+        "id": "modern_tasting_table",
+        "type": "table",
+        "position": [0.0, 0.42, -0.55],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.5, 0.72, 0.82],
+        "color": "#D8C795",
+        "visible": true
+      },
+      {
+        "id": "coastal_crate_left",
+        "type": "crate",
+        "position": [-2.15, 0.28, -2.1],
+        "rotation": [0.0, 18.0, 0.0],
+        "scale": [0.7, 0.5, 0.55],
+        "color": "#C8B789",
+        "visible": true
+      },
+      {
+        "id": "coastal_crate_right",
+        "type": "crate",
+        "position": [2.0, 0.28, -1.9],
+        "rotation": [0.0, -15.0, 0.0],
+        "scale": [0.62, 0.5, 0.5],
+        "color": "#BFAE7C",
+        "visible": true
+      },
+      {
+        "id": "coastal_info_sign",
+        "type": "sign",
+        "position": [0.0, 1.25, -3.5],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.3, 0.58, 1.0],
+        "color": "#F2E9CF",
+        "visible": true
+      }
+    ],
+    "zones": [
+      {
+        "id": "modern_table_note",
+        "title": "Coastal Tasting Point",
+        "text": "This table placeholder can become a client-specific guided tasting station in the next phase.",
+        "type": "tasting_point",
+        "position": [0.0, 1.0, -0.55],
+        "radius": 0.85
+      },
+      {
+        "id": "coastal_sign_note",
+        "title": "Cellar Series Sign",
+        "text": "A simple branded sign placeholder for seasonal messages, QR handoff copy, or tasting notes.",
+        "type": "info_zone",
+        "position": [0.0, 1.25, -3.35],
+        "radius": 0.75
+      },
+      {
+        "id": "modern_tasting_room_door",
+        "title": "Tasting Room Door",
+        "text": "The door leads into a bright tasting space designed around the citrus and saline profile of Coastal White Vial.",
+        "type": "door",
+        "position": [0.0, 1.0, -2.9],
+        "radius": 1.0
+      }
+    ],
+    "camera_start": {
+      "position": [0.0, 0.0, 1.75],
+      "rotation": [0.0, 0.0, 0.0]
+    }
+  }
+}

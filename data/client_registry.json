@@ -1,0 +1,29 @@
+[
+  {
+    "client_id": "demo_winery",
+    "display_name": "Demo Winery",
+    "wine_name": "Aegean Reserve Red",
+    "region": "Nemea, Greece",
+    "qr_id": "qr_demo_winery",
+    "enabled": true,
+    "thumbnail_path": ""
+  },
+  {
+    "client_id": "reserve_winery",
+    "display_name": "Reserve Winery",
+    "wine_name": "Highland Barrel Select",
+    "region": "Douro Valley, Portugal",
+    "qr_id": "qr_reserve_winery",
+    "enabled": true,
+    "thumbnail_path": ""
+  },
+  {
+    "client_id": "cellar_series",
+    "display_name": "Cellar Series",
+    "wine_name": "Coastal White Vial",
+    "region": "Marlborough, New Zealand",
+    "qr_id": "qr_cellar_series",
+    "enabled": true,
+    "thumbnail_path": ""
+  }
+]

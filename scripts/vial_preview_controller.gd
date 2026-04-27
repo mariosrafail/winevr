@@ -17,6 +17,8 @@ class_name VialPreviewController
 var _is_dragging: bool = false
 var _interaction_enabled: bool = true
 var _idle_rotation_paused: bool = false
+var _touch_points: Dictionary = {}
+var _last_pinch_distance: float = 0.0
 
 
 func _ready() -> void:
@@ -32,6 +34,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _interaction_enabled:
 		return
 
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_touch_points[event.index] = event.position
+		else:
+			_touch_points.erase(event.index)
+			if _touch_points.size() < 2:
+				_last_pinch_distance = 0.0
+		return
+
+	if event is InputEventScreenDrag:
+		_touch_points[event.index] = event.position
+		if _touch_points.size() == 1:
+			_rotate_vial(event.relative)
+		elif _touch_points.size() >= 2:
+			_update_pinch_zoom()
+		return
+
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_is_dragging = event.pressed
@@ -44,9 +63,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 	if event is InputEventMouseMotion and _is_dragging:
-		vial.rotate_y(event.relative.x * drag_rotate_speed)
-		vial.rotate_x(event.relative.y * drag_rotate_speed * vertical_drag_ratio)
-		vial.rotation.x = clampf(vial.rotation.x, deg_to_rad(min_tilt_degrees), deg_to_rad(max_tilt_degrees))
+		_rotate_vial(event.relative)
 
 
 func apply_client_profile(client_data: Dictionary) -> void:
@@ -64,6 +81,8 @@ func set_interaction_enabled(enabled: bool) -> void:
 	_interaction_enabled = enabled
 	if not enabled:
 		_is_dragging = false
+		_touch_points.clear()
+		_last_pinch_distance = 0.0
 
 
 func set_camera_active(active: bool) -> void:
@@ -77,6 +96,32 @@ func set_idle_rotation_paused(paused: bool) -> void:
 func reset_view() -> void:
 	vial.rotation = Vector3.ZERO
 	camera.position.z = 0.62
+
+
+func zoom_in() -> void:
+	camera.position.z = maxf(min_camera_z, camera.position.z - zoom_step)
+
+
+func zoom_out() -> void:
+	camera.position.z = minf(max_camera_z, camera.position.z + zoom_step)
+
+
+func _rotate_vial(relative_motion: Vector2) -> void:
+	vial.rotate_y(relative_motion.x * drag_rotate_speed)
+	vial.rotate_x(relative_motion.y * drag_rotate_speed * vertical_drag_ratio)
+	vial.rotation.x = clampf(vial.rotation.x, deg_to_rad(min_tilt_degrees), deg_to_rad(max_tilt_degrees))
+
+
+func _update_pinch_zoom() -> void:
+	var points: Array = _touch_points.values()
+	if points.size() < 2:
+		return
+
+	var distance: float = (points[0] as Vector2).distance_to(points[1] as Vector2)
+	if _last_pinch_distance > 0.0:
+		var delta_distance: float = distance - _last_pinch_distance
+		camera.position.z = clampf(camera.position.z - delta_distance * 0.0012, min_camera_z, max_camera_z)
+	_last_pinch_distance = distance
 
 
 func _parse_color(value, default_color: Color = Color.WHITE) -> Color:

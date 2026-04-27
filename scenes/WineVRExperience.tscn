@@ -119,7 +119,7 @@ scroll_active = false
 text = ""
 
 [node name="StartButton" type="Button" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 52)
 text = "Start Experience"
 
 [node name="InspectionHUD" type="Control" parent="CanvasLayer"]
@@ -167,7 +167,7 @@ scroll_active = false
 text = ""
 
 [node name="EnterWineryButton" type="Button" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-custom_minimum_size = Vector2(0, 42)
+custom_minimum_size = Vector2(0, 52)
 text = "Enter Winery"
 
 [node name="HotspotsLayer" type="Control" parent="CanvasLayer/InspectionHUD"]
@@ -206,7 +206,7 @@ scroll_active = false
 text = ""
 
 [node name="CloseButton" type="Button" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 48)
 text = "Close"
 
 [node name="InspectionHint" type="Label" parent="CanvasLayer/InspectionHUD"]
@@ -254,7 +254,7 @@ scroll_active = false
 text = ""
 
 [node name="ReturnButton" type="Button" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 52)
 text = "Return To Vial"
 
 [node name="DoorPrompt" type="Label" parent="CanvasLayer/WineryHUD"]
@@ -294,7 +294,7 @@ scroll_active = false
 text = ""
 
 [node name="CloseButton" type="Button" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox"]
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 48)
 text = "Close"
 
 [node name="FadeRect" type="ColorRect" parent="CanvasLayer"]
