@@ -30,6 +30,7 @@ var winery_title: Label
 var winery_text: RichTextLabel
 var winery_modal_title: Label
 var winery_modal_text: RichTextLabel
+var _winery_modal_tween: Tween
 
 
 func setup(root: Node) -> void:
@@ -113,9 +114,9 @@ func apply_state(state: int) -> void:
 
 func set_enter_winery_enabled(enabled: bool) -> void:
 	enter_winery_button.disabled = not enabled
-	enter_winery_button.text = "Enter Winery" if enabled else "View all vial notes"
+	enter_winery_button.text = "Enter Winery" if enabled else "View required points first"
 	enter_winery_button.modulate = Color(1.0, 1.0, 1.0, 1.0) if enabled else Color(0.72, 0.72, 0.72, 0.82)
-	unlock_feedback_label.text = "The cellar is ready for you" if enabled else ""
+	unlock_feedback_label.text = "Winery unlocked" if enabled else ""
 	unlock_feedback_label.visible = enabled
 
 
@@ -135,22 +136,24 @@ func close_winery_modal() -> void:
 
 
 func _show_winery_modal() -> void:
+	_stop_winery_modal_tween()
 	winery_modal.visible = true
 	winery_modal.pivot_offset = winery_modal.size * 0.5
-	var tween: Tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(winery_modal, "modulate:a", 1.0, 0.16)
-	tween.tween_property(winery_modal, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_winery_modal_tween = create_tween()
+	_winery_modal_tween.set_parallel(true)
+	_winery_modal_tween.tween_property(winery_modal, "modulate:a", 1.0, 0.16)
+	_winery_modal_tween.tween_property(winery_modal, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
 func _hide_winery_modal() -> void:
 	if not winery_modal.visible:
 		return
-	var tween: Tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(winery_modal, "modulate:a", 0.0, 0.12)
-	tween.tween_property(winery_modal, "scale", Vector2(0.96, 0.96), 0.12)
-	await tween.finished
+	_stop_winery_modal_tween()
+	_winery_modal_tween = create_tween()
+	_winery_modal_tween.set_parallel(true)
+	_winery_modal_tween.tween_property(winery_modal, "modulate:a", 0.0, 0.12)
+	_winery_modal_tween.tween_property(winery_modal, "scale", Vector2(0.96, 0.96), 0.12)
+	await _winery_modal_tween.finished
 	winery_modal.visible = false
 
 
@@ -178,3 +181,9 @@ func _make_button_style(background_color: Color, border_color: Color) -> StyleBo
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(8)
 	return style
+
+
+func _stop_winery_modal_tween() -> void:
+	if _winery_modal_tween != null:
+		_winery_modal_tween.kill()
+		_winery_modal_tween = null

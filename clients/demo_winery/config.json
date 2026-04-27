@@ -56,6 +56,13 @@
     "floor_color": "#51483D",
     "barrel_color": "#734A2D",
     "door_color": "#51341F",
+    "accent_color": "#C89B4A",
+    "secondary_light_color": "#FFB778",
+    "fog_enabled": false,
+    "fog_color": "#241A14",
+    "floor_pattern": "stone",
+    "wall_pattern": "blocks",
+    "visual_quality": "medium",
     "ambience_text": "A classic stone cellar with warm amber light, stacked casks, and a quiet old-world tasting alcove.",
     "interactables": [
       {
@@ -92,6 +99,8 @@
         "rotation": [0.0, 12.0, 0.0],
         "scale": [0.7, 0.55, 0.55],
         "color": "#5A3A22",
+        "label": "Aegean Reserve",
+        "label_offset": [0.0, 0.58, 0.0],
         "visible": true
       },
       {

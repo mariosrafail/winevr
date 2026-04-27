@@ -7,6 +7,7 @@ var door_interactable: Dictionary = {}
 var zone_data_by_id: Dictionary = {}
 var highlight_root: Node3D
 var active_highlight: Node3D
+var _pulse_tween: Tween
 
 
 func setup(parent: Node3D) -> void:
@@ -20,9 +21,8 @@ func setup(parent: Node3D) -> void:
 
 func rebuild(raw_zones: Array) -> void:
 	for child in root.get_children():
-		child.queue_free()
-	for child in highlight_root.get_children():
-		child.queue_free()
+		child.free()
+	clear_highlight()
 	zone_data_by_instance_id.clear()
 	zone_data_by_id.clear()
 	active_highlight = null
@@ -81,8 +81,11 @@ func pulse_zone(zone_id: String, owner: Node) -> bool:
 
 
 func clear_highlight() -> void:
+	if _pulse_tween != null:
+		_pulse_tween.kill()
+		_pulse_tween = null
 	for child in highlight_root.get_children():
-		child.queue_free()
+		child.free()
 	active_highlight = null
 
 
@@ -116,10 +119,13 @@ func _create_highlight_marker(label_text: String) -> Node3D:
 func _pulse_active_highlight(owner: Node) -> void:
 	if active_highlight == null:
 		return
-	var tween: Tween = owner.create_tween()
-	tween.set_loops(3)
-	tween.tween_property(active_highlight, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
-	tween.tween_property(active_highlight, "scale", Vector3.ONE, 0.18)
+	if _pulse_tween != null:
+		_pulse_tween.kill()
+	active_highlight.scale = Vector3.ONE
+	_pulse_tween = owner.create_tween()
+	_pulse_tween.set_loops(3)
+	_pulse_tween.tween_property(active_highlight, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
+	_pulse_tween.tween_property(active_highlight, "scale", Vector3.ONE, 0.18)
 
 
 func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:

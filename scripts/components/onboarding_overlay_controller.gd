@@ -37,14 +37,14 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 	margin.add_child(box)
 
 	var title: Label = Label.new()
-	title.text = "Your Tasting Guide"
+	title.text = "How to explore"
 	title.label_settings = _make_label_settings(24, Color(0.976, 0.968, 0.941, 1.0))
 	box.add_child(title)
 
 	for text in [
-		"Turn the vial to study its character",
-		"Open each glowing note for tasting detail",
-		"Enter the winery when the story is complete"
+		"Drag the vial to inspect it",
+		"Tap glowing points to reveal wine details",
+		"Enter the winery to continue the guided tasting"
 	]:
 		var label: Label = Label.new()
 		label.text = text
@@ -53,7 +53,7 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 		box.add_child(label)
 
 	var button: Button = Button.new()
-	button.text = "Begin"
+	button.text = "Got it"
 	button.custom_minimum_size = Vector2(0.0, 46.0)
 	button.add_theme_stylebox_override("normal", _make_button_style(Color(0.13, 0.105, 0.058, 1.0)))
 	button.add_theme_stylebox_override("hover", _make_button_style(Color(0.19, 0.15, 0.078, 1.0)))

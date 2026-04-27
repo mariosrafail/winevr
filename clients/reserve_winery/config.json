@@ -56,6 +56,13 @@
     "floor_color": "#171412",
     "barrel_color": "#5A3420",
     "door_color": "#2A1A12",
+    "accent_color": "#B68A48",
+    "secondary_light_color": "#C87042",
+    "fog_enabled": true,
+    "fog_color": "#160F0C",
+    "floor_pattern": "plank",
+    "wall_pattern": "panels",
+    "visual_quality": "medium",
     "ambience_text": "A darker reserve cellar with low warm lighting, deeper wood tones, and a focused barrel-selection atmosphere.",
     "interactables": [
       {
@@ -74,6 +81,8 @@
         "rotation": [0.0, 0.0, 0.0],
         "scale": [1.25, 0.75, 0.72],
         "color": "#3A2317",
+        "label": "Highland Barrel Select",
+        "label_offset": [0.0, 0.72, 0.0],
         "visible": true
       },
       {
@@ -92,6 +101,8 @@
         "rotation": [0.0, -8.0, 0.0],
         "scale": [1.0, 0.55, 1.0],
         "color": "#C99B58",
+        "label": "Reserve Winery",
+        "label_offset": [0.0, 0.52, 0.04],
         "visible": true
       }
     ],

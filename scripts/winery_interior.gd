@@ -12,6 +12,7 @@ signal door_interacted(interactable_data: Dictionary)
 @onready var player_rig: Node3D = $PlayerRig
 @onready var camera_pivot: Node3D = $PlayerRig/CameraPivot
 @onready var camera: Camera3D = $PlayerRig/CameraPivot/Camera3D
+@onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var interaction_ray: RayCast3D = $PlayerRig/CameraPivot/Camera3D/InteractionRay
 @onready var held_vial: Vial = $PlayerRig/CameraPivot/Camera3D/HeldVial
 @onready var directional_light: DirectionalLight3D = $DirectionalLight3D
@@ -23,6 +24,7 @@ signal door_interacted(interactable_data: Dictionary)
 var _movement: WineryMovementController
 var _door: WineryDoorController
 var _environment: WineryEnvironmentApplier
+var _visual_details: WineryVisualDetailer
 var _props: WineryPropFactory
 var _zones: WineryZoneManager
 
@@ -39,8 +41,11 @@ func _ready() -> void:
 		[$BarrelA, $BarrelB, $BarrelC, $BarrelD],
 		directional_light,
 		fill_light,
-		_door
+		_door,
+		world_environment
 	)
+	_visual_details = WineryVisualDetailer.new()
+	_visual_details.setup(self, _environment)
 
 	_props = WineryPropFactory.new()
 	_props.setup(self, _environment)
@@ -55,12 +60,12 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _movement.physics_update(delta):
+	if _movement != null and _movement.physics_update(delta):
 		_update_interaction_prompt()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _movement.controls_enabled:
+	if _movement == null or not _movement.controls_enabled:
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -76,15 +81,20 @@ func _unhandled_input(event: InputEvent) -> void:
 func apply_client_profile(client_data: Dictionary) -> void:
 	if client_data.is_empty():
 		return
+	if _environment == null or _props == null or _zones == null:
+		return
 
-	var vial_settings: Dictionary = client_data.get("vial_settings", {})
-	held_vial.liquid_fill_amount = float(vial_settings.get("liquid_fill_amount", held_vial.liquid_fill_amount))
-	held_vial.liquid_color = _environment.parse_color(vial_settings.get("liquid_color", held_vial.liquid_color), held_vial.liquid_color)
-	held_vial.cap_color = _environment.parse_color(vial_settings.get("cap_color", held_vial.cap_color), held_vial.cap_color)
-	held_vial.rebuild_vial()
+	var vial_settings: Dictionary = _dict_value(client_data.get("vial_settings", {}))
+	if held_vial != null:
+		held_vial.liquid_fill_amount = float(vial_settings.get("liquid_fill_amount", held_vial.liquid_fill_amount))
+		held_vial.liquid_color = _environment.parse_color(vial_settings.get("liquid_color", held_vial.liquid_color), held_vial.liquid_color)
+		held_vial.cap_color = _environment.parse_color(vial_settings.get("cap_color", held_vial.cap_color), held_vial.cap_color)
+		held_vial.rebuild_vial()
 
-	var environment_settings: Dictionary = client_data.get("environment_settings", {})
+	var environment_settings: Dictionary = _dict_value(client_data.get("environment_settings", {}))
 	_environment.apply(environment_settings)
+	if _visual_details != null:
+		_visual_details.apply(environment_settings)
 	_zones.door_interactable = _get_interactable_by_type(environment_settings, "door")
 	if _zones.door_interactable.is_empty():
 		_zones.door_interactable = {
@@ -95,11 +105,13 @@ func apply_client_profile(client_data: Dictionary) -> void:
 		}
 
 	_apply_camera_start(environment_settings.get("camera_start", {}))
-	_props.rebuild(environment_settings.get("props", []))
+	_props.rebuild_with_quality(environment_settings.get("props", []), str(environment_settings.get("visual_quality", "medium")))
 	_zones.rebuild(environment_settings.get("zones", []))
 
 
 func set_controls_enabled(enabled: bool) -> void:
+	if _movement == null:
+		return
 	_movement.set_controls_enabled(enabled)
 	if not enabled:
 		_door.set_highlight(false)
@@ -107,24 +119,29 @@ func set_controls_enabled(enabled: bool) -> void:
 
 
 func set_camera_active(active: bool) -> void:
-	camera.current = active
+	if camera != null:
+		camera.current = active
 
 
 func reset_view() -> void:
-	_movement.reset_view()
+	if _movement != null:
+		_movement.reset_view()
 
 
 func set_mobile_move_axis(axis: String, pressed: bool) -> void:
-	_movement.set_mobile_move_axis(axis, pressed)
+	if _movement != null:
+		_movement.set_mobile_move_axis(axis, pressed)
 
 
 func handle_look_drag(relative_motion: Vector2) -> void:
+	if _movement == null:
+		return
 	_movement.apply_look_drag(relative_motion)
 	_update_interaction_prompt()
 
 
 func interact_current() -> void:
-	if _movement.controls_enabled:
+	if _movement != null and _movement.controls_enabled:
 		_try_interact()
 
 
@@ -161,9 +178,12 @@ func pulse_narrative_target(target_type: String, target_id: String) -> bool:
 
 
 func clear_narrative_highlight() -> void:
-	_zones.clear_highlight()
-	_props.clear_highlight()
-	_door.set_highlight(false)
+	if _zones != null:
+		_zones.clear_highlight()
+	if _props != null:
+		_props.clear_highlight()
+	if _door != null:
+		_door.set_highlight(false)
 
 
 func _try_interact() -> void:
@@ -192,6 +212,8 @@ func _try_interact() -> void:
 
 
 func _update_interaction_prompt() -> void:
+	if interaction_ray == null:
+		return
 	var looking_at_door: bool = false
 	var prompt: String = ""
 	interaction_ray.force_raycast_update()
@@ -209,7 +231,8 @@ func _update_interaction_prompt() -> void:
 				if not prop_data.is_empty():
 					prompt = "Inspect %s" % str(prop_data.get("id", "this cellar detail")).replace("_", " ")
 
-	_door.set_highlight(looking_at_door)
+	if _door != null:
+		_door.set_highlight(looking_at_door)
 	door_prompt_changed.emit(prompt)
 
 
@@ -233,6 +256,8 @@ func _door_target_matches(target_id: String) -> bool:
 
 
 func _apply_camera_start(raw_camera_start: Variant) -> void:
+	if _movement == null:
+		return
 	if typeof(raw_camera_start) != TYPE_DICTIONARY:
 		_movement.set_camera_start(Vector3(0.0, 0.0, 1.55), Vector3.ZERO)
 		return
@@ -255,3 +280,9 @@ func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:
 func _array_to_rotation(value: Variant) -> Vector3:
 	var degrees: Vector3 = _array_to_vector3(value, Vector3.ZERO)
 	return Vector3(deg_to_rad(degrees.x), deg_to_rad(degrees.y), deg_to_rad(degrees.z))
+
+
+func _dict_value(value: Variant) -> Dictionary:
+	if typeof(value) == TYPE_DICTIONARY:
+		return value as Dictionary
+	return {}

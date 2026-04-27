@@ -119,7 +119,7 @@ func _build_panel() -> void:
 	box.add_child(actions)
 
 	show_me_button = Button.new()
-	show_me_button.text = "Reveal"
+	show_me_button.text = "Show me"
 	show_me_button.custom_minimum_size = Vector2(0.0, 44.0)
 	show_me_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	show_me_button.pressed.connect(_on_show_me_pressed)

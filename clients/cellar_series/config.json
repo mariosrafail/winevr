@@ -56,6 +56,13 @@
     "floor_color": "#B9B29F",
     "barrel_color": "#C89B5A",
     "door_color": "#E7DDC5",
+    "accent_color": "#7FA9A8",
+    "secondary_light_color": "#D8F2FF",
+    "fog_enabled": false,
+    "fog_color": "#DDE8E5",
+    "floor_pattern": "tile",
+    "wall_pattern": "panels",
+    "visual_quality": "medium",
     "ambience_text": "A brighter modern tasting room with pale mineral surfaces, clean light, and an open coastal cellar feel.",
     "interactables": [
       {
@@ -74,6 +81,8 @@
         "rotation": [0.0, 0.0, 0.0],
         "scale": [1.5, 0.72, 0.82],
         "color": "#D8C795",
+        "label": "Coastal White Vial",
+        "label_offset": [0.0, 0.72, 0.0],
         "visible": true
       },
       {
@@ -101,6 +110,9 @@
         "rotation": [0.0, 0.0, 0.0],
         "scale": [1.3, 0.58, 1.0],
         "color": "#F2E9CF",
+        "label": "Cellar Series",
+        "label_color": "#2F4C4B",
+        "label_offset": [0.0, 0.5, 0.04],
         "visible": true
       }
     ],

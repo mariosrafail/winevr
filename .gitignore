@@ -1,3 +1,11 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Generated export outputs
+/exports/*
+!/exports/README.md
+*.apk
+*.aab
+*.wasm
+*.pck

@@ -17,6 +17,7 @@ var _hud: ExperienceHUDController
 var _mobile_controls: MobileControlsController
 var _narrative_panel: NarrativePanelController
 var _onboarding: OnboardingOverlayController
+var _dev_overlay: DevOverlayController
 var _layout: ResponsiveLayoutController
 
 
@@ -40,12 +41,20 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
 		_layout.layout(get_viewport().get_visible_rect().size)
 		_hotspots.layout_hotspots()
+		if _dev_overlay != null:
+			_dev_overlay.layout(get_viewport().get_visible_rect().size, 20.0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_R:
 			_reset_current_experience()
+			return
+		if event.keycode == KEY_ESCAPE:
+			_return_to_qr_scan_debug()
+			return
+		if event.keycode == KEY_F3:
+			_dev_overlay.toggle()
 			return
 		var registry_index: int = _get_debug_registry_index(event.keycode)
 		if registry_index >= 0:
@@ -98,6 +107,10 @@ func _build_components() -> void:
 	add_child(_onboarding)
 	_onboarding.setup(canvas_layer)
 
+	_dev_overlay = DevOverlayController.new()
+	add_child(_dev_overlay)
+	_dev_overlay.setup(canvas_layer)
+
 	_layout = ResponsiveLayoutController.new()
 	add_child(_layout)
 	_layout.setup(_qr_screen, _hud, _mobile_controls, _narrative_panel, _onboarding)
@@ -128,6 +141,7 @@ func _apply_client_profile(client_data: Dictionary) -> void:
 	vial_preview.apply_client_profile(client_data)
 	winery_interior.apply_client_profile(client_data)
 	_hotspots.build_hotspots(experience_settings.get("hotspots", []))
+	_update_dev_overlay_context()
 
 
 func _apply_state(state: int) -> void:
@@ -144,10 +158,12 @@ func _apply_state(state: int) -> void:
 	_mobile_controls.set_zoom_visible(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
 	_layout.layout(get_viewport().get_visible_rect().size)
+	_dev_overlay.layout(get_viewport().get_visible_rect().size, 20.0)
 
 	if state != ExperienceManager.ExperienceState.VIAL_INSPECTION:
 		_hotspots.close_panel()
 	_apply_narrative_target_highlight(NarrativeManager.get_current_step(), false)
+	_update_dev_overlay_context()
 
 
 func _on_hotspot_viewed(hotspot_data: Dictionary) -> void:
@@ -167,6 +183,7 @@ func _on_winery_interacted(interactable_data: Dictionary = {}) -> void:
 
 func _on_narrative_changed(current_step: Dictionary, _current_index: int, _total_steps: int) -> void:
 	_apply_narrative_target_highlight(current_step, false)
+	_update_dev_overlay_context()
 
 
 func _on_show_narrative_target_requested(current_step: Dictionary) -> void:
@@ -285,9 +302,50 @@ func _reset_current_experience() -> void:
 	winery_interior.reset_view()
 	winery_interior.clear_narrative_highlight()
 	ExperienceManager.enter_intro()
+	_update_dev_overlay_context()
+
+
+# Dev-only shortcut: Escape returns to the QR/client selection screen without unloading data.
+func _return_to_qr_scan_debug() -> void:
+	_hotspots.close_panel()
+	_hud.close_winery_modal()
+	_narrative_panel.clear_hint()
+	_hotspots.clear_target_highlight()
+	winery_interior.clear_narrative_highlight()
+	ExperienceManager.show_qr_scan()
+	_update_dev_overlay_context()
 
 
 func _get_debug_registry_index(keycode: int) -> int:
 	if keycode >= KEY_1 and keycode <= KEY_9:
 		return keycode - KEY_1
 	return -1
+
+
+func _update_dev_overlay_context() -> void:
+	if _dev_overlay == null:
+		return
+	var step: Dictionary = NarrativeManager.get_current_step()
+	_dev_overlay.set_context(
+		_active_client_id,
+		_state_name(ExperienceManager.current_state),
+		str(step.get("title", "")),
+		str(step.get("target_type", "")),
+		str(step.get("target_id", ""))
+	)
+
+
+func _state_name(state: int) -> String:
+	match state:
+		ExperienceManager.ExperienceState.QR_SCAN:
+			return "QR_SCAN"
+		ExperienceManager.ExperienceState.INTRO:
+			return "INTRO"
+		ExperienceManager.ExperienceState.VIAL_INSPECTION:
+			return "VIAL_INSPECTION"
+		ExperienceManager.ExperienceState.WINERY_ENTRY:
+			return "WINERY_ENTRY"
+		ExperienceManager.ExperienceState.WINERY_INTERIOR:
+			return "WINERY_INTERIOR"
+		_:
+			return "UNKNOWN"

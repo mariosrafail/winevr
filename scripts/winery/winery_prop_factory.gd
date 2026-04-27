@@ -7,6 +7,7 @@ var highlight_root: Node3D
 var prop_data_by_instance_id: Dictionary = {}
 var prop_data_by_id: Dictionary = {}
 var environment: WineryEnvironmentApplier
+var _pulse_tween: Tween
 
 
 func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> void:
@@ -23,16 +24,26 @@ func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> voi
 
 
 func rebuild(raw_props: Array) -> void:
+	rebuild_with_quality(raw_props, "medium")
+
+
+func rebuild_with_quality(raw_props: Array, quality: String) -> void:
+	if root == null or interaction_root == null or highlight_root == null:
+		return
 	for child in root.get_children():
-		child.queue_free()
+		child.free()
 	for child in interaction_root.get_children():
-		child.queue_free()
-	for child in highlight_root.get_children():
-		child.queue_free()
+		child.free()
+	clear_highlight()
 	prop_data_by_instance_id.clear()
 	prop_data_by_id.clear()
 
+	var safe_quality: String = _normalize_quality(quality)
+	var max_props: int = _max_props_for_quality(safe_quality, raw_props.size())
+	var created_count: int = 0
 	for raw_prop in raw_props:
+		if created_count >= max_props:
+			break
 		if typeof(raw_prop) != TYPE_DICTIONARY:
 			continue
 		var prop_data: Dictionary = raw_prop as Dictionary
@@ -40,8 +51,10 @@ func rebuild(raw_props: Array) -> void:
 			continue
 		var prop_node: Node3D = _create_prop(prop_data)
 		root.add_child(prop_node)
+		_attach_prop_label(prop_node, prop_data)
 		_attach_prop_interaction(prop_data)
 		prop_data_by_id[str(prop_data.get("id", ""))] = prop_data.duplicate(true)
+		created_count += 1
 
 
 func get_prop_data_from_collider(collider: Object) -> Dictionary:
@@ -74,16 +87,22 @@ func pulse_prop(prop_id: String, owner: Node) -> bool:
 		marker = highlight_root.get_child(0) as Node3D
 	if marker == null:
 		return false
-	var tween: Tween = owner.create_tween()
-	tween.set_loops(3)
-	tween.tween_property(marker, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
-	tween.tween_property(marker, "scale", Vector3.ONE, 0.18)
+	if _pulse_tween != null:
+		_pulse_tween.kill()
+	marker.scale = Vector3.ONE
+	_pulse_tween = owner.create_tween()
+	_pulse_tween.set_loops(3)
+	_pulse_tween.tween_property(marker, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
+	_pulse_tween.tween_property(marker, "scale", Vector3.ONE, 0.18)
 	return true
 
 
 func clear_highlight() -> void:
+	if _pulse_tween != null:
+		_pulse_tween.kill()
+		_pulse_tween = null
 	for child in highlight_root.get_children():
-		child.queue_free()
+		child.free()
 
 
 func _create_highlight_marker(label_text: String) -> Node3D:
@@ -136,16 +155,16 @@ func _create_prop(prop_data: Dictionary) -> Node3D:
 
 func _create_barrel_prop(prop_data: Dictionary) -> Node3D:
 	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.top_radius = 0.38
-	mesh.bottom_radius = 0.38
-	mesh.height = 0.95
+	mesh.top_radius = 0.34
+	mesh.bottom_radius = 0.39
+	mesh.height = 1.05
 	mesh.radial_segments = 16
 	return _mesh_instance(mesh, prop_data, environment.barrel_material.albedo_color if environment.barrel_material != null else Color(0.451, 0.29, 0.176, 1.0))
 
 
 func _create_crate_prop(prop_data: Dictionary) -> Node3D:
 	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = Vector3(0.75, 0.55, 0.55)
+	mesh.size = Vector3(0.82, 0.42, 0.58)
 	return _mesh_instance(mesh, prop_data, Color(0.36, 0.23, 0.13, 1.0))
 
 
@@ -160,16 +179,16 @@ func _create_column_prop(prop_data: Dictionary) -> Node3D:
 
 func _create_sign_prop(prop_data: Dictionary) -> Node3D:
 	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = Vector3(1.0, 0.55, 0.06)
+	mesh.size = Vector3(1.18, 0.62, 0.055)
 	return _mesh_instance(mesh, prop_data, Color(0.78, 0.62, 0.34, 1.0))
 
 
 func _create_table_prop(prop_data: Dictionary) -> Node3D:
 	var table_root: Node3D = Node3D.new()
-	table_root.add_child(_create_box_part(Vector3(1.2, 0.12, 0.65), Vector3(0.0, 0.28, 0.0), prop_data, Color(0.42, 0.25, 0.15, 1.0)))
+	table_root.add_child(_create_box_part(Vector3(1.35, 0.1, 0.72), Vector3(0.0, 0.38, 0.0), prop_data, Color(0.42, 0.25, 0.15, 1.0)))
 	for x in [-0.48, 0.48]:
 		for z in [-0.22, 0.22]:
-			table_root.add_child(_create_box_part(Vector3(0.09, 0.48, 0.09), Vector3(x, 0.0, z), prop_data, Color(0.34, 0.20, 0.12, 1.0)))
+			table_root.add_child(_create_box_part(Vector3(0.08, 0.58, 0.08), Vector3(x, 0.05, z), prop_data, Color(0.34, 0.20, 0.12, 1.0)))
 	return table_root
 
 
@@ -190,7 +209,7 @@ func _create_box_part(size: Vector3, part_position: Vector3, prop_data: Dictiona
 
 func _make_prop_material(prop_data: Dictionary, fallback_color: Color) -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = environment.parse_color(prop_data.get("color", ""), fallback_color)
+	material.albedo_color = environment.parse_color(prop_data.get("color", ""), fallback_color) if environment != null else fallback_color
 	material.roughness = 0.82
 	return material
 
@@ -211,6 +230,25 @@ func _attach_prop_interaction(prop_data: Dictionary) -> void:
 	prop_data_by_instance_id[area.get_instance_id()] = prop_data.duplicate(true)
 
 
+func _attach_prop_label(prop_node: Node3D, prop_data: Dictionary) -> void:
+	if prop_node == null:
+		return
+	var label_text: String = str(prop_data.get("label", ""))
+	if label_text.is_empty():
+		return
+	var label: Label3D = Label3D.new()
+	if label == null:
+		return
+	label.text = label_text
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = clampi(int(prop_data.get("label_font_size", 22)), 10, 48)
+	label.modulate = environment.parse_color(prop_data.get("label_color", "#F5E8C7"), Color(0.96, 0.91, 0.78, 1.0)) if environment != null else Color(0.96, 0.91, 0.78, 1.0)
+	label.outline_size = 6
+	label.outline_modulate = Color(0.04, 0.035, 0.03, 0.9)
+	label.position = _array_to_vector3(prop_data.get("label_offset", [0.0, 0.85, 0.0]), Vector3(0.0, 0.85, 0.0))
+	prop_node.add_child(label)
+
+
 func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:
 	if typeof(value) != TYPE_ARRAY:
 		return fallback
@@ -223,3 +261,19 @@ func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:
 func _array_to_rotation(value: Variant) -> Vector3:
 	var degrees: Vector3 = _array_to_vector3(value, Vector3.ZERO)
 	return Vector3(deg_to_rad(degrees.x), deg_to_rad(degrees.y), deg_to_rad(degrees.z))
+
+
+func _max_props_for_quality(quality: String, total: int) -> int:
+	match quality:
+		"low":
+			return mini(total, 3)
+		"high":
+			return total
+		_:
+			return mini(total, 6)
+
+
+func _normalize_quality(value: String) -> String:
+	if ["low", "medium", "high"].has(value):
+		return value
+	return "medium"

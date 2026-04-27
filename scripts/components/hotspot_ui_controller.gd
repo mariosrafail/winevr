@@ -16,6 +16,8 @@ var viewed_ids: Dictionary = {}
 var required_ids: Dictionary = {}
 var active_target_id: String = ""
 var _pulse_tween: Tween
+var _panel_tween: Tween
+var _dim_tween: Tween
 
 
 func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label, text: RichTextLabel, close: Button, dim: ColorRect, preview: VialPreviewController) -> void:
@@ -38,11 +40,13 @@ func reset_viewed() -> void:
 
 
 func build_hotspots(raw_hotspots: Array) -> void:
+	clear_target_highlight()
 	for child in layer.get_children():
 		child.free()
 
 	active_hotspots.clear()
 	required_ids.clear()
+	active_target_id = ""
 	for raw_hotspot in raw_hotspots:
 		if typeof(raw_hotspot) == TYPE_DICTIONARY:
 			var hotspot_data: Dictionary = raw_hotspot
@@ -146,33 +150,38 @@ func _on_hotspot_pressed(hotspot_data: Dictionary) -> void:
 
 
 func _show_panel() -> void:
+	_stop_panel_tween()
 	panel.visible = true
 	panel.pivot_offset = panel.size * 0.5
 	vial_preview.set_idle_rotation_paused(true)
 	_set_panel_dim(true)
-	var tween: Tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(panel, "modulate:a", 1.0, 0.16)
-	tween.tween_property(panel, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_panel_tween = create_tween()
+	_panel_tween.set_parallel(true)
+	_panel_tween.tween_property(panel, "modulate:a", 1.0, 0.16)
+	_panel_tween.tween_property(panel, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
 func _hide_panel() -> void:
 	if not panel.visible:
 		return
+	_stop_panel_tween()
 	vial_preview.set_idle_rotation_paused(false)
 	_set_panel_dim(false)
-	var tween: Tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(panel, "modulate:a", 0.0, 0.12)
-	tween.tween_property(panel, "scale", Vector2(0.96, 0.96), 0.12)
-	await tween.finished
+	_panel_tween = create_tween()
+	_panel_tween.set_parallel(true)
+	_panel_tween.tween_property(panel, "modulate:a", 0.0, 0.12)
+	_panel_tween.tween_property(panel, "scale", Vector2(0.96, 0.96), 0.12)
+	await _panel_tween.finished
 	panel.visible = false
 
 
 func _set_panel_dim(is_visible: bool) -> void:
+	if _dim_tween != null:
+		_dim_tween.kill()
+		_dim_tween = null
 	var target_alpha: float = 1.0 if is_visible else 0.0
-	var tween: Tween = create_tween()
-	tween.tween_property(panel_dim, "modulate:a", target_alpha, 0.16)
+	_dim_tween = create_tween()
+	_dim_tween.tween_property(panel_dim, "modulate:a", target_alpha, 0.16)
 
 
 func _update_marker_viewed_state() -> void:
@@ -190,3 +199,9 @@ func _stop_pulse() -> void:
 	if _pulse_tween != null:
 		_pulse_tween.kill()
 		_pulse_tween = null
+
+
+func _stop_panel_tween() -> void:
+	if _panel_tween != null:
+		_panel_tween.kill()
+		_panel_tween = null
