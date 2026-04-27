@@ -91,6 +91,7 @@ func _build_components() -> void:
 	add_child(_narrative_panel)
 	_narrative_panel.setup(canvas_layer)
 	_narrative_panel.show_target_requested.connect(_on_show_narrative_target_requested)
+	_narrative_panel.restart_requested.connect(_reset_current_experience)
 	NarrativeManager.narrative_changed.connect(_on_narrative_changed)
 
 	_onboarding = OnboardingOverlayController.new()
@@ -142,6 +143,7 @@ func _apply_state(state: int) -> void:
 	winery_interior.set_controls_enabled(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
 	_mobile_controls.set_zoom_visible(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
+	_layout.layout(get_viewport().get_visible_rect().size)
 
 	if state != ExperienceManager.ExperienceState.VIAL_INSPECTION:
 		_hotspots.close_panel()
@@ -185,28 +187,29 @@ func _apply_narrative_target_highlight(current_step: Dictionary, show_hint: bool
 	match target_type:
 		"hotspot":
 			if state == ExperienceManager.ExperienceState.VIAL_INSPECTION:
+				var hotspot_found: bool = false
 				if pulse_target:
-					_hotspots.pulse_target(target_id)
+					hotspot_found = _hotspots.pulse_target(target_id)
 				else:
-					_hotspots.highlight_target(target_id)
+					hotspot_found = _hotspots.highlight_target(target_id)
 				if show_hint:
-					_narrative_panel.show_hint("Find the highlighted hotspot on the vial.")
+					_narrative_panel.show_hint("Open the highlighted note on the vial." if hotspot_found else "This tasting note is not available in the current vial.")
 			elif show_hint:
-				_narrative_panel.show_hint("Continue to the vial.")
+				_narrative_panel.show_hint("Return to the vial to continue the tasting.")
 		"zone", "prop", "door":
 			if state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
 				var highlighted: bool = winery_interior.pulse_narrative_target(target_type, target_id) if pulse_target else winery_interior.highlight_narrative_target(target_type, target_id)
 				if show_hint:
-					_narrative_panel.show_hint("Look around the winery." if highlighted else "Look around the winery.")
+					_narrative_panel.show_hint("Explore the cellar and open the highlighted detail." if highlighted else "This winery detail is not available in the current room.")
 			elif show_hint:
-				_narrative_panel.show_hint("Enter the winery to continue.")
+				_narrative_panel.show_hint("Enter the winery first to reveal this cellar detail.")
 		_:
 			if show_hint:
-				_narrative_panel.show_hint("Free step. Press Next when ready.")
+				_narrative_panel.show_hint("Continue when you are ready.")
 
 
 func _on_enter_winery_pressed() -> void:
-	if not _transition_in_progress:
+	if not _transition_in_progress and _hotspots.can_enter_winery():
 		ExperienceManager.enter_winery()
 
 
@@ -249,7 +252,7 @@ func _select_qr_client(client_id: String) -> void:
 
 	_profile_loading = true
 	_qr_screen.set_error("")
-	_loading_overlay.show_loading("Loading experience")
+	_loading_overlay.show_loading("Preparing tasting")
 	await get_tree().create_timer(0.18).timeout
 
 	_hotspots.reset_viewed()
@@ -257,7 +260,7 @@ func _select_qr_client(client_id: String) -> void:
 	_hud.close_winery_modal()
 
 	if not ClientProfileLoader.profile_exists(client_id):
-		_qr_screen.set_error("Profile '%s' is listed but its config file is missing." % client_id)
+		_qr_screen.set_error("This tasting profile is not ready yet.")
 		ExperienceManager.show_qr_scan()
 	elif ClientProfileLoader.load_client_profile(client_id):
 		vial_preview.reset_view()
@@ -265,7 +268,7 @@ func _select_qr_client(client_id: String) -> void:
 		ExperienceManager.enter_intro()
 		_onboarding.show_once()
 	else:
-		_qr_screen.set_error("Profile '%s' is not available yet." % client_id)
+		_qr_screen.set_error("This tasting profile is not available right now.")
 		ExperienceManager.show_qr_scan()
 
 	_loading_overlay.hide_loading()

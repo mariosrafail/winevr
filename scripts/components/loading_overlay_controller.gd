@@ -21,7 +21,7 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 	overlay.add_child(dimmer)
 
 	label = Label.new()
-	label.text = "Loading experience"
+	label.text = "Preparing tasting"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.label_settings = _make_label_settings(20, Color(0.98, 0.95, 0.88, 1.0))

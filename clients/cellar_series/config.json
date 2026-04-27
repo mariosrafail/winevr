@@ -46,7 +46,7 @@
       "winery_interior"
     ],
     "winery_scene_name": "coastal_cellar",
-    "winery_info_text": "A lightweight cellar placeholder for the Cellar Series profile, ready for future client-specific environment modules."
+    "winery_info_text": "A bright modern tasting room built around citrus lift, saline detail, and a clean coastal finish."
   },
   "environment_settings": {
     "environment_id": "cellar_series_modern_tasting_room",
@@ -108,7 +108,7 @@
       {
         "id": "modern_table_note",
         "title": "Coastal Tasting Point",
-        "text": "This table placeholder can become a client-specific guided tasting station in the next phase.",
+        "text": "This tasting point gathers the wine's coastal freshness, citrus lift, and clean mineral line.",
         "type": "tasting_point",
         "position": [0.0, 1.0, -0.55],
         "radius": 0.85
@@ -116,7 +116,7 @@
       {
         "id": "coastal_sign_note",
         "title": "Cellar Series Sign",
-        "text": "A simple branded sign placeholder for seasonal messages, QR handoff copy, or tasting notes.",
+        "text": "A cellar sign highlighting the seasonal character and coastal tasting notes of this release.",
         "type": "info_zone",
         "position": [0.0, 1.25, -3.35],
         "radius": 0.75

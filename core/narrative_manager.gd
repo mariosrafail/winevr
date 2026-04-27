@@ -24,7 +24,7 @@ func load_from_client_data(client_data: Dictionary) -> void:
 			continue
 		var step: Dictionary = (raw_step as Dictionary).duplicate(true)
 		step["id"] = str(step.get("id", "step_%s" % narrative_steps.size()))
-		step["title"] = str(step.get("title", "Guided Step"))
+		step["title"] = str(step.get("title", "Tasting Step"))
 		step["text"] = str(step.get("text", ""))
 		step["target_type"] = str(step.get("target_type", "free"))
 		step["target_id"] = str(step.get("target_id", ""))
@@ -51,7 +51,7 @@ func get_current_step() -> Dictionary:
 func get_progress_text() -> String:
 	if narrative_steps.is_empty():
 		return "0/0"
-	return "%s/%s" % [current_step_index + 1, narrative_steps.size()]
+	return "%s/%s" % [mini(current_step_index + 1, narrative_steps.size()), narrative_steps.size()]
 
 
 func can_advance_current_step() -> bool:
@@ -59,6 +59,10 @@ func can_advance_current_step() -> bool:
 	if step.is_empty():
 		return false
 
+	var target_type: String = str(step.get("target_type", "free"))
+	var target_id: String = str(step.get("target_id", ""))
+	if bool(step.get("required", true)) and target_type != "free" and not target_id.is_empty():
+		return completed_step_ids.has(str(step.get("id", "")))
 	return true
 
 
@@ -67,42 +71,21 @@ func next_step() -> void:
 	if step.is_empty():
 		return
 
-	complete_step(str(step.get("id", "")), false)
-
 	if not can_advance_current_step():
 		_emit_current_step()
 		return
 
-	var next_step_id: String = str(step.get("next_step_id", ""))
-	if not next_step_id.is_empty():
-		var explicit_index: int = _find_step_index(next_step_id)
-		if explicit_index >= 0:
-			current_step_index = explicit_index
-			_skip_completed_steps()
-			_emit_current_step()
-			return
-
-	current_step_index += 1
-	_skip_completed_steps()
-	if current_step_index >= narrative_steps.size():
-		current_step_index = narrative_steps.size()
-		narrative_changed.emit({}, current_step_index, narrative_steps.size())
-		narrative_completed.emit()
-		return
-
-	_emit_current_step()
+	_mark_step_completed(str(step.get("id", "")))
+	_advance_from_current_step(step)
 
 
 func complete_step(step_id: String, advance_if_current: bool = true) -> void:
-	if step_id.is_empty() or completed_step_ids.has(step_id):
+	if not _mark_step_completed(step_id):
 		return
-
-	completed_step_ids[step_id] = true
-	step_completed.emit(step_id)
 
 	var current_step: Dictionary = get_current_step()
 	if advance_if_current and str(current_step.get("id", "")) == step_id:
-		next_step()
+		_advance_from_current_step(current_step)
 	else:
 		_emit_current_step()
 
@@ -143,6 +126,40 @@ func _skip_completed_steps() -> void:
 		if not completed_step_ids.has(step_id):
 			return
 		current_step_index += 1
+
+
+func _mark_step_completed(step_id: String) -> bool:
+	if step_id.is_empty() or completed_step_ids.has(step_id):
+		return false
+
+	completed_step_ids[step_id] = true
+	step_completed.emit(step_id)
+	return true
+
+
+func _advance_from_current_step(step: Dictionary) -> void:
+	var next_step_id: String = str(step.get("next_step_id", ""))
+	if not next_step_id.is_empty():
+		var explicit_index: int = _find_step_index(next_step_id)
+		if explicit_index >= 0:
+			current_step_index = explicit_index
+			_skip_completed_steps()
+			_emit_or_complete()
+			return
+
+	current_step_index += 1
+	_skip_completed_steps()
+	_emit_or_complete()
+
+
+func _emit_or_complete() -> void:
+	if current_step_index >= narrative_steps.size():
+		current_step_index = narrative_steps.size()
+		narrative_changed.emit({}, current_step_index, narrative_steps.size())
+		narrative_completed.emit()
+		return
+
+	_emit_current_step()
 
 
 func _emit_current_step() -> void:

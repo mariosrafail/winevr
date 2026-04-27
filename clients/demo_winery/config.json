@@ -46,7 +46,7 @@
       "winery_interior"
     ],
     "winery_scene_name": "classic_cellar",
-    "winery_info_text": "A placeholder cellar entry with warm stone tones, stacked casks, and a simple interactive door."
+    "winery_info_text": "A warm stone cellar with stacked casks, amber light, and a private tasting room beyond the door."
   },
   "environment_settings": {
     "environment_id": "demo_classic_stone_cellar",
@@ -108,7 +108,7 @@
       {
         "id": "barrel_stack_note",
         "title": "Old Cellar Casks",
-        "text": "These placeholder casks mark where client-specific barrel stories can be attached later.",
+        "text": "These old cellar casks frame the wine's oak influence and long, mineral finish.",
         "type": "info_zone",
         "position": [-2.25, 1.0, -2.25],
         "radius": 0.85
@@ -150,6 +150,14 @@
       "text": "View the Origin hotspot to connect the wine to its mountain-grown fruit.",
       "target_type": "hotspot",
       "target_id": "origin",
+      "required": true
+    },
+    {
+      "id": "demo_craft_step",
+      "title": "Review The Craft",
+      "text": "Open the Craft hotspot before entering the winery.",
+      "target_type": "hotspot",
+      "target_id": "craft",
       "required": true
     },
     {

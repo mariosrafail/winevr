@@ -120,7 +120,7 @@ text = ""
 
 [node name="StartButton" type="Button" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 52)
-text = "Start Experience"
+text = "Begin Tasting"
 
 [node name="InspectionHUD" type="Control" parent="CanvasLayer"]
 anchors_preset = 15
@@ -214,7 +214,7 @@ offset_left = 24.0
 offset_top = 674.0
 offset_right = 360.0
 offset_bottom = 704.0
-text = "Drag to inspect the vial"
+text = "Turn the vial to explore its notes"
 label_settings = SubResource("5_body")
 
 [node name="WineryHUD" type="Control" parent="CanvasLayer"]
@@ -255,7 +255,7 @@ text = ""
 
 [node name="ReturnButton" type="Button" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 52)
-text = "Return To Vial"
+text = "Return to Vial"
 
 [node name="DoorPrompt" type="Label" parent="CanvasLayer/WineryHUD"]
 offset_left = 24.0

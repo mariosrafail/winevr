@@ -15,6 +15,7 @@ var active_hotspots: Array[Dictionary] = []
 var viewed_ids: Dictionary = {}
 var required_ids: Dictionary = {}
 var active_target_id: String = ""
+var _pulse_tween: Tween
 
 
 func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label, text: RichTextLabel, close: Button, dim: ColorRect, preview: VialPreviewController) -> void:
@@ -86,6 +87,13 @@ func get_hotspot_id(hotspot_data: Dictionary) -> String:
 	return str(hotspot_data.get("id", hotspot_data.get("title", "")))
 
 
+func can_enter_winery() -> bool:
+	for hotspot_id in required_ids.keys():
+		if not viewed_ids.has(str(hotspot_id)):
+			return false
+	return true
+
+
 func highlight_target(hotspot_id: String) -> bool:
 	active_target_id = hotspot_id
 	var found: bool = false
@@ -103,29 +111,33 @@ func pulse_target(hotspot_id: String) -> bool:
 	var found: bool = highlight_target(hotspot_id)
 	if not found:
 		return false
+	_stop_pulse()
 	for child in layer.get_children():
 		var marker: HotspotMarker = child as HotspotMarker
 		if marker != null and get_hotspot_id(marker.hotspot_data) == hotspot_id:
-			var tween: Tween = create_tween()
-			tween.set_loops(3)
-			tween.tween_property(marker, "scale", Vector2(1.22, 1.22), 0.16)
-			tween.tween_property(marker, "scale", Vector2.ONE, 0.16)
+			marker.scale = Vector2.ONE
+			_pulse_tween = create_tween()
+			_pulse_tween.set_loops(3)
+			_pulse_tween.tween_property(marker, "scale", Vector2(1.22, 1.22), 0.16)
+			_pulse_tween.tween_property(marker, "scale", Vector2.ONE, 0.16)
 			return true
 	return false
 
 
 func clear_target_highlight() -> void:
+	_stop_pulse()
 	active_target_id = ""
 	for child in layer.get_children():
 		var marker: HotspotMarker = child as HotspotMarker
 		if marker != null:
+			marker.scale = Vector2.ONE
 			marker.set_active_target(false)
 
 
 func _on_hotspot_pressed(hotspot_data: Dictionary) -> void:
 	var hotspot_id: String = get_hotspot_id(hotspot_data)
 	viewed_ids[hotspot_id] = true
-	title_label.text = str(hotspot_data.get("title", "Hotspot"))
+	title_label.text = str(hotspot_data.get("title", "Tasting Note"))
 	text_label.text = str(hotspot_data.get("text", ""))
 	_update_marker_viewed_state()
 	_update_enter_winery_state()
@@ -171,9 +183,10 @@ func _update_marker_viewed_state() -> void:
 
 
 func _update_enter_winery_state() -> void:
-	var all_required_viewed: bool = true
-	for hotspot_id in required_ids.keys():
-		if not viewed_ids.has(str(hotspot_id)):
-			all_required_viewed = false
-			break
-	enter_winery_state_changed.emit(all_required_viewed)
+	enter_winery_state_changed.emit(can_enter_winery())
+
+
+func _stop_pulse() -> void:
+	if _pulse_tween != null:
+		_pulse_tween.kill()
+		_pulse_tween = null

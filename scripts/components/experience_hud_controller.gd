@@ -49,11 +49,12 @@ func setup(root: Node) -> void:
 	inspection_region = root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox/Region") as Label
 	inspection_text = root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox/IntroText") as RichTextLabel
 	enter_winery_button = root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox/EnterWineryButton") as Button
+	_apply_enter_winery_button_style()
 	enter_winery_button.pressed.connect(func() -> void: enter_winery_requested.emit())
 	unlock_feedback_label = Label.new()
 	unlock_feedback_label.text = ""
 	unlock_feedback_label.visible = false
-	unlock_feedback_label.label_settings = _make_label_settings(13, Color(0.63, 0.86, 0.72, 1.0))
+	unlock_feedback_label.label_settings = _make_label_settings(13, Color(0.92, 0.76, 0.45, 1.0))
 	(root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox") as VBoxContainer).add_child(unlock_feedback_label)
 	hotspot_panel = root.get_node("CanvasLayer/InspectionHUD/HotspotPanel") as PanelContainer
 	inspection_hint = root.get_node("CanvasLayer/InspectionHUD/InspectionHint") as Label
@@ -112,9 +113,9 @@ func apply_state(state: int) -> void:
 
 func set_enter_winery_enabled(enabled: bool) -> void:
 	enter_winery_button.disabled = not enabled
-	enter_winery_button.text = "Enter Winery" if enabled else "View required points first"
+	enter_winery_button.text = "Enter Winery" if enabled else "View all vial notes"
 	enter_winery_button.modulate = Color(1.0, 1.0, 1.0, 1.0) if enabled else Color(0.72, 0.72, 0.72, 0.82)
-	unlock_feedback_label.text = "Winery unlocked" if enabled else ""
+	unlock_feedback_label.text = "The cellar is ready for you" if enabled else ""
 	unlock_feedback_label.visible = enabled
 
 
@@ -158,3 +159,22 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 	settings.font_size = font_size
 	settings.font_color = font_color
 	return settings
+
+
+func _apply_enter_winery_button_style() -> void:
+	enter_winery_button.add_theme_stylebox_override("normal", _make_button_style(Color(0.13, 0.105, 0.058, 1.0), Color(0.92, 0.76, 0.45, 0.48)))
+	enter_winery_button.add_theme_stylebox_override("hover", _make_button_style(Color(0.19, 0.15, 0.078, 1.0), Color(0.95, 0.8, 0.5, 0.7)))
+	enter_winery_button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.09, 0.072, 0.042, 1.0), Color(0.92, 0.76, 0.45, 0.5)))
+	enter_winery_button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.05, 0.052, 0.058, 0.92), Color(0.92, 0.76, 0.45, 0.18)))
+	enter_winery_button.add_theme_color_override("font_color", Color(0.976, 0.968, 0.941, 1.0))
+	enter_winery_button.add_theme_color_override("font_hover_color", Color(1.0, 0.91, 0.62, 1.0))
+	enter_winery_button.add_theme_color_override("font_disabled_color", Color(0.66, 0.64, 0.58, 1.0))
+
+
+func _make_button_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = border_color
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	return style

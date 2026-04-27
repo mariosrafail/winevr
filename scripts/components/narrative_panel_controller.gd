@@ -2,6 +2,7 @@ extends Node
 class_name NarrativePanelController
 
 signal show_target_requested(current_step: Dictionary)
+signal restart_requested
 
 var panel: PanelContainer
 var title_label: Label
@@ -14,6 +15,12 @@ var show_me_button: Button
 var show_button: Button
 var collapsed: bool = false
 var canvas_layer: CanvasLayer
+var completion_active: bool = false
+var completion_overlay: Control
+var completion_card: PanelContainer
+var completion_title: Label
+var completion_text: RichTextLabel
+var restart_button: Button
 
 
 func setup(parent_canvas_layer: CanvasLayer) -> void:
@@ -28,15 +35,27 @@ func apply_state(state: int) -> void:
 
 func layout(viewport_size: Vector2, margin: float) -> void:
 	var width: float = minf(380.0, viewport_size.x - margin * 2.0)
-	var height: float = minf(190.0, viewport_size.y * 0.32)
-	panel.position = Vector2(viewport_size.x - width - margin, viewport_size.y - height - margin)
+	var height: float = minf(184.0, viewport_size.y * 0.30)
+	var panel_position: Vector2 = Vector2(viewport_size.x - width - margin, viewport_size.y - height - margin)
+	if ExperienceManager.current_state == ExperienceManager.ExperienceState.VIAL_INSPECTION and viewport_size.x >= 760.0:
+		panel_position.y = margin
+	if viewport_size.x < 760.0:
+		width = minf(360.0, viewport_size.x - margin * 2.0)
+		height = minf(176.0, viewport_size.y * 0.28)
+		panel_position = Vector2(viewport_size.x - width - margin, margin)
+	panel.position = panel_position
 	panel.size = Vector2(width, height)
 	show_button.position = Vector2(viewport_size.x - 104.0 - margin, margin)
 	show_button.size = Vector2(104.0, 44.0)
 
+	var completion_width: float = minf(460.0, viewport_size.x - margin * 2.0)
+	var completion_height: float = minf(285.0, viewport_size.y - margin * 2.0)
+	completion_card.position = (viewport_size - Vector2(completion_width, completion_height)) * 0.5
+	completion_card.size = Vector2(completion_width, completion_height)
+
 
 func refresh() -> void:
-	_on_narrative_changed(NarrativeManager.get_current_step(), 0, NarrativeManager.narrative_steps.size())
+	_on_narrative_changed(NarrativeManager.get_current_step(), NarrativeManager.current_step_index, NarrativeManager.narrative_steps.size())
 
 
 func _build_panel() -> void:
@@ -73,7 +92,7 @@ func _build_panel() -> void:
 	header.add_child(title_label)
 
 	var hide_button: Button = Button.new()
-	hide_button.text = "Hide"
+	hide_button.text = "Minimize"
 	hide_button.custom_minimum_size = Vector2(62.0, 38.0)
 	hide_button.pressed.connect(_set_collapsed.bind(true))
 	header.add_child(hide_button)
@@ -100,14 +119,14 @@ func _build_panel() -> void:
 	box.add_child(actions)
 
 	show_me_button = Button.new()
-	show_me_button.text = "Show me"
+	show_me_button.text = "Reveal"
 	show_me_button.custom_minimum_size = Vector2(0.0, 44.0)
 	show_me_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	show_me_button.pressed.connect(_on_show_me_pressed)
 	actions.add_child(show_me_button)
 
 	next_button = Button.new()
-	next_button.text = "Next"
+	next_button.text = "Continue"
 	next_button.custom_minimum_size = Vector2(0.0, 44.0)
 	next_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	next_button.pressed.connect(_on_next_pressed)
@@ -123,16 +142,84 @@ func _build_panel() -> void:
 	show_button.pressed.connect(_set_collapsed.bind(false))
 	canvas_layer.add_child(show_button)
 
+	_build_completion_modal()
+
+
+func _build_completion_modal() -> void:
+	completion_overlay = Control.new()
+	completion_overlay.name = "CompletionOverlay"
+	completion_overlay.visible = false
+	completion_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	completion_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	completion_overlay.z_index = 80
+	canvas_layer.add_child(completion_overlay)
+
+	var dimmer: ColorRect = ColorRect.new()
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.68)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	completion_overlay.add_child(dimmer)
+
+	completion_card = PanelContainer.new()
+	completion_card.add_theme_stylebox_override("panel", _make_completion_style())
+	completion_overlay.add_child(completion_card)
+
+	var margin: MarginContainer = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	completion_card.add_child(margin)
+
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	margin.add_child(box)
+
+	completion_title = Label.new()
+	completion_title.text = "Tasting Complete"
+	completion_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	completion_title.label_settings = _make_label_settings(28, Color(0.976, 0.968, 0.941, 1.0))
+	box.add_child(completion_title)
+
+	completion_text = RichTextLabel.new()
+	completion_text.text = "You discovered the wine story, its essential tasting notes, and the winery details that shape this guided tasting."
+	completion_text.fit_content = true
+	completion_text.scroll_active = false
+	completion_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	completion_text.custom_minimum_size = Vector2(0.0, 96.0)
+	completion_text.add_theme_color_override("default_color", Color(0.86, 0.86, 0.82, 1.0))
+	box.add_child(completion_text)
+
+	restart_button = Button.new()
+	restart_button.text = "Restart Experience"
+	restart_button.custom_minimum_size = Vector2(0.0, 48.0)
+	restart_button.add_theme_stylebox_override("normal", _make_restart_button_style(Color(0.12, 0.098, 0.055, 1.0)))
+	restart_button.add_theme_stylebox_override("hover", _make_restart_button_style(Color(0.18, 0.145, 0.075, 1.0)))
+	restart_button.add_theme_stylebox_override("pressed", _make_restart_button_style(Color(0.08, 0.066, 0.04, 1.0)))
+	restart_button.add_theme_color_override("font_color", Color(0.976, 0.968, 0.941, 1.0))
+	restart_button.add_theme_color_override("font_hover_color", Color(1.0, 0.91, 0.62, 1.0))
+	restart_button.pressed.connect(_on_restart_pressed)
+	box.add_child(restart_button)
+
 
 func _on_narrative_changed(current_step: Dictionary, _current_index: int, _total_steps: int) -> void:
 	if current_step.is_empty():
-		panel.visible = false
-		show_button.visible = false
+		completion_active = _total_steps > 0 and _current_index >= _total_steps
+		if completion_active:
+			_show_completion_modal()
+		else:
+			panel.visible = false
+			show_button.visible = false
+			_hide_completion_modal()
 		return
-	title_label.text = str(current_step.get("title", "Guided Step"))
+	completion_active = false
+	_hide_completion_modal()
+	title_label.text = str(current_step.get("title", "Tasting Step"))
 	target_label.text = _format_target_type(str(current_step.get("target_type", "free")))
 	text_label.text = str(current_step.get("text", ""))
 	progress_label.text = NarrativeManager.get_progress_text()
+	show_me_button.visible = true
+	next_button.visible = true
 	next_button.disabled = not NarrativeManager.can_advance_current_step()
 	_update_visibility(ExperienceManager.current_state != ExperienceManager.ExperienceState.QR_SCAN)
 
@@ -147,7 +234,8 @@ func _update_visibility(can_show: bool) -> void:
 	var has_step: bool = not NarrativeManager.get_current_step().is_empty()
 	panel.visible = has_step and can_show and not collapsed
 	show_button.visible = has_step and can_show and collapsed
-	if panel.visible or show_button.visible:
+	completion_overlay.visible = completion_active and can_show
+	if panel.visible or show_button.visible or completion_overlay.visible:
 		_raise_to_front()
 
 
@@ -156,9 +244,13 @@ func _on_next_pressed() -> void:
 
 
 func show_hint(message: String) -> void:
+	var is_visible: bool = not message.strip_edges().is_empty()
+	if hint_label.text == message and hint_label.visible == is_visible:
+		return
 	hint_label.text = message
-	hint_label.visible = not message.strip_edges().is_empty()
-	_raise_to_front()
+	hint_label.visible = is_visible
+	if is_visible:
+		_raise_to_front()
 
 
 func clear_hint() -> void:
@@ -169,11 +261,30 @@ func _on_show_me_pressed() -> void:
 	show_target_requested.emit(NarrativeManager.get_current_step())
 
 
+func _on_restart_pressed() -> void:
+	_hide_completion_modal()
+	restart_requested.emit()
+
+
+func _show_completion_modal() -> void:
+	panel.visible = false
+	show_button.visible = false
+	completion_overlay.visible = true
+	_raise_to_front()
+
+
+func _hide_completion_modal() -> void:
+	if completion_overlay != null:
+		completion_overlay.visible = false
+
+
 func _raise_to_front() -> void:
 	if panel.get_parent() == canvas_layer:
 		canvas_layer.move_child(panel, canvas_layer.get_child_count() - 1)
 	if show_button.get_parent() == canvas_layer:
 		canvas_layer.move_child(show_button, canvas_layer.get_child_count() - 1)
+	if completion_overlay.get_parent() == canvas_layer:
+		canvas_layer.move_child(completion_overlay, canvas_layer.get_child_count() - 1)
 
 
 func _make_panel_style() -> StyleBoxFlat:
@@ -183,6 +294,24 @@ func _make_panel_style() -> StyleBoxFlat:
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(10)
 	style.set_content_margin_all(20.0)
+	return style
+
+
+func _make_completion_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.96)
+	style.border_color = Color(0.92, 0.76, 0.45, 0.38)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(10)
+	return style
+
+
+func _make_restart_button_style(background_color: Color) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = Color(0.92, 0.76, 0.45, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
 	return style
 
 
@@ -196,12 +325,12 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 func _format_target_type(target_type: String) -> String:
 	match target_type:
 		"hotspot":
-			return "Hotspot"
+			return "Tasting Note"
 		"zone":
-			return "Cellar Point"
+			return "Winery Detail"
 		"prop":
-			return "Winery Object"
+			return "Cellar Detail"
 		"door":
-			return "Cellar Door"
+			return "Entry Point"
 		_:
-			return "Free Step"
+			return "Opening Note"

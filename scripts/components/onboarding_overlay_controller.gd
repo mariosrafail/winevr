@@ -37,14 +37,14 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 	margin.add_child(box)
 
 	var title: Label = Label.new()
-	title.text = "How to explore"
+	title.text = "Your Tasting Guide"
 	title.label_settings = _make_label_settings(24, Color(0.976, 0.968, 0.941, 1.0))
 	box.add_child(title)
 
 	for text in [
-		"Drag the vial to inspect it",
-		"Tap glowing points to reveal wine details",
-		"Enter the winery to continue the guided tasting"
+		"Turn the vial to study its character",
+		"Open each glowing note for tasting detail",
+		"Enter the winery when the story is complete"
 	]:
 		var label: Label = Label.new()
 		label.text = text
@@ -53,15 +53,21 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 		box.add_child(label)
 
 	var button: Button = Button.new()
-	button.text = "Got it"
+	button.text = "Begin"
 	button.custom_minimum_size = Vector2(0.0, 46.0)
+	button.add_theme_stylebox_override("normal", _make_button_style(Color(0.13, 0.105, 0.058, 1.0)))
+	button.add_theme_stylebox_override("hover", _make_button_style(Color(0.19, 0.15, 0.078, 1.0)))
+	button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.09, 0.072, 0.042, 1.0)))
+	button.add_theme_color_override("font_color", Color(0.976, 0.968, 0.941, 1.0))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 0.91, 0.62, 1.0))
 	button.pressed.connect(hide)
 	box.add_child(button)
 
 
 func layout(viewport_size: Vector2) -> void:
-	var width: float = minf(390.0, viewport_size.x - 28.0)
-	var height: float = minf(265.0, viewport_size.y - 28.0)
+	var edge_margin: float = 18.0 if viewport_size.x >= 760.0 else 12.0
+	var width: float = minf(420.0, viewport_size.x - edge_margin * 2.0)
+	var height: float = minf(285.0, viewport_size.y - edge_margin * 2.0)
 	card.position = (viewport_size - Vector2(width, height)) * 0.5
 	card.size = Vector2(width, height)
 
@@ -92,3 +98,12 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 	settings.font_size = font_size
 	settings.font_color = font_color
 	return settings
+
+
+func _make_button_style(background_color: Color) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = Color(0.92, 0.76, 0.45, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	return style

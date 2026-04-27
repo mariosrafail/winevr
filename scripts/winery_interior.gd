@@ -136,6 +136,8 @@ func highlight_narrative_target(target_type: String, target_id: String) -> bool:
 		"prop":
 			return _props.highlight_prop(target_id)
 		"door":
+			if not _door_target_matches(target_id):
+				return false
 			_door.set_highlight(true)
 			return true
 		_:
@@ -150,6 +152,8 @@ func pulse_narrative_target(target_type: String, target_id: String) -> bool:
 		"prop":
 			return _props.pulse_prop(target_id, self)
 		"door":
+			if not _door_target_matches(target_id):
+				return false
 			_door.set_highlight(true)
 			return true
 		_:
@@ -195,15 +199,15 @@ func _update_interaction_prompt() -> void:
 		var collider: Object = interaction_ray.get_collider()
 		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
 		if looking_at_door:
-			prompt = "Tap / Click to open the cellar door"
+			prompt = "Open the cellar door"
 		else:
 			var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
 			if not zone_data.is_empty():
-				prompt = "Tap / Click to view %s" % str(zone_data.get("title", "this point"))
+				prompt = "View %s" % str(zone_data.get("title", "this detail"))
 			else:
 				var prop_data: Dictionary = _props.get_prop_data_from_collider(collider)
 				if not prop_data.is_empty():
-					prompt = "Tap / Click to inspect %s" % str(prop_data.get("id", "this prop")).replace("_", " ")
+					prompt = "Inspect %s" % str(prop_data.get("id", "this cellar detail")).replace("_", " ")
 
 	_door.set_highlight(looking_at_door)
 	door_prompt_changed.emit(prompt)
@@ -218,6 +222,14 @@ func _get_interactable_by_type(environment_settings: Dictionary, interactable_ty
 		if str(interactable.get("type", "")) == interactable_type:
 			return interactable.duplicate(true)
 	return {}
+
+
+func _door_target_matches(target_id: String) -> bool:
+	if target_id.is_empty():
+		return true
+	if str(_zones.door_interactable.get("id", "")) == target_id:
+		return true
+	return _zones.zone_data_by_id.has(target_id)
 
 
 func _apply_camera_start(raw_camera_start: Variant) -> void:

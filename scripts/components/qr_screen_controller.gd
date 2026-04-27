@@ -42,12 +42,12 @@ func setup(parent_canvas_layer: CanvasLayer, entries: Array[Dictionary]) -> void
 	margin.add_child(box)
 
 	var title: Label = Label.new()
-	title.text = "Scan Vial QR"
+	title.text = "Select Your Tasting"
 	title.label_settings = _make_label_settings(28, Color(0.976, 0.968, 0.941, 1.0))
 	box.add_child(title)
 
 	var subtitle: Label = Label.new()
-	subtitle.text = "Select a simulated QR profile"
+	subtitle.text = "Choose a wine profile to begin"
 	subtitle.label_settings = _make_label_settings(15, Color(0.84, 0.86, 0.86, 1.0))
 	box.add_child(subtitle)
 
@@ -81,7 +81,7 @@ func _build_buttons() -> void:
 
 	if registry_entries.is_empty():
 		var empty_label: Label = Label.new()
-		empty_label.text = "No enabled client profiles are available."
+		empty_label.text = "No tasting profiles are available."
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_label.label_settings = _make_label_settings(14, Color(1.0, 0.55, 0.46, 1.0))
 		button_box.add_child(empty_label)
@@ -95,7 +95,7 @@ func _build_buttons() -> void:
 			str(entry.get("wine_name", "")),
 			str(entry.get("region", ""))
 		]
-		button.tooltip_text = "Debug key %s" % str(index + 1)
+		button.tooltip_text = ""
 		button.custom_minimum_size = Vector2(0.0, 68.0)
 		button.focus_mode = Control.FOCUS_ALL
 		button.pressed.connect(_on_button_pressed.bind(str(entry.get("client_id", ""))))

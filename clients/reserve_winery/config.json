@@ -46,7 +46,7 @@
       "winery_interior"
     ],
     "winery_scene_name": "reserve_cellar",
-    "winery_info_text": "A reserve cellar placeholder focused on barrel selection, quiet lighting, and a single cellar door interaction."
+    "winery_info_text": "A quiet reserve cellar shaped by barrel selection, low light, and a focused private tasting path."
   },
   "environment_settings": {
     "environment_id": "reserve_dark_premium_cellar",
@@ -99,7 +99,7 @@
       {
         "id": "reserve_table_note",
         "title": "Reserve Selection Table",
-        "text": "A minimal tasting table placeholder for future reserve bottle, glass, and pairing interactions.",
+        "text": "A focused reserve table for barrel selection, glassware, and the final tasting impression.",
         "type": "tasting_point",
         "position": [0.0, 1.0, -0.9],
         "radius": 0.8
@@ -141,6 +141,14 @@
       "text": "View the Texture hotspot to focus on structure and graphite length.",
       "target_type": "hotspot",
       "target_id": "texture",
+      "required": true
+    },
+    {
+      "id": "reserve_parcel_step",
+      "title": "Highland Parcel",
+      "text": "Open the Parcel hotspot before entering the reserve cellar.",
+      "target_type": "hotspot",
+      "target_id": "parcel",
       "required": true
     },
     {

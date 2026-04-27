@@ -352,7 +352,7 @@ func _normalize_narrative_steps(profile: Dictionary) -> void:
 			continue
 		var step: Dictionary = (raw_step as Dictionary).duplicate(true)
 		step["id"] = str(step.get("id", "step_%s" % normalized_steps.size()))
-		step["title"] = str(step.get("title", "Guided Step"))
+		step["title"] = str(step.get("title", "Tasting Step"))
 		step["text"] = str(step.get("text", ""))
 		step["target_type"] = str(step.get("target_type", "free"))
 		step["target_id"] = str(step.get("target_id", ""))
