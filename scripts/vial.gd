@@ -16,6 +16,7 @@ class_name Vial
 @export_range(0.0, 1.0, 0.01) var liquid_fill_amount: float = 0.70
 # Tweak this to change the wine tone.
 @export var liquid_color: Color = Color(0.28, 0.04, 0.09, 0.98)
+@export var cap_color: Color = Color(0.03, 0.03, 0.03, 1.0)
 
 @export_range(0.008, 0.05, 0.0005) var cap_height: float = 0.022
 @export_range(0.0005, 0.006, 0.0001) var cap_overhang: float = 0.0022
@@ -81,7 +82,7 @@ func _build_signature() -> String:
 		str(liquid_color),
 		str(cap_height),
 		str(cap_overhang),
-		str(radial_segments)
+		str(radial_segments) + "|" + str(cap_color)
 	]
 
 
@@ -116,10 +117,16 @@ func _build_materials() -> void:
 	_liquid_material.clearcoat_roughness = 0.02
 
 	_cap_material = StandardMaterial3D.new()
-	_cap_material.albedo_color = Color(0.03, 0.03, 0.03, 1.0)
+	_cap_material.albedo_color = cap_color
 	_cap_material.roughness = 0.9
 	_cap_material.metallic = 0.0
 	_cap_material.specular = 0.12
+
+
+func rebuild_vial() -> void:
+	if _glass_body == null or _liquid == null or _cap == null:
+		return
+	_rebuild_geometry()
 
 
 func _rebuild_geometry() -> void:
@@ -141,6 +148,7 @@ func _rebuild_geometry() -> void:
 	var cap_mesh := _build_cap_mesh(outer_r + cap_overhang, cap_height, radial_segments)
 	_cap.mesh = cap_mesh
 	_cap.position.y = body_h + cap_height * 0.5
+	_cap_material.albedo_color = cap_color
 	_cap.set_surface_override_material(0, _cap_material)
 
 	_last_signature = _build_signature()

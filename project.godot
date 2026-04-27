@@ -11,14 +11,17 @@ config_version=5
 [application]
 
 config/name="WineVR"
-run/main_scene="res://scenes/VialPreview.tscn"
+run/main_scene="res://scenes/WineVRExperience.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+ClientProfileLoader="*res://core/client_profile_loader.gd"
+ExperienceManager="*res://core/experience_manager.gd"
 
 [physics]
 
 3d/physics_engine="Jolt Physics"
 
 [rendering]
-
-rendering_device/driver.windows="d3d12"

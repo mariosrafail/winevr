@@ -1,0 +1,45 @@
+{
+  "client_id": "demo_winery",
+  "winery_name": "Demo Winery",
+  "wine_name": "Aegean Reserve Red",
+  "region_name": "Nemea",
+  "country": "Greece",
+  "qr_id": "qr_demo_winery",
+  "vial_settings": {
+    "liquid_fill_amount": 0.62,
+    "liquid_color": "#6E1028",
+    "cap_color": "#1F1A17"
+  },
+  "experience_settings": {
+    "intro_title": "Aegean Reserve Red",
+    "intro_text": "A compact tasting preview with mineral structure, black cherry fruit, and a long herbal finish.",
+    "hotspots": [
+      {
+        "id": "aroma",
+        "title": "Aroma",
+        "text": "Dark cherry, dried fig, and warm spice.",
+        "screen_position": [0.74, 0.33]
+      },
+      {
+        "id": "origin",
+        "title": "Origin",
+        "text": "Mountain-grown fruit from limestone-rich soils.",
+        "screen_position": [0.8, 0.56]
+      },
+      {
+        "id": "craft",
+        "title": "Craft",
+        "text": "Small-batch cellar work built around clarity, freshness, and long structure.",
+        "screen_position": [0.62, 0.67]
+      }
+    ],
+    "scenes": [
+      "intro",
+      "vial_inspection",
+      "winery_entry",
+      "winery_interior"
+    ],
+    "winery_scene_name": "classic_cellar",
+    "winery_info_text": "A placeholder cellar entry with warm stone tones, stacked casks, and a simple interactive door."
+  }
+}

@@ -1,0 +1,177 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="Script" path="res://scripts/winery_interior.gd" id="1_winery_script"]
+[ext_resource type="PackedScene" path="res://scenes/Vial.tscn" id="2_vial"]
+
+[sub_resource type="Environment" id="1_env"]
+background_mode = 1
+background_color = Color(0.0705882, 0.0666667, 0.0705882, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.8, 0.780392, 0.741176, 1)
+ambient_light_energy = 0.75
+tonemap_mode = 2
+
+[sub_resource type="BoxMesh" id="2_floor_mesh"]
+size = Vector3(8, 0.2, 8)
+
+[sub_resource type="StandardMaterial3D" id="3_floor_mat"]
+albedo_color = Color(0.345098, 0.301961, 0.25098, 1)
+roughness = 0.92
+
+[sub_resource type="BoxMesh" id="4_wall_mesh"]
+size = Vector3(8, 3.2, 0.2)
+
+[sub_resource type="StandardMaterial3D" id="5_wall_mat"]
+albedo_color = Color(0.545098, 0.498039, 0.447059, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="6_side_wall_mesh"]
+size = Vector3(0.2, 3.2, 8)
+
+[sub_resource type="BoxMesh" id="7_barrel_mesh"]
+size = Vector3(0.7, 1.0, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="8_barrel_mat"]
+albedo_color = Color(0.466667, 0.301961, 0.180392, 1)
+roughness = 0.88
+
+[sub_resource type="BoxMesh" id="9_door_mesh"]
+size = Vector3(1.1, 2.2, 0.08)
+
+[sub_resource type="StandardMaterial3D" id="10_door_mat"]
+albedo_color = Color(0.329412, 0.211765, 0.121569, 1)
+roughness = 0.82
+
+[sub_resource type="BoxShape3D" id="11_door_shape"]
+size = Vector3(1.1, 2.2, 0.12)
+
+[sub_resource type="BoxMesh" id="12_frame_mesh"]
+size = Vector3(1.45, 2.45, 0.16)
+
+[sub_resource type="StandardMaterial3D" id="13_frame_mat"]
+albedo_color = Color(0.239216, 0.192157, 0.145098, 1)
+roughness = 0.92
+
+[sub_resource type="CylinderMesh" id="14_column_mesh"]
+top_radius = 0.18
+bottom_radius = 0.18
+height = 2.9
+radial_segments = 20
+
+[sub_resource type="StandardMaterial3D" id="15_column_mat"]
+albedo_color = Color(0.427451, 0.388235, 0.356863, 1)
+roughness = 0.93
+
+[node name="WineryInterior" type="Node3D"]
+script = ExtResource("1_winery_script")
+visible = false
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("1_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 2.4, 0)
+light_color = Color(1, 0.92549, 0.831373, 1)
+light_energy = 2.0
+shadow_enabled = true
+
+[node name="FillLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.3, 0.7)
+light_color = Color(1, 0.87451, 0.733333, 1)
+light_energy = 1.5
+omni_range = 8.0
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("2_floor_mesh")
+surface_material_override/0 = SubResource("3_floor_mat")
+
+[node name="BackWall" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -3.9)
+mesh = SubResource("4_wall_mesh")
+surface_material_override/0 = SubResource("5_wall_mat")
+
+[node name="FrontWall" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 3.9)
+mesh = SubResource("4_wall_mesh")
+surface_material_override/0 = SubResource("5_wall_mat")
+
+[node name="LeftWall" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.9, 1.6, 0)
+mesh = SubResource("6_side_wall_mesh")
+surface_material_override/0 = SubResource("5_wall_mat")
+
+[node name="RightWall" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.9, 1.6, 0)
+mesh = SubResource("6_side_wall_mesh")
+surface_material_override/0 = SubResource("5_wall_mat")
+
+[node name="ColumnLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.2, 1.45, -0.8)
+mesh = SubResource("14_column_mesh")
+surface_material_override/0 = SubResource("15_column_mat")
+
+[node name="ColumnRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.2, 1.45, -0.8)
+mesh = SubResource("14_column_mesh")
+surface_material_override/0 = SubResource("15_column_mat")
+
+[node name="BarrelA" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 0.5, -2.4)
+mesh = SubResource("7_barrel_mesh")
+surface_material_override/0 = SubResource("8_barrel_mat")
+
+[node name="BarrelB" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7, 0.5, -2.1)
+mesh = SubResource("7_barrel_mesh")
+surface_material_override/0 = SubResource("8_barrel_mat")
+
+[node name="BarrelC" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.15, 0.5, -2.35)
+mesh = SubResource("7_barrel_mesh")
+surface_material_override/0 = SubResource("8_barrel_mat")
+
+[node name="BarrelD" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.8, 0.5, -1.95)
+mesh = SubResource("7_barrel_mesh")
+surface_material_override/0 = SubResource("8_barrel_mat")
+
+[node name="DoorAssembly" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2.9)
+
+[node name="DoorFrame" type="MeshInstance3D" parent="DoorAssembly"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.22, -0.02)
+mesh = SubResource("12_frame_mesh")
+surface_material_override/0 = SubResource("13_frame_mat")
+
+[node name="DoorHinge" type="Node3D" parent="DoorAssembly"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.12, 0)
+
+[node name="Door" type="StaticBody3D" parent="DoorAssembly/DoorHinge"]
+groups = ["winery_door"]
+
+[node name="DoorMesh" type="MeshInstance3D" parent="DoorAssembly/DoorHinge/Door"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 1.1, 0)
+mesh = SubResource("9_door_mesh")
+surface_material_override/0 = SubResource("10_door_mat")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorAssembly/DoorHinge/Door"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 1.1, 0)
+shape = SubResource("11_door_shape")
+
+[node name="PlayerRig" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.55)
+
+[node name="CameraPivot" type="Node3D" parent="PlayerRig"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
+
+[node name="Camera3D" type="Camera3D" parent="PlayerRig/CameraPivot"]
+current = false
+fov = 68.0
+near = 0.05
+
+[node name="InteractionRay" type="RayCast3D" parent="PlayerRig/CameraPivot/Camera3D"]
+target_position = Vector3(0, 0, -3.2)
+enabled = true
+
+[node name="HeldVial" parent="PlayerRig/CameraPivot/Camera3D" instance=ExtResource("2_vial")]
+transform = Transform3D(0.939693, -0.17101, -0.296198, 0.0697565, 0.93912, -0.336824, 0.334565, 0.29875, 0.8937, 0.18, -0.17, -0.58)
