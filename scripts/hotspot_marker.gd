@@ -6,6 +6,7 @@ signal hotspot_selected(hotspot_data: Dictionary)
 @export var pulse_speed: float = 2.4
 @export var marker_color: Color = Color(0.95, 0.76, 0.42, 1.0)
 @export var viewed_color: Color = Color(0.63, 0.86, 0.72, 1.0)
+@export var active_target_color: Color = Color(0.35, 0.78, 1.0, 1.0)
 
 var hotspot_data: Dictionary = {}
 var viewed: bool = false:
@@ -18,6 +19,13 @@ var viewed: bool = false:
 var _pulse_time: float = 0.0
 var _title_label: Label
 var _viewed: bool = false
+var _active_target: bool = false
+var active_target: bool = false:
+	set(value):
+		_active_target = value
+		queue_redraw()
+	get:
+		return _active_target
 
 
 func _ready() -> void:
@@ -56,15 +64,19 @@ func configure(data: Dictionary, already_viewed: bool) -> void:
 		_title_label.text = str(hotspot_data.get("title", ""))
 
 
+func set_active_target(enabled: bool) -> void:
+	active_target = enabled
+
+
 func _draw() -> void:
 	var center: Vector2 = size * 0.5
-	var color: Color = viewed_color if viewed else marker_color
+	var color: Color = active_target_color if active_target else viewed_color if viewed else marker_color
 	var pulse: float = (sin(_pulse_time) + 1.0) * 0.5
-	var ring_radius: float = lerpf(12.0, 21.0, pulse)
-	var ring_alpha: float = lerpf(0.48, 0.08, pulse)
+	var ring_radius: float = lerpf(12.0, 27.0 if active_target else 21.0, pulse)
+	var ring_alpha: float = lerpf(0.7 if active_target else 0.48, 0.12 if active_target else 0.08, pulse)
 
 	draw_circle(center, ring_radius, Color(color.r, color.g, color.b, ring_alpha))
-	draw_arc(center, 15.0, 0.0, TAU, 64, Color(color.r, color.g, color.b, 0.86), 2.0)
+	draw_arc(center, 17.0 if active_target else 15.0, 0.0, TAU, 64, Color(color.r, color.g, color.b, 0.96 if active_target else 0.86), 3.0 if active_target else 2.0)
 	draw_circle(center, 5.0, color)
 	draw_circle(center, 2.0, Color(1.0, 0.98, 0.9, 1.0))
 

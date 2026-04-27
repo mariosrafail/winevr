@@ -16,6 +16,7 @@ var winery_modal: PanelContainer
 var inspection_hint: Label
 var door_prompt_label: Label
 var enter_winery_button: Button
+var unlock_feedback_label: Label
 
 var intro_winery_name: Label
 var intro_wine_name: Label
@@ -49,6 +50,11 @@ func setup(root: Node) -> void:
 	inspection_text = root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox/IntroText") as RichTextLabel
 	enter_winery_button = root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox/EnterWineryButton") as Button
 	enter_winery_button.pressed.connect(func() -> void: enter_winery_requested.emit())
+	unlock_feedback_label = Label.new()
+	unlock_feedback_label.text = ""
+	unlock_feedback_label.visible = false
+	unlock_feedback_label.label_settings = _make_label_settings(13, Color(0.63, 0.86, 0.72, 1.0))
+	(root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox") as VBoxContainer).add_child(unlock_feedback_label)
 	hotspot_panel = root.get_node("CanvasLayer/InspectionHUD/HotspotPanel") as PanelContainer
 	inspection_hint = root.get_node("CanvasLayer/InspectionHUD/InspectionHint") as Label
 
@@ -106,7 +112,10 @@ func apply_state(state: int) -> void:
 
 func set_enter_winery_enabled(enabled: bool) -> void:
 	enter_winery_button.disabled = not enabled
+	enter_winery_button.text = "Enter Winery" if enabled else "View required points first"
 	enter_winery_button.modulate = Color(1.0, 1.0, 1.0, 1.0) if enabled else Color(0.72, 0.72, 0.72, 0.82)
+	unlock_feedback_label.text = "Winery unlocked" if enabled else ""
+	unlock_feedback_label.visible = enabled
 
 
 func set_door_prompt(prompt: String) -> void:
@@ -142,3 +151,10 @@ func _hide_winery_modal() -> void:
 	tween.tween_property(winery_modal, "scale", Vector2(0.96, 0.96), 0.12)
 	await tween.finished
 	winery_modal.visible = false
+
+
+func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
+	var settings: LabelSettings = LabelSettings.new()
+	settings.font_size = font_size
+	settings.font_color = font_color
+	return settings

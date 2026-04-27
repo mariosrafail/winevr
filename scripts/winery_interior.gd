@@ -128,6 +128,40 @@ func interact_current() -> void:
 		_try_interact()
 
 
+func highlight_narrative_target(target_type: String, target_id: String) -> bool:
+	clear_narrative_highlight()
+	match target_type:
+		"zone":
+			return _zones.highlight_zone(target_id)
+		"prop":
+			return _props.highlight_prop(target_id)
+		"door":
+			_door.set_highlight(true)
+			return true
+		_:
+			return false
+
+
+func pulse_narrative_target(target_type: String, target_id: String) -> bool:
+	clear_narrative_highlight()
+	match target_type:
+		"zone":
+			return _zones.pulse_zone(target_id, self)
+		"prop":
+			return _props.pulse_prop(target_id, self)
+		"door":
+			_door.set_highlight(true)
+			return true
+		_:
+			return false
+
+
+func clear_narrative_highlight() -> void:
+	_zones.clear_highlight()
+	_props.clear_highlight()
+	_door.set_highlight(false)
+
+
 func _try_interact() -> void:
 	if not interaction_ray.is_colliding():
 		return

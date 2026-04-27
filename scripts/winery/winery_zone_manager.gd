@@ -4,18 +4,28 @@ class_name WineryZoneManager
 var root: Node3D
 var zone_data_by_instance_id: Dictionary = {}
 var door_interactable: Dictionary = {}
+var zone_data_by_id: Dictionary = {}
+var highlight_root: Node3D
+var active_highlight: Node3D
 
 
 func setup(parent: Node3D) -> void:
 	root = Node3D.new()
 	root.name = "ConfigZones"
 	parent.add_child(root)
+	highlight_root = Node3D.new()
+	highlight_root.name = "ConfigZoneHighlights"
+	parent.add_child(highlight_root)
 
 
 func rebuild(raw_zones: Array) -> void:
 	for child in root.get_children():
 		child.queue_free()
+	for child in highlight_root.get_children():
+		child.queue_free()
 	zone_data_by_instance_id.clear()
+	zone_data_by_id.clear()
+	active_highlight = null
 
 	for raw_zone in raw_zones:
 		if typeof(raw_zone) != TYPE_DICTIONARY:
@@ -23,6 +33,7 @@ func rebuild(raw_zones: Array) -> void:
 		var zone_data: Dictionary = raw_zone as Dictionary
 		if str(zone_data.get("type", "")) == "door":
 			door_interactable = zone_data.duplicate(true)
+			zone_data_by_id[str(zone_data.get("id", ""))] = zone_data.duplicate(true)
 			continue
 		var zone: Area3D = Area3D.new()
 		zone.name = str(zone_data.get("id", "zone"))
@@ -37,6 +48,7 @@ func rebuild(raw_zones: Array) -> void:
 		zone.add_child(collision_shape)
 		root.add_child(zone)
 		zone_data_by_instance_id[zone.get_instance_id()] = zone_data.duplicate(true)
+		zone_data_by_id[str(zone_data.get("id", ""))] = zone_data.duplicate(true)
 
 
 func get_zone_data_from_collider(collider: Object) -> Dictionary:
@@ -47,6 +59,67 @@ func get_zone_data_from_collider(collider: Object) -> Dictionary:
 				return (zone_data_by_instance_id[node.get_instance_id()] as Dictionary).duplicate(true)
 			node = node.get_parent()
 	return {}
+
+
+func highlight_zone(zone_id: String) -> bool:
+	clear_highlight()
+	if not zone_data_by_id.has(zone_id):
+		return false
+
+	var zone_data: Dictionary = zone_data_by_id[zone_id]
+	active_highlight = _create_highlight_marker(str(zone_data.get("title", zone_id)))
+	active_highlight.position = _array_to_vector3(zone_data.get("position", [0.0, 1.1, -1.0]), Vector3(0.0, 1.1, -1.0))
+	highlight_root.add_child(active_highlight)
+	return true
+
+
+func pulse_zone(zone_id: String, owner: Node) -> bool:
+	if not highlight_zone(zone_id):
+		return false
+	_pulse_active_highlight(owner)
+	return true
+
+
+func clear_highlight() -> void:
+	for child in highlight_root.get_children():
+		child.queue_free()
+	active_highlight = null
+
+
+func _create_highlight_marker(label_text: String) -> Node3D:
+	var marker_root: Node3D = Node3D.new()
+	var sphere: SphereMesh = SphereMesh.new()
+	sphere.radius = 0.18
+	sphere.height = 0.36
+	sphere.radial_segments = 16
+	sphere.rings = 8
+	var marker: MeshInstance3D = MeshInstance3D.new()
+	marker.mesh = sphere
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = Color(0.35, 0.78, 1.0, 0.65)
+	material.emission_enabled = true
+	material.emission = Color(0.35, 0.78, 1.0, 1.0)
+	material.emission_energy_multiplier = 1.4
+	marker.set_surface_override_material(0, material)
+	marker_root.add_child(marker)
+
+	var label: Label3D = Label3D.new()
+	label.text = label_text
+	label.position = Vector3(0.0, 0.34, 0.0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 24
+	label.modulate = Color(0.92, 0.96, 1.0, 1.0)
+	marker_root.add_child(label)
+	return marker_root
+
+
+func _pulse_active_highlight(owner: Node) -> void:
+	if active_highlight == null:
+		return
+	var tween: Tween = owner.create_tween()
+	tween.set_loops(3)
+	tween.tween_property(active_highlight, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
+	tween.tween_property(active_highlight, "scale", Vector3.ONE, 0.18)
 
 
 func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:

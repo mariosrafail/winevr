@@ -5,13 +5,15 @@ var qr_screen: QRScreenController
 var hud: ExperienceHUDController
 var mobile_controls: MobileControlsController
 var narrative_panel: NarrativePanelController
+var onboarding: OnboardingOverlayController
 
 
-func setup(qr: QRScreenController, experience_hud: ExperienceHUDController, mobile: MobileControlsController, narrative: NarrativePanelController) -> void:
+func setup(qr: QRScreenController, experience_hud: ExperienceHUDController, mobile: MobileControlsController, narrative: NarrativePanelController, onboarding_overlay: OnboardingOverlayController) -> void:
 	qr_screen = qr
 	hud = experience_hud
 	mobile_controls = mobile
 	narrative_panel = narrative
+	onboarding = onboarding_overlay
 
 
 func layout(viewport_size: Vector2) -> void:
@@ -40,6 +42,7 @@ func layout(viewport_size: Vector2) -> void:
 	hud.inspection_hint.size = Vector2(minf(360.0, viewport_size.x - margin * 2.0), 24.0)
 	mobile_controls.layout(viewport_size, margin)
 	narrative_panel.layout(viewport_size, margin)
+	onboarding.layout(viewport_size)
 
 
 func _place(panel: Control, panel_position: Vector2, panel_size: Vector2) -> void:

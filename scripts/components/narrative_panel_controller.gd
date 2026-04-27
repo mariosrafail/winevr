@@ -1,11 +1,16 @@
 extends Node
 class_name NarrativePanelController
 
+signal show_target_requested(current_step: Dictionary)
+
 var panel: PanelContainer
 var title_label: Label
+var target_label: Label
 var text_label: RichTextLabel
+var hint_label: Label
 var progress_label: Label
 var next_button: Button
+var show_me_button: Button
 var show_button: Button
 var collapsed: bool = false
 var canvas_layer: CanvasLayer
@@ -73,6 +78,10 @@ func _build_panel() -> void:
 	hide_button.pressed.connect(_set_collapsed.bind(true))
 	header.add_child(hide_button)
 
+	target_label = Label.new()
+	target_label.label_settings = _make_label_settings(12, Color(0.92, 0.76, 0.45, 0.9))
+	box.add_child(target_label)
+
 	text_label = RichTextLabel.new()
 	text_label.fit_content = true
 	text_label.scroll_active = false
@@ -80,11 +89,29 @@ func _build_panel() -> void:
 	text_label.custom_minimum_size = Vector2(0.0, 66.0)
 	box.add_child(text_label)
 
+	hint_label = Label.new()
+	hint_label.visible = false
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_label.label_settings = _make_label_settings(13, Color(0.35, 0.78, 1.0, 1.0))
+	box.add_child(hint_label)
+
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	box.add_child(actions)
+
+	show_me_button = Button.new()
+	show_me_button.text = "Show me"
+	show_me_button.custom_minimum_size = Vector2(0.0, 44.0)
+	show_me_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	show_me_button.pressed.connect(_on_show_me_pressed)
+	actions.add_child(show_me_button)
+
 	next_button = Button.new()
 	next_button.text = "Next"
 	next_button.custom_minimum_size = Vector2(0.0, 44.0)
+	next_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	next_button.pressed.connect(_on_next_pressed)
-	box.add_child(next_button)
+	actions.add_child(next_button)
 
 	show_button = Button.new()
 	show_button.name = "NarrativeShowButton"
@@ -103,6 +130,7 @@ func _on_narrative_changed(current_step: Dictionary, _current_index: int, _total
 		show_button.visible = false
 		return
 	title_label.text = str(current_step.get("title", "Guided Step"))
+	target_label.text = _format_target_type(str(current_step.get("target_type", "free")))
 	text_label.text = str(current_step.get("text", ""))
 	progress_label.text = NarrativeManager.get_progress_text()
 	next_button.disabled = not NarrativeManager.can_advance_current_step()
@@ -127,6 +155,20 @@ func _on_next_pressed() -> void:
 	NarrativeManager.next_step()
 
 
+func show_hint(message: String) -> void:
+	hint_label.text = message
+	hint_label.visible = not message.strip_edges().is_empty()
+	_raise_to_front()
+
+
+func clear_hint() -> void:
+	show_hint("")
+
+
+func _on_show_me_pressed() -> void:
+	show_target_requested.emit(NarrativeManager.get_current_step())
+
+
 func _raise_to_front() -> void:
 	if panel.get_parent() == canvas_layer:
 		canvas_layer.move_child(panel, canvas_layer.get_child_count() - 1)
@@ -149,3 +191,17 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 	settings.font_size = font_size
 	settings.font_color = font_color
 	return settings
+
+
+func _format_target_type(target_type: String) -> String:
+	match target_type:
+		"hotspot":
+			return "Hotspot"
+		"zone":
+			return "Cellar Point"
+		"prop":
+			return "Winery Object"
+		"door":
+			return "Cellar Door"
+		_:
+			return "Free Step"

@@ -16,6 +16,7 @@ var _hotspots: HotspotUIController
 var _hud: ExperienceHUDController
 var _mobile_controls: MobileControlsController
 var _narrative_panel: NarrativePanelController
+var _onboarding: OnboardingOverlayController
 var _layout: ResponsiveLayoutController
 
 
@@ -43,6 +44,9 @@ func _notification(what: int) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_R:
+			_reset_current_experience()
+			return
 		var registry_index: int = _get_debug_registry_index(event.keycode)
 		if registry_index >= 0:
 			_qr_screen.select_debug_index(registry_index)
@@ -86,10 +90,16 @@ func _build_components() -> void:
 	_narrative_panel = NarrativePanelController.new()
 	add_child(_narrative_panel)
 	_narrative_panel.setup(canvas_layer)
+	_narrative_panel.show_target_requested.connect(_on_show_narrative_target_requested)
+	NarrativeManager.narrative_changed.connect(_on_narrative_changed)
+
+	_onboarding = OnboardingOverlayController.new()
+	add_child(_onboarding)
+	_onboarding.setup(canvas_layer)
 
 	_layout = ResponsiveLayoutController.new()
 	add_child(_layout)
-	_layout.setup(_qr_screen, _hud, _mobile_controls, _narrative_panel)
+	_layout.setup(_qr_screen, _hud, _mobile_controls, _narrative_panel, _onboarding)
 
 
 func _on_client_profile_changed(_client_id: String, client_data: Dictionary) -> void:
@@ -135,6 +145,7 @@ func _apply_state(state: int) -> void:
 
 	if state != ExperienceManager.ExperienceState.VIAL_INSPECTION:
 		_hotspots.close_panel()
+	_apply_narrative_target_highlight(NarrativeManager.get_current_step(), false)
 
 
 func _on_hotspot_viewed(hotspot_data: Dictionary) -> void:
@@ -150,6 +161,48 @@ func _on_winery_interacted(interactable_data: Dictionary = {}) -> void:
 		if interactable_data.has("target_type") and interactable_data.has("target_id"):
 			NarrativeManager.complete_target(str(interactable_data.get("target_type", "")), str(interactable_data.get("target_id", "")))
 	_hud.show_interactable_modal(interactable_data)
+
+
+func _on_narrative_changed(current_step: Dictionary, _current_index: int, _total_steps: int) -> void:
+	_apply_narrative_target_highlight(current_step, false)
+
+
+func _on_show_narrative_target_requested(current_step: Dictionary) -> void:
+	_apply_narrative_target_highlight(current_step, true, true)
+
+
+func _apply_narrative_target_highlight(current_step: Dictionary, show_hint: bool, pulse_target: bool = false) -> void:
+	_hotspots.clear_target_highlight()
+	winery_interior.clear_narrative_highlight()
+	_narrative_panel.clear_hint()
+	if current_step.is_empty():
+		return
+
+	var target_type: String = str(current_step.get("target_type", "free"))
+	var target_id: String = str(current_step.get("target_id", ""))
+	var state: int = ExperienceManager.current_state
+
+	match target_type:
+		"hotspot":
+			if state == ExperienceManager.ExperienceState.VIAL_INSPECTION:
+				if pulse_target:
+					_hotspots.pulse_target(target_id)
+				else:
+					_hotspots.highlight_target(target_id)
+				if show_hint:
+					_narrative_panel.show_hint("Find the highlighted hotspot on the vial.")
+			elif show_hint:
+				_narrative_panel.show_hint("Continue to the vial.")
+		"zone", "prop", "door":
+			if state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+				var highlighted: bool = winery_interior.pulse_narrative_target(target_type, target_id) if pulse_target else winery_interior.highlight_narrative_target(target_type, target_id)
+				if show_hint:
+					_narrative_panel.show_hint("Look around the winery." if highlighted else "Look around the winery.")
+			elif show_hint:
+				_narrative_panel.show_hint("Enter the winery to continue.")
+		_:
+			if show_hint:
+				_narrative_panel.show_hint("Free step. Press Next when ready.")
 
 
 func _on_enter_winery_pressed() -> void:
@@ -210,12 +263,25 @@ func _select_qr_client(client_id: String) -> void:
 		vial_preview.reset_view()
 		winery_interior.reset_view()
 		ExperienceManager.enter_intro()
+		_onboarding.show_once()
 	else:
 		_qr_screen.set_error("Profile '%s' is not available yet." % client_id)
 		ExperienceManager.show_qr_scan()
 
 	_loading_overlay.hide_loading()
 	_profile_loading = false
+
+
+func _reset_current_experience() -> void:
+	_hotspots.reset_viewed()
+	_hotspots.close_panel()
+	_hud.close_winery_modal()
+	_narrative_panel.clear_hint()
+	NarrativeManager.reset()
+	vial_preview.reset_view()
+	winery_interior.reset_view()
+	winery_interior.clear_narrative_highlight()
+	ExperienceManager.enter_intro()
 
 
 func _get_debug_registry_index(keycode: int) -> int:

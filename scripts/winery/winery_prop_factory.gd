@@ -3,7 +3,9 @@ class_name WineryPropFactory
 
 var root: Node3D
 var interaction_root: Node3D
+var highlight_root: Node3D
 var prop_data_by_instance_id: Dictionary = {}
+var prop_data_by_id: Dictionary = {}
 var environment: WineryEnvironmentApplier
 
 
@@ -15,6 +17,9 @@ func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> voi
 	interaction_root = Node3D.new()
 	interaction_root.name = "ConfigPropInteractionAreas"
 	parent.add_child(interaction_root)
+	highlight_root = Node3D.new()
+	highlight_root.name = "ConfigPropHighlights"
+	parent.add_child(highlight_root)
 
 
 func rebuild(raw_props: Array) -> void:
@@ -22,7 +27,10 @@ func rebuild(raw_props: Array) -> void:
 		child.queue_free()
 	for child in interaction_root.get_children():
 		child.queue_free()
+	for child in highlight_root.get_children():
+		child.queue_free()
 	prop_data_by_instance_id.clear()
+	prop_data_by_id.clear()
 
 	for raw_prop in raw_props:
 		if typeof(raw_prop) != TYPE_DICTIONARY:
@@ -33,6 +41,7 @@ func rebuild(raw_props: Array) -> void:
 		var prop_node: Node3D = _create_prop(prop_data)
 		root.add_child(prop_node)
 		_attach_prop_interaction(prop_data)
+		prop_data_by_id[str(prop_data.get("id", ""))] = prop_data.duplicate(true)
 
 
 func get_prop_data_from_collider(collider: Object) -> Dictionary:
@@ -43,6 +52,65 @@ func get_prop_data_from_collider(collider: Object) -> Dictionary:
 				return (prop_data_by_instance_id[node.get_instance_id()] as Dictionary).duplicate(true)
 			node = node.get_parent()
 	return {}
+
+
+func highlight_prop(prop_id: String) -> bool:
+	clear_highlight()
+	if not prop_data_by_id.has(prop_id):
+		return false
+
+	var prop_data: Dictionary = prop_data_by_id[prop_id]
+	var marker: Node3D = _create_highlight_marker(str(prop_data.get("title", prop_data.get("id", prop_id))).replace("_", " ").capitalize())
+	marker.position = _array_to_vector3(prop_data.get("position", [0.0, 0.0, 0.0]), Vector3.ZERO) + Vector3(0.0, 0.75, 0.0)
+	highlight_root.add_child(marker)
+	return true
+
+
+func pulse_prop(prop_id: String, owner: Node) -> bool:
+	if not highlight_prop(prop_id):
+		return false
+	var marker: Node3D = null
+	if highlight_root.get_child_count() > 0:
+		marker = highlight_root.get_child(0) as Node3D
+	if marker == null:
+		return false
+	var tween: Tween = owner.create_tween()
+	tween.set_loops(3)
+	tween.tween_property(marker, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
+	tween.tween_property(marker, "scale", Vector3.ONE, 0.18)
+	return true
+
+
+func clear_highlight() -> void:
+	for child in highlight_root.get_children():
+		child.queue_free()
+
+
+func _create_highlight_marker(label_text: String) -> Node3D:
+	var marker_root: Node3D = Node3D.new()
+	var sphere: SphereMesh = SphereMesh.new()
+	sphere.radius = 0.16
+	sphere.height = 0.32
+	sphere.radial_segments = 16
+	sphere.rings = 8
+	var marker: MeshInstance3D = MeshInstance3D.new()
+	marker.mesh = sphere
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = Color(0.35, 0.78, 1.0, 0.65)
+	material.emission_enabled = true
+	material.emission = Color(0.35, 0.78, 1.0, 1.0)
+	material.emission_energy_multiplier = 1.4
+	marker.set_surface_override_material(0, material)
+	marker_root.add_child(marker)
+
+	var label: Label3D = Label3D.new()
+	label.text = label_text
+	label.position = Vector3(0.0, 0.3, 0.0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 24
+	label.modulate = Color(0.92, 0.96, 1.0, 1.0)
+	marker_root.add_child(label)
+	return marker_root
 
 
 func _create_prop(prop_data: Dictionary) -> Node3D:

@@ -14,6 +14,7 @@ var vial_preview: VialPreviewController
 var active_hotspots: Array[Dictionary] = []
 var viewed_ids: Dictionary = {}
 var required_ids: Dictionary = {}
+var active_target_id: String = ""
 
 
 func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label, text: RichTextLabel, close: Button, dim: ColorRect, preview: VialPreviewController) -> void:
@@ -52,6 +53,7 @@ func build_hotspots(raw_hotspots: Array) -> void:
 	for hotspot_data in active_hotspots:
 		var marker: HotspotMarker = HotspotMarker.new()
 		marker.configure(hotspot_data, viewed_ids.has(get_hotspot_id(hotspot_data)))
+		marker.set_active_target(get_hotspot_id(hotspot_data) == active_target_id)
 		marker.hotspot_selected.connect(_on_hotspot_pressed)
 		layer.add_child(marker)
 
@@ -82,6 +84,42 @@ func close_panel() -> void:
 
 func get_hotspot_id(hotspot_data: Dictionary) -> String:
 	return str(hotspot_data.get("id", hotspot_data.get("title", "")))
+
+
+func highlight_target(hotspot_id: String) -> bool:
+	active_target_id = hotspot_id
+	var found: bool = false
+	for child in layer.get_children():
+		var marker: HotspotMarker = child as HotspotMarker
+		if marker == null:
+			continue
+		var is_target: bool = get_hotspot_id(marker.hotspot_data) == active_target_id
+		marker.set_active_target(is_target)
+		found = found or is_target
+	return found
+
+
+func pulse_target(hotspot_id: String) -> bool:
+	var found: bool = highlight_target(hotspot_id)
+	if not found:
+		return false
+	for child in layer.get_children():
+		var marker: HotspotMarker = child as HotspotMarker
+		if marker != null and get_hotspot_id(marker.hotspot_data) == hotspot_id:
+			var tween: Tween = create_tween()
+			tween.set_loops(3)
+			tween.tween_property(marker, "scale", Vector2(1.22, 1.22), 0.16)
+			tween.tween_property(marker, "scale", Vector2.ONE, 0.16)
+			return true
+	return false
+
+
+func clear_target_highlight() -> void:
+	active_target_id = ""
+	for child in layer.get_children():
+		var marker: HotspotMarker = child as HotspotMarker
+		if marker != null:
+			marker.set_active_target(false)
 
 
 func _on_hotspot_pressed(hotspot_data: Dictionary) -> void:
