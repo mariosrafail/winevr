@@ -1,52 +1,40 @@
-[gd_scene load_steps=35 format=3]
+[gd_scene format=3 uid="uid://d4mre4enq5eju"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://cra0a8tbfweng" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://pvmmqgjcnrer" path="res://scripts/camera_zoom_controller.gd" id="2_camera_zoom_controller"]
+[ext_resource type="Script" uid="uid://dr4milkkghfv6" path="res://scripts/bottle_controller.gd" id="3_bottle_controller"]
 
 [sub_resource type="Environment" id="1_env"]
-background_mode = 2
-background_color = Color(0.772549, 0.882353, 0.968627, 1)
+background_mode = 1
+background_color = Color(0.364706, 0.709804, 0.980392, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.956863, 0.980392, 1, 1)
 ambient_light_energy = 1.08
 tonemap_mode = 2
-glow_enabled = true
-glow_intensity = 0.05
 ssao_enabled = true
 ssao_radius = 1.2
 ssil_enabled = true
 ssil_radius = 2.0
+glow_enabled = true
+glow_intensity = 0.28
 
-[sub_resource type="StandardMaterial3D" id="2_floor_mat"]
-albedo_color = Color(0.898039, 0.878431, 0.835294, 1)
-roughness = 0.92
+[sub_resource type="SphereMesh" id="31_sun_mesh"]
+radius = 0.75
+height = 1.5
+radial_segments = 32
+rings = 16
 
-[sub_resource type="StandardMaterial3D" id="3_glass_mat"]
-transparency = 1
-albedo_color = Color(0.176471, 0.239216, 0.152941, 0.34)
-metallic = 0.08
-roughness = 0.04
-rim_enabled = true
-rim = 0.62
-rim_tint = 0.5
-clearcoat_enabled = true
-clearcoat = 1.0
-clearcoat_roughness = 0.06
-refraction_enabled = true
-refraction_scale = 0.015
+[sub_resource type="StandardMaterial3D" id="32_sun_mat"]
+no_depth_test = true
+shading_mode = 0
+albedo_color = Color(1, 0.87451, 0.345098, 1)
 
-[sub_resource type="StandardMaterial3D" id="4_wine_mat"]
-transparency = 1
-albedo_color = Color(0.278431, 0.0235294, 0.0705882, 0.94)
-roughness = 0.08
-clearcoat_enabled = true
-clearcoat = 0.55
+[sub_resource type="PlaneMesh" id="36_bg_plane_mesh"]
+size = Vector2(2.2, 2.8)
 
-[sub_resource type="StandardMaterial3D" id="5_cork_mat"]
-albedo_color = Color(0.639216, 0.482353, 0.313726, 1)
-roughness = 1.0
-
-[sub_resource type="BoxMesh" id="6_floor_mesh"]
-size = Vector3(6, 0.1, 6)
+[sub_resource type="StandardMaterial3D" id="37_bg_plane_mat"]
+cull_mode = 2
+albedo_color = Color(0.635294, 0.635294, 0.635294, 1)
 
 [sub_resource type="CylinderMesh" id="7_body_mesh"]
 top_radius = 0.26
@@ -55,19 +43,65 @@ height = 1.18
 radial_segments = 72
 rings = 8
 
+[sub_resource type="StandardMaterial3D" id="3_glass_mat"]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.78, 0.9, 0.82, 0.14)
+metallic = 0.02
+roughness = 0.02
+rim_enabled = true
+rim = 0.28
+rim_tint = 0.2
+clearcoat_enabled = true
+clearcoat_roughness = 0.06
+refraction_enabled = true
+refraction_scale = 0.012
+
 [sub_resource type="CylinderMesh" id="7_body_lower_mesh"]
 top_radius = 0.242
 bottom_radius = 0.232
 height = 0.3
 radial_segments = 72
-rings = 4
 
 [sub_resource type="CylinderMesh" id="7_body_upper_mesh"]
 top_radius = 0.258
 bottom_radius = 0.252
 height = 0.42
 radial_segments = 72
-rings = 4
+
+[sub_resource type="CylinderMesh" id="34_wine_lower_mesh"]
+top_radius = 0.226
+bottom_radius = 0.214
+height = 0.86
+radial_segments = 72
+rings = 6
+
+[sub_resource type="StandardMaterial3D" id="4_wine_mat"]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.18, 0.012, 0.04, 0.96)
+metallic = 0.02
+roughness = 0.04
+rim_enabled = true
+rim = 0.28
+rim_tint = 0.18
+clearcoat_enabled = true
+clearcoat_roughness = 0.015
+refraction_enabled = true
+refraction_scale = 0.0133
+
+[sub_resource type="CylinderMesh" id="35_wine_shoulder_mesh"]
+top_radius = 0.09
+bottom_radius = 0.208
+height = 0.28
+radial_segments = 72
+rings = 5
+
+[sub_resource type="CylinderMesh" id="41_neck_wine_mesh"]
+top_radius = 0.058
+bottom_radius = 0.071
+height = 0.34
+radial_segments = 48
 
 [sub_resource type="CylinderMesh" id="8_shoulder_mesh"]
 top_radius = 0.105
@@ -90,60 +124,11 @@ height = 0.52
 radial_segments = 48
 rings = 5
 
-[sub_resource type="CylinderMesh" id="10_cork_mesh"]
-top_radius = 0.06
-bottom_radius = 0.06
-height = 0.12
-radial_segments = 24
-rings = 2
-
-[sub_resource type="CylinderMesh" id="10_lip_mesh"]
-top_radius = 0.086
-bottom_radius = 0.079
-height = 0.045
-radial_segments = 48
-rings = 2
-
-[sub_resource type="SphereMesh" id="11_punt_mesh"]
-radius = 0.12
-height = 0.2
-radial_segments = 32
-rings = 16
-is_hemisphere = true
-
-[sub_resource type="CapsuleShape3D" id="14_bottle_shape"]
-radius = 0.24
-height = 0.9
-
-[sub_resource type="CapsuleMesh" id="15_debug_capsule_mesh"]
-radius = 0.24
-mid_height = 0.9
-
-[sub_resource type="StandardMaterial3D" id="16_debug_capsule_mat"]
-transparency = 1
-albedo_color = Color(0.164706, 0.890196, 0.913725, 0.22)
-shading_mode = 0
-cull_mode = 2
-
-[sub_resource type="Shader" id="17_label_shader"]
-code = "shader_type spatial;\nrender_mode cull_disabled, depth_draw_opaque;\n\nuniform vec4 base_color : source_color = vec4(0.93, 0.89, 0.77, 1.0);\nuniform vec4 accent_color : source_color = vec4(0.42, 0.08, 0.12, 1.0);\nuniform vec4 foil_color : source_color = vec4(0.83, 0.69, 0.30, 1.0);\nuniform float stripe_scale = 7.0;\nuniform float stripe_strength = 0.28;\n\nfloat hash(vec2 p) {\n\treturn fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);\n}\n\nvoid fragment() {\n\tvec2 uv = UV;\n\tfloat stripe = 0.5 + 0.5 * sin(uv.y * stripe_scale * 6.28318);\n\tfloat paper_noise = hash(floor(uv * vec2(120.0, 240.0))) * 0.08;\n\tfloat center_band = smoothstep(0.18, 0.22, uv.y) * (1.0 - smoothstep(0.78, 0.82, uv.y));\n\tfloat trim = smoothstep(0.02, 0.055, uv.y) + (1.0 - smoothstep(0.945, 0.98, uv.y));\n\tvec3 color = base_color.rgb;\n\tcolor = mix(color, accent_color.rgb, stripe * stripe_strength * center_band);\n\tcolor = mix(color, foil_color.rgb, clamp(trim, 0.0, 1.0) * 0.85);\n\tcolor += paper_noise;\n\tALBEDO = color;\n\tROUGHNESS = 0.72;\n\tSPECULAR = 0.22;\n\tMETALLIC = clamp(trim, 0.0, 1.0) * 0.25;\n\tALPHA = 0.98;\n}"
-
-[sub_resource type="ShaderMaterial" id="18_label_mat"]
-shader = SubResource("17_label_shader")
-
-[sub_resource type="CylinderMesh" id="19_label_mesh"]
-top_radius = 0.266
-bottom_radius = 0.241
-height = 0.4
-radial_segments = 48
-rings = 5
-
 [sub_resource type="CylinderMesh" id="20_foil_mesh"]
 top_radius = 0.088
 bottom_radius = 0.1
 height = 0.26
 radial_segments = 36
-rings = 4
 
 [sub_resource type="StandardMaterial3D" id="21_foil_mat"]
 albedo_color = Color(0.65098, 0.0627451, 0.117647, 1)
@@ -159,14 +144,22 @@ height = 0.028
 radial_segments = 48
 rings = 2
 
-[sub_resource type="QuadMesh" id="27_back_label_mesh"]
-size = Vector2(0.28, 0.32)
+[sub_resource type="CylinderMesh" id="10_lip_mesh"]
+top_radius = 0.086
+bottom_radius = 0.079
+height = 0.045
+radial_segments = 48
+rings = 2
 
-[sub_resource type="StandardMaterial3D" id="28_back_label_mat"]
-transparency = 1
-albedo_color = Color(0.956863, 0.937255, 0.878431, 0.98)
-roughness = 0.9
-cull_mode = 2
+[sub_resource type="CylinderMesh" id="10_cork_mesh"]
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.12
+radial_segments = 24
+rings = 2
+
+[sub_resource type="StandardMaterial3D" id="5_cork_mat"]
+albedo_color = Color(0.639216, 0.482353, 0.313726, 1)
 
 [sub_resource type="SphereMesh" id="29_seal_mesh"]
 radius = 0.038
@@ -181,57 +174,44 @@ roughness = 0.18
 clearcoat_enabled = true
 clearcoat = 0.7
 
-[sub_resource type="CylinderMesh" id="22_neck_wine_mesh"]
-top_radius = 0.065
-bottom_radius = 0.078
-height = 0.22
-radial_segments = 24
-rings = 3
+[sub_resource type="CapsuleShape3D" id="14_bottle_shape"]
+radius = 0.24
+height = 0.9
 
-[sub_resource type="QuadMesh" id="23_front_label_mesh"]
-size = Vector2(0.34, 0.42)
+[sub_resource type="CapsuleMesh" id="15_debug_capsule_mesh"]
+radius = 0.24
 
-[sub_resource type="Shader" id="24_front_label_shader"]
-code = "shader_type spatial;\nrender_mode cull_disabled;\n\nfloat hash(vec2 p) {\n\treturn fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);\n}\n\nvoid fragment() {\n\tvec2 uv = UV;\n\tfloat border_mask = step(0.035, uv.x) * step(0.035, uv.y) * step(uv.x, 0.965) * step(uv.y, 0.965);\n\tfloat medallion = smoothstep(0.17, 0.16, distance(uv, vec2(0.5, 0.28)));\n\tfloat stripe = smoothstep(0.48, 0.5, abs(uv.y - 0.72));\n\tfloat crest = smoothstep(0.13, 0.0, distance(uv, vec2(0.5, 0.53)));\n\tfloat paper_noise = hash(floor(uv * vec2(180.0, 240.0))) * 0.07;\n\tvec3 paper = vec3(0.94, 0.91, 0.80) + paper_noise;\n\tvec3 ink = vec3(0.33, 0.07, 0.10);\n\tvec3 gold = vec3(0.84, 0.70, 0.34);\n\tvec3 color = mix(ink, paper, border_mask);\n\tcolor = mix(color, gold, medallion * 0.95);\n\tcolor = mix(color, ink, stripe * 0.88);\n\tcolor = mix(color, gold, crest * 0.5);\n\tALBEDO = color;\n\tROUGHNESS = 0.78;\n\tSPECULAR = 0.18;\n\tMETALLIC = medallion * 0.22;\n\tEMISSION = gold * medallion * 0.03;\n\tALPHA = 0.98;\n}"
-
-[sub_resource type="ShaderMaterial" id="25_front_label_mat"]
-shader = SubResource("24_front_label_shader")
-
-[sub_resource type="QuadMesh" id="31_backdrop_mesh"]
-size = Vector2(5.5, 4.2)
-
-[sub_resource type="StandardMaterial3D" id="32_backdrop_mat"]
-albedo_color = Color(0.815686, 0.909804, 0.976471, 1)
-roughness = 1.0
+[sub_resource type="StandardMaterial3D" id="16_debug_capsule_mat"]
+transparency = 1
 cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.164706, 0.890196, 0.913725, 0.22)
 
-[sub_resource type="SphereShape3D" id="33_reflection_probe_shape"]
-radius = 3.0
-
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=54389352]
 script = ExtResource("1_main")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=900156787]
 environment = SubResource("1_env")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1239079541]
 transform = Transform3D(0.86273, -0.469846, 0.18713, 0, 0.369644, 0.929173, -0.505671, -0.801643, 0.319038, 0, 3.05417, 0)
-light_energy = 2.6
+light_color = Color(1, 0.92549, 0.788235, 1)
+light_energy = 4.2
 shadow_enabled = true
 
-[node name="FillLight" type="OmniLight3D" parent="."]
+[node name="FillLight" type="OmniLight3D" parent="." unique_id=72889812]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.37, 1.7, 2.24)
 light_color = Color(0.980392, 0.960784, 0.917647, 1)
 light_energy = 1.1
 omni_range = 8.0
 
-[node name="BackLight" type="OmniLight3D" parent="."]
+[node name="BackLight" type="OmniLight3D" parent="." unique_id=1354318657]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.4, -1.5)
 light_color = Color(0.717647, 0.87451, 1, 1)
 light_energy = 1.75
 omni_range = 8.5
 
-[node name="RimLight" type="SpotLight3D" parent="."]
+[node name="RimLight" type="SpotLight3D" parent="." unique_id=1127123785]
 transform = Transform3D(0.987087, 0.114863, -0.11161, 0, 0.696135, 0.717911, 0.160182, -0.708648, 0.687142, -0.92, 2.08, -2.12)
 light_color = Color(1, 0.956863, 0.909804, 1)
 light_energy = 3.0
@@ -239,150 +219,146 @@ spot_range = 9.0
 spot_angle = 34.0
 spot_angle_attenuation = 0.4
 
-[node name="CameraRig" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+[node name="CameraRig" type="Node3D" parent="." unique_id=1843130117]
+script = ExtResource("2_camera_zoom_controller")
 
-[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+[node name="Camera3D" type="Camera3D" parent="CameraRig" unique_id=401078032]
 transform = Transform3D(1, 0, 0, 0, 0.991445, 0.130526, 0, -0.130526, 0.991445, 0, 1.45, 3.2)
 current = true
 fov = 60.0
 
-[node name="Ground" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
-mesh = SubResource("6_floor_mesh")
-surface_material_override/0 = SubResource("2_floor_mat")
+[node name="Sun" type="MeshInstance3D" parent="." unique_id=2043819283]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.35, 3.15, -4.4)
+mesh = SubResource("31_sun_mesh")
+surface_material_override/0 = SubResource("32_sun_mat")
 
-[node name="Backdrop" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.999391, -0.0348995, 0, 0.0348995, 0.999391, 0, 2.0, -2.35)
-mesh = SubResource("31_backdrop_mesh")
-surface_material_override/0 = SubResource("32_backdrop_mat")
+[node name="SunLight" type="SpotLight3D" parent="." unique_id=1096584215]
+transform = Transform3D(0.994522, 0.0425631, 0.0955735, 0, 0.913812, -0.406138, -0.104622, 0.403914, 0.908807, 2.15, 2.95, -2.55)
+light_color = Color(1, 0.862745, 0.564706, 1)
+light_energy = 7.0
+shadow_enabled = true
+spot_range = 16.0
+spot_angle = 42.0
+spot_angle_attenuation = 0.35
 
-[node name="ReflectionProbe" type="ReflectionProbe" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
-size = Vector3(6, 5, 6)
+[node name="BackPlaneLeft" type="MeshInstance3D" parent="." unique_id=1204139828]
+transform = Transform3D(1, 0, 0, 0, -0.14487427, -0.9894501, 0, 0.9894501, -0.14487427, -0.19006664, 1.35, -1.8)
+visible = false
+mesh = SubResource("36_bg_plane_mesh")
+surface_material_override/0 = SubResource("37_bg_plane_mat")
+
+[node name="BackPlaneRight" type="MeshInstance3D" parent="." unique_id=84250737]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15050638, -0.37263083, -0.51718974)
+mesh = SubResource("36_bg_plane_mesh")
+surface_material_override/0 = SubResource("37_bg_plane_mat")
+
+[node name="ReflectionProbe" type="ReflectionProbe" parent="." unique_id=1225801306]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 update_mode = 1
-interior = true
+size = Vector3(6, 5, 6)
 box_projection = true
+interior = true
 
-[node name="Bottle" type="Node3D" parent="."]
+[node name="Bottle" type="Node3D" parent="." unique_id=18856937]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)
-groups = ["bottle_grab"]
+script = ExtResource("3_bottle_controller")
 
-[node name="BodyGlass" type="MeshInstance3D" parent="Bottle"]
+[node name="BodyGlass" type="MeshInstance3D" parent="Bottle" unique_id=1099665006]
 mesh = SubResource("7_body_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="BodyLowerDetail" type="MeshInstance3D" parent="Bottle"]
+[node name="BodyLowerDetail" type="MeshInstance3D" parent="Bottle" unique_id=90132651]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.39, 0)
 mesh = SubResource("7_body_lower_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="BodyUpperDetail" type="MeshInstance3D" parent="Bottle"]
+[node name="BodyUpperDetail" type="MeshInstance3D" parent="Bottle" unique_id=708806564]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.19, 0)
 mesh = SubResource("7_body_upper_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="BodyWine" type="MeshInstance3D" parent="Bottle"]
-transform = Transform3D(0.92, 0, 0, 0, 0.88, 0, 0, 0, 0.92, 0, -0.08, 0)
-mesh = SubResource("7_body_mesh")
+[node name="BodyWine" type="MeshInstance3D" parent="Bottle" unique_id=539491639]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.245, 0)
+cast_shadow = 0
+mesh = SubResource("34_wine_lower_mesh")
 surface_material_override/0 = SubResource("4_wine_mat")
 
-[node name="BasePunt" type="MeshInstance3D" parent="Bottle"]
-transform = Transform3D(1, 0, 0, 0, -1, -8.74228e-08, 0, 8.74228e-08, -1, 0, -0.69, 0)
-mesh = SubResource("11_punt_mesh")
-surface_material_override/0 = SubResource("3_glass_mat")
+[node name="ShoulderWine" type="MeshInstance3D" parent="Bottle" unique_id=1366877410]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.39, 0)
+cast_shadow = 0
+mesh = SubResource("35_wine_shoulder_mesh")
+surface_material_override/0 = SubResource("4_wine_mat")
 
-[node name="AnimatedLabel" type="MeshInstance3D" parent="Bottle"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0)
-mesh = SubResource("19_label_mesh")
-surface_material_override/0 = SubResource("18_label_mat")
+[node name="NeckWine" type="MeshInstance3D" parent="Bottle" unique_id=1077552242]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+cast_shadow = 0
+mesh = SubResource("41_neck_wine_mesh")
+surface_material_override/0 = SubResource("4_wine_mat")
 
-[node name="FrontLabel" type="MeshInstance3D" parent="Bottle"]
-transform = Transform3D(1, 0, 0, 0, 0.987688, 0.156434, 0, -0.156434, 0.987688, 0, -0.02, 0.242)
-mesh = SubResource("23_front_label_mesh")
-surface_material_override/0 = SubResource("25_front_label_mat")
+[node name="ShadowBodyProxy" type="MeshInstance3D" parent="Bottle" unique_id=530946345]
+transform = Transform3D(1.01, 0, 0, 0, 1.01, 0, 0, 0, 1.01, 0, 0, 0)
+visible = false
+cast_shadow = 3
+mesh = SubResource("7_body_mesh")
 
-[node name="BackLabel" type="MeshInstance3D" parent="Bottle"]
-transform = Transform3D(-1, 0, 0, 0, 0.99863, -0.052336, 0, -0.052336, -0.99863, 0, -0.01, -0.235)
-mesh = SubResource("27_back_label_mesh")
-surface_material_override/0 = SubResource("28_back_label_mat")
+[node name="ShadowShoulderProxy" type="MeshInstance3D" parent="Bottle" unique_id=1152335383]
+transform = Transform3D(1.01, 0, 0, 0, 1.01, 0, 0, 0, 1.01, 0, 0.76, 0)
+visible = false
+cast_shadow = 3
+mesh = SubResource("8_shoulder_mesh")
 
-[node name="Shoulder" type="MeshInstance3D" parent="Bottle"]
+[node name="Shoulder" type="MeshInstance3D" parent="Bottle" unique_id=106306216]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.76, 0)
 mesh = SubResource("8_shoulder_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="NeckCollarGlass" type="MeshInstance3D" parent="Bottle"]
+[node name="NeckCollarGlass" type="MeshInstance3D" parent="Bottle" unique_id=732031676]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.16, 0)
 mesh = SubResource("8_neck_collar_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="Neck" type="MeshInstance3D" parent="Bottle"]
+[node name="Neck" type="MeshInstance3D" parent="Bottle" unique_id=1285243771]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.18, 0)
 mesh = SubResource("9_neck_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="NeckWine" type="MeshInstance3D" parent="Bottle"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.03, 0)
-mesh = SubResource("22_neck_wine_mesh")
-surface_material_override/0 = SubResource("4_wine_mat")
-
-[node name="Foil" type="MeshInstance3D" parent="Bottle"]
+[node name="Foil" type="MeshInstance3D" parent="Bottle" unique_id=1588243110]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.31, 0)
 mesh = SubResource("20_foil_mesh")
 surface_material_override/0 = SubResource("21_foil_mat")
 
-[node name="FoilRingTop" type="MeshInstance3D" parent="Bottle"]
+[node name="FoilRingTop" type="MeshInstance3D" parent="Bottle" unique_id=18035974]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.42, 0)
 mesh = SubResource("26_foil_ring_mesh")
 surface_material_override/0 = SubResource("21_foil_mat")
 
-[node name="FoilRingBottom" type="MeshInstance3D" parent="Bottle"]
+[node name="FoilRingBottom" type="MeshInstance3D" parent="Bottle" unique_id=1040002013]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.215, 0)
 mesh = SubResource("26_foil_ring_mesh")
 surface_material_override/0 = SubResource("21_foil_mat")
 
-[node name="Lip" type="MeshInstance3D" parent="Bottle"]
+[node name="Lip" type="MeshInstance3D" parent="Bottle" unique_id=892404579]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.58, 0)
 mesh = SubResource("10_lip_mesh")
 surface_material_override/0 = SubResource("3_glass_mat")
 
-[node name="Cork" type="MeshInstance3D" parent="Bottle"]
+[node name="Cork" type="MeshInstance3D" parent="Bottle" unique_id=1614252489]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 mesh = SubResource("10_cork_mesh")
 surface_material_override/0 = SubResource("5_cork_mat")
 
-[node name="SealStamp" type="MeshInstance3D" parent="Bottle"]
+[node name="SealStamp" type="MeshInstance3D" parent="Bottle" unique_id=1037800378]
 transform = Transform3D(0.731354, 0, 0.681998, 0, 1, 0, -0.681998, 0, 0.731354, 0.067, 1.325, 0.086)
 mesh = SubResource("29_seal_mesh")
 surface_material_override/0 = SubResource("30_seal_mat")
 
-[node name="GrabBody" type="StaticBody3D" parent="Bottle"]
-groups = ["bottle_grab"]
+[node name="GrabBody" type="StaticBody3D" parent="Bottle" unique_id=711048333]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Bottle/GrabBody"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Bottle/GrabBody" unique_id=1114775126]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("14_bottle_shape")
 
-[node name="DebugMesh" type="MeshInstance3D" parent="Bottle/GrabBody"]
+[node name="DebugMesh" type="MeshInstance3D" parent="Bottle/GrabBody" unique_id=1798757266]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 mesh = SubResource("15_debug_capsule_mesh")
 surface_material_override/0 = SubResource("16_debug_capsule_mat")
-
-; Menu disabled for inspect-first flow.
-; Previous nodes kept commented out intentionally:
-; MenuViewport
-; MenuRoot
-; Panel
-; VBoxContainer
-; Title
-; Subtitle
-; ButtonExplore
-; ButtonInspect
-; ButtonStart
-; StatusLabel
-; MenuBoard
-; MenuHitArea
-; ExploreHitArea
-; InspectHitArea
-; StartHitArea

@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/vial.gd" id="1_vial_script"]
+
+[node name="Vial" type="Node3D"]
+script = ExtResource("1_vial_script")
+
+[node name="GlassBody" type="MeshInstance3D" parent="."]
+
+[node name="Liquid" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+
+[node name="Cap" type="MeshInstance3D" parent="."]
