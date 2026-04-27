@@ -126,5 +126,39 @@
       "position": [0.0, 0.0, 1.55],
       "rotation": [0.0, 0.0, 0.0]
     }
-  }
+  },
+  "narrative_steps": [
+    {
+      "id": "welcome_demo",
+      "title": "Begin The Aegean Tasting",
+      "text": "Start with the vial and follow the core notes before entering the cellar.",
+      "target_type": "free",
+      "target_id": "",
+      "required": false
+    },
+    {
+      "id": "demo_aroma_step",
+      "title": "Read The Aroma",
+      "text": "Open the Aroma hotspot to identify the dark fruit and spice profile.",
+      "target_type": "hotspot",
+      "target_id": "aroma",
+      "required": true
+    },
+    {
+      "id": "demo_origin_step",
+      "title": "Connect The Origin",
+      "text": "View the Origin hotspot to connect the wine to its mountain-grown fruit.",
+      "target_type": "hotspot",
+      "target_id": "origin",
+      "required": true
+    },
+    {
+      "id": "demo_cellar_step",
+      "title": "Enter The Stone Cellar",
+      "text": "In the winery, look at the old cellar casks and tap to read the cellar note.",
+      "target_type": "zone",
+      "target_id": "barrel_stack_note",
+      "required": true
+    }
+  ]
 }

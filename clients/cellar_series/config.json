@@ -134,5 +134,47 @@
       "position": [0.0, 0.0, 1.75],
       "rotation": [0.0, 0.0, 0.0]
     }
-  }
+  },
+  "narrative_steps": [
+    {
+      "id": "welcome_cellar_series",
+      "title": "Coastal White Preview",
+      "text": "Follow the bright tasting path from aromatics into the modern tasting room.",
+      "target_type": "free",
+      "target_id": "",
+      "required": false
+    },
+    {
+      "id": "cellar_aromatics_step",
+      "title": "Aromatic Lift",
+      "text": "Open the Aromatics hotspot to start with citrus and white flower notes.",
+      "target_type": "hotspot",
+      "target_id": "aromatics",
+      "required": true
+    },
+    {
+      "id": "cellar_clarity_step",
+      "title": "Visual Clarity",
+      "text": "View the Clarity hotspot to focus on color and energy.",
+      "target_type": "hotspot",
+      "target_id": "clarity",
+      "required": true
+    },
+    {
+      "id": "cellar_tasting_point_step",
+      "title": "Modern Tasting Point",
+      "text": "In the tasting room, look at the coastal tasting point and tap to open its note.",
+      "target_type": "zone",
+      "target_id": "modern_table_note",
+      "required": true
+    },
+    {
+      "id": "cellar_sign_step",
+      "title": "Cellar Series Sign",
+      "text": "Finish by opening the Cellar Series sign note in the tasting room.",
+      "target_type": "zone",
+      "target_id": "coastal_sign_note",
+      "required": false
+    }
+  ]
 }

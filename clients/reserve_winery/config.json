@@ -117,5 +117,39 @@
       "position": [0.15, 0.0, 1.35],
       "rotation": [0.0, -4.0, 0.0]
     }
-  }
+  },
+  "narrative_steps": [
+    {
+      "id": "welcome_reserve",
+      "title": "Reserve Cellar Brief",
+      "text": "Begin with the reserve vial, then move toward the cellar selection table.",
+      "target_type": "free",
+      "target_id": "",
+      "required": false
+    },
+    {
+      "id": "reserve_barrel_step",
+      "title": "Barrel Selection",
+      "text": "Open the Barrel hotspot to understand the oak program.",
+      "target_type": "hotspot",
+      "target_id": "barrel",
+      "required": true
+    },
+    {
+      "id": "reserve_texture_step",
+      "title": "Texture And Finish",
+      "text": "View the Texture hotspot to focus on structure and graphite length.",
+      "target_type": "hotspot",
+      "target_id": "texture",
+      "required": true
+    },
+    {
+      "id": "reserve_table_step",
+      "title": "Reserve Selection Table",
+      "text": "In the cellar, look at the reserve selection table and tap to open its note.",
+      "target_type": "zone",
+      "target_id": "reserve_table_note",
+      "required": true
+    }
+  ]
 }

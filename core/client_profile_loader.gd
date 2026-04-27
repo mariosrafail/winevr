@@ -14,7 +14,8 @@ const REQUIRED_FIELDS := [
 	"qr_id",
 	"vial_settings",
 	"experience_settings",
-	"environment_settings"
+	"environment_settings",
+	"narrative_steps"
 ]
 
 var active_client_id: String = ""
@@ -186,6 +187,10 @@ func _validate_profile(profile: Dictionary) -> bool:
 		push_warning("Client profile environment_settings.camera_start must be a dictionary.")
 		return false
 
+	if typeof(profile.get("narrative_steps")) != TYPE_ARRAY:
+		push_warning("Client profile narrative_steps must be an array.")
+		return false
+
 	return true
 
 
@@ -209,6 +214,7 @@ func _normalize_profile(profile: Dictionary) -> void:
 
 	profile["experience_settings"] = experience_settings
 	_normalize_environment_settings(profile)
+	_normalize_narrative_steps(profile)
 
 
 func _normalize_environment_settings(profile: Dictionary) -> void:
@@ -337,6 +343,25 @@ func _normalize_number_array(value: Variant, expected_size: int, fallback: Array
 	for index in range(expected_size):
 		normalized.append(float(source[index]))
 	return normalized
+
+
+func _normalize_narrative_steps(profile: Dictionary) -> void:
+	var normalized_steps: Array = []
+	for raw_step in profile.get("narrative_steps", []):
+		if typeof(raw_step) != TYPE_DICTIONARY:
+			continue
+		var step: Dictionary = (raw_step as Dictionary).duplicate(true)
+		step["id"] = str(step.get("id", "step_%s" % normalized_steps.size()))
+		step["title"] = str(step.get("title", "Guided Step"))
+		step["text"] = str(step.get("text", ""))
+		step["target_type"] = str(step.get("target_type", "free"))
+		step["target_id"] = str(step.get("target_id", ""))
+		step["required"] = bool(step.get("required", true))
+		if step.has("next_step_id"):
+			step["next_step_id"] = str(step.get("next_step_id", ""))
+		normalized_steps.append(step)
+
+	profile["narrative_steps"] = normalized_steps
 
 
 func _validate_registry_entry(entry: Dictionary, index: int) -> bool:
