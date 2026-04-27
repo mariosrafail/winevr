@@ -18,19 +18,25 @@
         "id": "aroma",
         "title": "Aroma",
         "text": "Dark cherry, dried fig, and warm spice.",
-        "screen_position": [0.74, 0.33]
+        "screen_position": [0.74, 0.33],
+        "category": "tasting",
+        "viewed_required_for_winery": true
       },
       {
         "id": "origin",
         "title": "Origin",
         "text": "Mountain-grown fruit from limestone-rich soils.",
-        "screen_position": [0.8, 0.56]
+        "screen_position": [0.8, 0.56],
+        "category": "vineyard",
+        "viewed_required_for_winery": true
       },
       {
         "id": "craft",
         "title": "Craft",
         "text": "Small-batch cellar work built around clarity, freshness, and long structure.",
-        "screen_position": [0.62, 0.67]
+        "screen_position": [0.62, 0.67],
+        "category": "cellar",
+        "viewed_required_for_winery": true
       }
     ],
     "scenes": [

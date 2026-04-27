@@ -5,38 +5,48 @@
 [ext_resource type="Script" path="res://scripts/wine_vr_experience.gd" id="3_experience_script"]
 
 [sub_resource type="StyleBoxFlat" id="1_dark_panel"]
-bg_color = Color(0.054902, 0.0588235, 0.0705882, 0.88)
-corner_radius_top_left = 18
-corner_radius_top_right = 18
-corner_radius_bottom_right = 18
-corner_radius_bottom_left = 18
-content_margin_left = 18.0
-content_margin_top = 18.0
-content_margin_right = 18.0
-content_margin_bottom = 18.0
+bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.92, 0.76, 0.45, 0.22)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
 
 [sub_resource type="StyleBoxFlat" id="2_modal_panel"]
-bg_color = Color(0.101961, 0.109804, 0.121569, 0.94)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
-content_margin_left = 18.0
-content_margin_top = 18.0
-content_margin_right = 18.0
-content_margin_bottom = 18.0
+bg_color = Color(0.07, 0.074, 0.082, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.78, 0.45, 0.28)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
 
 [sub_resource type="LabelSettings" id="3_eyebrow"]
-font_size = 14
-font_color = Color(0.858824, 0.756863, 0.564706, 1)
+font_size = 13
+font_color = Color(0.91, 0.76, 0.49, 1)
 
 [sub_resource type="LabelSettings" id="4_title"]
-font_size = 30
+font_size = 28
 font_color = Color(0.976471, 0.968627, 0.941176, 1)
 
 [sub_resource type="LabelSettings" id="5_body"]
 font_size = 15
-font_color = Color(0.819608, 0.831373, 0.85098, 1)
+font_color = Color(0.84, 0.86, 0.86, 1)
 
 [node name="WineVRExperience" type="Node"]
 script = ExtResource("3_experience_script")
@@ -47,14 +57,15 @@ script = ExtResource("3_experience_script")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="FadeRect" type="ColorRect" parent="CanvasLayer"]
+[node name="PanelDim" type="ColorRect" parent="CanvasLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 0)
+color = Color(0, 0, 0, 0.46)
+modulate = Color(1, 1, 1, 0)
 
 [node name="IntroScreen" type="Control" parent="CanvasLayer"]
 anchors_preset = 15
@@ -89,23 +100,23 @@ theme_override_constants/margin_bottom = 2
 theme_override_constants/separation = 10
 
 [node name="WineryName" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-text = "Demo Winery"
+text = ""
 label_settings = SubResource("3_eyebrow")
 
 [node name="WineName" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-text = "Aegean Reserve Red"
+text = ""
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
 [node name="Region" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-text = "Nemea, Greece"
+text = ""
 label_settings = SubResource("5_body")
 
 [node name="IntroText" type="RichTextLabel" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 150)
 fit_content = true
 scroll_active = false
-text = "Intro text"
+text = ""
 
 [node name="StartButton" type="Button" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 44)
@@ -137,23 +148,23 @@ theme_override_constants/margin_bottom = 2
 theme_override_constants/separation = 8
 
 [node name="WineryName" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-text = "Demo Winery"
+text = ""
 label_settings = SubResource("3_eyebrow")
 
 [node name="WineName" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-text = "Aegean Reserve Red"
+text = ""
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
 [node name="Region" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-text = "Nemea, Greece"
+text = ""
 label_settings = SubResource("5_body")
 
 [node name="IntroText" type="RichTextLabel" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 118)
 fit_content = true
 scroll_active = false
-text = "Info text"
+text = ""
 
 [node name="EnterWineryButton" type="Button" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 42)
@@ -185,18 +196,26 @@ theme_override_constants/margin_bottom = 2
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
-text = "Hotspot"
+text = ""
 label_settings = SubResource("4_title")
 
 [node name="Text" type="RichTextLabel" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 96)
 fit_content = true
 scroll_active = false
-text = "Hotspot copy"
+text = ""
 
 [node name="CloseButton" type="Button" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 38)
 text = "Close"
+
+[node name="InspectionHint" type="Label" parent="CanvasLayer/InspectionHUD"]
+offset_left = 24.0
+offset_top = 674.0
+offset_right = 360.0
+offset_bottom = 704.0
+text = "Drag to inspect the vial"
+label_settings = SubResource("5_body")
 
 [node name="WineryHUD" type="Control" parent="CanvasLayer"]
 anchors_preset = 15
@@ -224,7 +243,7 @@ theme_override_constants/margin_bottom = 2
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
-text = "Demo Winery / Classic Cellar"
+text = ""
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
@@ -232,7 +251,7 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(0, 90)
 fit_content = true
 scroll_active = false
-text = "Winery info"
+text = ""
 
 [node name="ReturnButton" type="Button" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
 custom_minimum_size = Vector2(0, 40)
@@ -264,7 +283,7 @@ theme_override_constants/margin_bottom = 2
 theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox"]
-text = "Cellar Entry"
+text = ""
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
@@ -272,8 +291,17 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(0, 96)
 fit_content = true
 scroll_active = false
-text = "Door info"
+text = ""
 
 [node name="CloseButton" type="Button" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox"]
 custom_minimum_size = Vector2(0, 38)
 text = "Close"
+
+[node name="FadeRect" type="ColorRect" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)

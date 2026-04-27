@@ -105,4 +105,14 @@ func _normalize_profile(profile: Dictionary) -> void:
 	if not experience_settings.has("hotspots") and experience_settings.has("info_hotspots"):
 		experience_settings["hotspots"] = experience_settings.get("info_hotspots", [])
 
+	var normalized_hotspots: Array = []
+	for raw_hotspot in experience_settings.get("hotspots", []):
+		if typeof(raw_hotspot) != TYPE_DICTIONARY:
+			continue
+		var hotspot: Dictionary = raw_hotspot.duplicate(true)
+		hotspot["category"] = str(hotspot.get("category", "general"))
+		hotspot["viewed_required_for_winery"] = bool(hotspot.get("viewed_required_for_winery", true))
+		normalized_hotspots.append(hotspot)
+	experience_settings["hotspots"] = normalized_hotspots
+
 	profile["experience_settings"] = experience_settings

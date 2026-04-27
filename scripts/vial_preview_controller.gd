@@ -16,6 +16,7 @@ class_name VialPreviewController
 
 var _is_dragging: bool = false
 var _interaction_enabled: bool = true
+var _idle_rotation_paused: bool = false
 
 
 func _ready() -> void:
@@ -23,7 +24,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not _is_dragging:
+	if not _is_dragging and not _idle_rotation_paused:
 		vial.rotate_y(delta * idle_rotate_speed)
 
 
@@ -67,6 +68,10 @@ func set_interaction_enabled(enabled: bool) -> void:
 
 func set_camera_active(active: bool) -> void:
 	camera.current = active
+
+
+func set_idle_rotation_paused(paused: bool) -> void:
+	_idle_rotation_paused = paused
 
 
 func reset_view() -> void:

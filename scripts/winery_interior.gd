@@ -15,13 +15,17 @@ signal door_interacted
 @onready var interaction_ray: RayCast3D = $PlayerRig/CameraPivot/Camera3D/InteractionRay
 @onready var held_vial: Vial = $PlayerRig/CameraPivot/Camera3D/HeldVial
 @onready var door_hinge: Node3D = $DoorAssembly/DoorHinge
+@onready var door_mesh: MeshInstance3D = $DoorAssembly/DoorHinge/Door/DoorMesh
 
 var _controls_enabled: bool = false
 var _look_dragging: bool = false
 var _door_open: bool = false
+var _door_highlighted: bool = false
+var _door_material: StandardMaterial3D
 
 
 func _ready() -> void:
+	_prepare_door_material()
 	apply_client_profile(ClientProfileLoader.get_active_client_data())
 	_update_door_prompt()
 
@@ -73,6 +77,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			deg_to_rad(min_pitch_degrees),
 			deg_to_rad(max_pitch_degrees)
 		)
+		_update_door_prompt()
 
 
 func apply_client_profile(client_data: Dictionary) -> void:
@@ -90,6 +95,8 @@ func set_controls_enabled(enabled: bool) -> void:
 	_controls_enabled = enabled
 	if not enabled:
 		_look_dragging = false
+		_set_door_highlight(false)
+		door_prompt_changed.emit("")
 
 
 func set_camera_active(active: bool) -> void:
@@ -120,7 +127,35 @@ func _toggle_door() -> void:
 
 
 func _update_door_prompt() -> void:
-	door_prompt_changed.emit("")
+	var looking_at_door: bool = false
+	interaction_ray.force_raycast_update()
+	if interaction_ray.is_colliding():
+		var collider: Object = interaction_ray.get_collider()
+		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
+
+	_set_door_highlight(looking_at_door)
+	door_prompt_changed.emit("Tap / Click to open the cellar door" if looking_at_door else "")
+
+
+func _prepare_door_material() -> void:
+	var source_material := door_mesh.get_surface_override_material(0)
+	if source_material is StandardMaterial3D:
+		_door_material = (source_material as StandardMaterial3D).duplicate()
+	else:
+		_door_material = StandardMaterial3D.new()
+		_door_material.albedo_color = Color(0.329412, 0.211765, 0.121569, 1)
+	_door_material.emission_enabled = true
+	_door_material.emission = Color(0.0, 0.0, 0.0, 1.0)
+	door_mesh.set_surface_override_material(0, _door_material)
+
+
+func _set_door_highlight(enabled: bool) -> void:
+	if _door_highlighted == enabled or _door_material == null:
+		return
+
+	_door_highlighted = enabled
+	_door_material.emission = Color(0.95, 0.68, 0.28, 1.0) if enabled else Color(0.0, 0.0, 0.0, 1.0)
+	_door_material.emission_energy_multiplier = 0.55 if enabled else 0.0
 
 
 func _parse_color(value, default_color: Color = Color.WHITE) -> Color:
