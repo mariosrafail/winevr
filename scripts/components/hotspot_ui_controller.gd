@@ -28,6 +28,8 @@ func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label,
 	close_button = close
 	panel_dim = dim
 	vial_preview = preview
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	close_button.pressed.connect(close_panel)
 	panel.modulate.a = 0.0
 	panel.scale = Vector2(0.96, 0.96)
@@ -141,6 +143,7 @@ func clear_target_highlight() -> void:
 func _on_hotspot_pressed(hotspot_data: Dictionary) -> void:
 	var hotspot_id: String = get_hotspot_id(hotspot_data)
 	viewed_ids[hotspot_id] = true
+	_debug_enter_winery_state("hotspot viewed: %s" % hotspot_id)
 	title_label.text = str(hotspot_data.get("title", "Tasting Note"))
 	text_label.text = str(hotspot_data.get("text", ""))
 	_update_marker_viewed_state()
@@ -192,7 +195,27 @@ func _update_marker_viewed_state() -> void:
 
 
 func _update_enter_winery_state() -> void:
-	enter_winery_state_changed.emit(can_enter_winery())
+	var all_required_viewed: bool = can_enter_winery()
+	_debug_enter_winery_state("required hotspots complete" if all_required_viewed else "required hotspots pending")
+	enter_winery_state_changed.emit(all_required_viewed)
+
+
+func _debug_enter_winery_state(reason: String) -> void:
+	if not OS.is_debug_build():
+		return
+	print("[WineVR][EnterWinery] %s | required=%s viewed=%s" % [
+		reason,
+		_debug_sorted_keys(required_ids),
+		_debug_sorted_keys(viewed_ids)
+	])
+
+
+func _debug_sorted_keys(source: Dictionary) -> Array[String]:
+	var keys: Array[String] = []
+	for key in source.keys():
+		keys.append(str(key))
+	keys.sort()
+	return keys
 
 
 func _stop_pulse() -> void:

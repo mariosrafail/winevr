@@ -114,6 +114,27 @@
         "label_color": "#2F4C4B",
         "label_offset": [0.0, 0.5, 0.04],
         "visible": true
+      },
+      {
+        "id": "coastal_tasting_glass",
+        "type": "wine_glass",
+        "position": [-0.42, 0.72, -0.52],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [0.7, 0.7, 0.7],
+        "color": "#EAF8F5",
+        "visible": true
+      },
+      {
+        "id": "coastal_tasting_card",
+        "type": "tasting_card",
+        "position": [0.38, 0.7, -0.5],
+        "rotation": [-8.0, 10.0, 0.0],
+        "scale": [0.92, 0.92, 0.92],
+        "color": "#F1E5C8",
+        "label": "Coastal Notes",
+        "label_color": "#2F4C4B",
+        "label_offset": [0.0, 0.22, 0.0],
+        "visible": true
       }
     ],
     "zones": [

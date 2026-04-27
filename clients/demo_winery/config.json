@@ -111,6 +111,28 @@
         "scale": [0.42, 1.35, 0.42],
         "color": "#8D8476",
         "visible": true
+      },
+      {
+        "id": "aegean_bottle_silhouette",
+        "type": "bottle_silhouette",
+        "position": [-0.52, 0.0, -2.2],
+        "rotation": [0.0, 12.0, 0.0],
+        "scale": [0.9, 0.9, 0.9],
+        "color": "#20120E",
+        "label": "Aegean Reserve",
+        "label_offset": [0.0, 0.98, 0.0],
+        "visible": true
+      },
+      {
+        "id": "aegean_wall_plaque",
+        "type": "wall_plaque",
+        "position": [0.0, 1.35, -3.48],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.0, 0.8, 1.0],
+        "color": "#4A3320",
+        "label": "Nemea Cellar",
+        "label_offset": [0.0, 0.08, 0.05],
+        "visible": true
       }
     ],
     "zones": [

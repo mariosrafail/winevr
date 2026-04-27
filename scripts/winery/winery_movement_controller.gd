@@ -29,9 +29,9 @@ func physics_update(delta: float) -> bool:
 
 	var input_vector: Vector3 = Vector3.ZERO
 	if Input.is_key_pressed(KEY_W):
-		input_vector.z -= 1.0
-	if Input.is_key_pressed(KEY_S):
 		input_vector.z += 1.0
+	if Input.is_key_pressed(KEY_S):
+		input_vector.z -= 1.0
 	if Input.is_key_pressed(KEY_A):
 		input_vector.x -= 1.0
 	if Input.is_key_pressed(KEY_D):
@@ -59,6 +59,7 @@ func handle_input(event: InputEvent) -> bool:
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		look_dragging = event.pressed
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if look_dragging else Input.MOUSE_MODE_VISIBLE
 		return true
 
 	if event is InputEventMouseMotion and look_dragging:
@@ -73,15 +74,17 @@ func set_controls_enabled(enabled: bool) -> void:
 	if not enabled:
 		look_dragging = false
 		mobile_move_vector = Vector2.ZERO
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func set_mobile_move_axis(axis: String, pressed: bool) -> void:
 	var amount: float = 1.0 if pressed else 0.0
 	match axis:
 		"forward":
-			mobile_move_vector.y = -amount
-		"back":
 			mobile_move_vector.y = amount
+		"back":
+			mobile_move_vector.y = -amount
 		"left":
 			mobile_move_vector.x = -amount
 		"right":

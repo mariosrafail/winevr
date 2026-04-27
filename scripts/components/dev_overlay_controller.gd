@@ -9,7 +9,8 @@ var current_client_id: String = ""
 var current_state: String = ""
 var current_step: String = ""
 var active_target: String = ""
-var input_hint: String = "Mouse/touch. Dev: R reset, Esc QR, F3 overlay."
+var viewport_mode: String = "native"
+var input_hint: String = "Mouse/touch. Dev: R reset, Esc QR, F3 overlay, F7 demo, F8/F9 UI, F10 view."
 
 
 func setup(parent_canvas_layer: CanvasLayer) -> void:
@@ -38,7 +39,7 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 
 func layout(viewport_size: Vector2, margin: float) -> void:
 	panel.position = Vector2(margin, margin)
-	panel.size = Vector2(minf(360.0, viewport_size.x - margin * 2.0), 142.0)
+	panel.size = Vector2(minf(360.0, viewport_size.x - margin * 2.0), 160.0)
 
 
 func toggle() -> void:
@@ -47,6 +48,12 @@ func toggle() -> void:
 	if visible_enabled:
 		canvas_layer.move_child(panel, canvas_layer.get_child_count() - 1)
 		_refresh_text()
+
+
+func hide_overlay() -> void:
+	visible_enabled = false
+	if panel != null:
+		panel.visible = false
 
 
 func set_context(client_id: String, state_name: String, step_name: String, target_type: String, target_id: String) -> void:
@@ -61,17 +68,24 @@ func set_context(client_id: String, state_name: String, step_name: String, targe
 		_refresh_text()
 
 
+func set_viewport_mode(mode_name: String) -> void:
+	viewport_mode = mode_name
+	if visible_enabled:
+		_refresh_text()
+
+
 func _process(_delta: float) -> void:
 	if visible_enabled:
 		_refresh_text()
 
 
 func _refresh_text() -> void:
-	label.text = "Client: %s\nState: %s\nStep: %s\nTarget: %s\nFPS: %s\nInput: %s" % [
+	label.text = "Client: %s\nState: %s\nStep: %s\nTarget: %s\nViewport: %s\nFPS: %s\nInput: %s" % [
 		current_client_id if not current_client_id.is_empty() else "<none>",
 		current_state if not current_state.is_empty() else "<unknown>",
 		current_step if not current_step.is_empty() else "<none>",
 		active_target if not active_target.is_empty() else "<none>",
+		viewport_mode,
 		Engine.get_frames_per_second(),
 		input_hint
 	]

@@ -80,6 +80,8 @@ func apply_client_profile(client_data: Dictionary) -> void:
 	vial.liquid_fill_amount = float(vial_settings.get("liquid_fill_amount", vial.liquid_fill_amount))
 	vial.liquid_color = _parse_color(vial_settings.get("liquid_color", vial.liquid_color))
 	vial.cap_color = _parse_color(vial_settings.get("cap_color", vial.cap_color))
+	vial.liquid_tilt_response = float(vial_settings.get("liquid_tilt_response", vial.liquid_tilt_response))
+	vial.liquid_slosh_response = float(vial_settings.get("liquid_slosh_response", vial.liquid_slosh_response))
 	vial.rebuild_vial()
 
 	var environment_settings: Dictionary = _dict_value(client_data.get("environment_settings", {}))
@@ -106,6 +108,7 @@ func set_idle_rotation_paused(paused: bool) -> void:
 func reset_view() -> void:
 	if vial != null:
 		vial.rotation = Vector3.ZERO
+		vial.reset_liquid_motion()
 	if camera != null:
 		camera.position.z = 0.62
 
@@ -126,6 +129,7 @@ func _rotate_vial(relative_motion: Vector2) -> void:
 	vial.rotate_y(relative_motion.x * drag_rotate_speed)
 	vial.rotate_x(relative_motion.y * drag_rotate_speed * vertical_drag_ratio)
 	vial.rotation.x = clampf(vial.rotation.x, deg_to_rad(min_tilt_degrees), deg_to_rad(max_tilt_degrees))
+	vial.add_liquid_interaction(relative_motion)
 
 
 func _update_pinch_zoom() -> void:

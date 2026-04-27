@@ -17,6 +17,8 @@ class_name Vial
 # Tweak this to change the wine tone.
 @export var liquid_color: Color = Color(0.28, 0.04, 0.09, 0.98)
 @export var cap_color: Color = Color(0.03, 0.03, 0.03, 1.0)
+@export_range(0.0, 1.0, 0.01) var liquid_tilt_response: float = 0.42
+@export_range(0.0, 1.0, 0.01) var liquid_slosh_response: float = 0.34
 
 @export_range(0.008, 0.05, 0.0005) var cap_height: float = 0.022
 @export_range(0.0005, 0.006, 0.0001) var cap_overhang: float = 0.0022
@@ -26,31 +28,44 @@ class_name Vial
 
 var _glass_body: MeshInstance3D
 var _liquid: MeshInstance3D
+var _liquid_surface: MeshInstance3D
 var _cap: MeshInstance3D
 
 var _glass_material: StandardMaterial3D
 var _liquid_material: StandardMaterial3D
+var _liquid_surface_material: StandardMaterial3D
 var _cap_material: StandardMaterial3D
 
 var _last_signature: String = ""
 var _editor_check_interval: float = 0.25
 var _editor_check_accum: float = 0.0
+var _surface_tilt: Vector2 = Vector2.ZERO
+var _surface_tilt_target: Vector2 = Vector2.ZERO
+var _surface_tilt_velocity: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
 	_glass_body = get_node_or_null("GlassBody")
 	_liquid = get_node_or_null("Liquid")
+	_liquid_surface = get_node_or_null("LiquidSurface")
 	_cap = get_node_or_null("Cap")
 
 	if _glass_body == null or _liquid == null or _cap == null:
 		push_warning("Vial scene requires MeshInstance3D nodes named GlassBody, Liquid, and Cap.")
 		return
+	if _liquid_surface == null:
+		_liquid_surface = MeshInstance3D.new()
+		_liquid_surface.name = "LiquidSurface"
+		add_child(_liquid_surface)
+	_liquid_surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	_build_materials()
 	_rebuild_geometry()
 
 
 func _process(delta: float) -> void:
+	_update_liquid_surface(delta)
+
 	if not Engine.is_editor_hint():
 		return
 	if _glass_body == null or _liquid == null or _cap == null:
@@ -80,6 +95,8 @@ func _build_signature() -> String:
 		str(edge_rounding),
 		str(liquid_fill_amount),
 		str(liquid_color),
+		str(liquid_tilt_response),
+		str(liquid_slosh_response),
 		str(cap_height),
 		str(cap_overhang),
 		str(radial_segments) + "|" + str(cap_color)
@@ -106,7 +123,7 @@ func _build_materials() -> void:
 	_liquid_material = StandardMaterial3D.new()
 	_liquid_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_liquid_material.cull_mode = BaseMaterial3D.CULL_BACK
-	_liquid_material.albedo_color = liquid_color
+	_liquid_material.albedo_color = liquid_color.darkened(0.12)
 	_liquid_material.roughness = 0.07
 	_liquid_material.specular = 0.96
 	_liquid_material.rim_enabled = true
@@ -115,6 +132,19 @@ func _build_materials() -> void:
 	_liquid_material.clearcoat_enabled = true
 	_liquid_material.clearcoat = 0.72
 	_liquid_material.clearcoat_roughness = 0.02
+
+	_liquid_surface_material = StandardMaterial3D.new()
+	_liquid_surface_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_liquid_surface_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_liquid_surface_material.albedo_color = liquid_color.lightened(0.18)
+	_liquid_surface_material.roughness = 0.035
+	_liquid_surface_material.specular = 1.0
+	_liquid_surface_material.rim_enabled = true
+	_liquid_surface_material.rim = 0.22
+	_liquid_surface_material.rim_tint = 0.36
+	_liquid_surface_material.clearcoat_enabled = true
+	_liquid_surface_material.clearcoat = 0.9
+	_liquid_surface_material.clearcoat_roughness = 0.015
 
 	_cap_material = StandardMaterial3D.new()
 	_cap_material.albedo_color = cap_color
@@ -127,6 +157,29 @@ func rebuild_vial() -> void:
 	if _glass_body == null or _liquid == null or _cap == null:
 		return
 	_rebuild_geometry()
+
+
+func add_liquid_interaction(relative_motion: Vector2) -> void:
+	if _liquid_surface == null:
+		return
+	var response: float = clampf(liquid_tilt_response, 0.0, 1.0)
+	var slosh: float = clampf(liquid_slosh_response, 0.0, 1.0)
+	var target: Vector2 = Vector2(
+		-relative_motion.y,
+		relative_motion.x
+	) * response * 0.0018
+	target.x = clampf(target.x, deg_to_rad(-7.0), deg_to_rad(7.0))
+	target.y = clampf(target.y, deg_to_rad(-7.0), deg_to_rad(7.0))
+	_surface_tilt_target = target
+	_surface_tilt_velocity += target * (2.8 + slosh * 8.0)
+
+
+func reset_liquid_motion() -> void:
+	_surface_tilt = Vector2.ZERO
+	_surface_tilt_target = Vector2.ZERO
+	_surface_tilt_velocity = Vector2.ZERO
+	if _liquid_surface != null:
+		_liquid_surface.rotation = Vector3.ZERO
 
 
 func _rebuild_geometry() -> void:
@@ -142,8 +195,18 @@ func _rebuild_geometry() -> void:
 	var liquid_mesh_data := _build_liquid_mesh(inner_r, body_h, safe_base)
 	_liquid.mesh = liquid_mesh_data["mesh"]
 	_liquid.position.y = liquid_mesh_data["center_y"]
-	_liquid_material.albedo_color = liquid_color
+	_liquid_material.albedo_color = liquid_color.darkened(0.12)
 	_liquid.set_surface_override_material(0, _liquid_material)
+	if _liquid_surface != null:
+		_liquid_surface.mesh = liquid_mesh_data["surface_mesh"]
+		_liquid_surface.position.y = liquid_mesh_data["surface_y"]
+		_liquid_surface_material.albedo_color = Color(
+			minf(liquid_color.r + 0.14, 1.0),
+			minf(liquid_color.g + 0.12, 1.0),
+			minf(liquid_color.b + 0.1, 1.0),
+			clampf(liquid_color.a, 0.72, 0.98)
+		)
+		_liquid_surface.set_surface_override_material(0, _liquid_surface_material)
 
 	var cap_mesh := _build_cap_mesh(outer_r + cap_overhang, cap_height, radial_segments)
 	_cap.mesh = cap_mesh
@@ -172,7 +235,7 @@ func _build_liquid_mesh(inner_r: float, body_h: float, safe_base: float) -> Dict
 	cylinder.height = liquid_cyl_h
 	cylinder.radial_segments = radial_segments
 	cylinder.rings = 6
-	cylinder.cap_top = true
+	cylinder.cap_top = false
 	cylinder.cap_bottom = false
 
 	var hemisphere := SphereMesh.new()
@@ -197,10 +260,21 @@ func _build_liquid_mesh(inner_r: float, body_h: float, safe_base: float) -> Dict
 	st.generate_normals()
 	var mesh := st.commit()
 
+	var surface_mesh := CylinderMesh.new()
+	surface_mesh.top_radius = liquid_r * 0.985
+	surface_mesh.bottom_radius = liquid_r * 0.985
+	surface_mesh.height = 0.0007
+	surface_mesh.radial_segments = radial_segments
+	surface_mesh.rings = 1
+	surface_mesh.cap_top = true
+	surface_mesh.cap_bottom = true
+
 	var center_y: float = 0.0
 	return {
 		"mesh": mesh,
-		"center_y": center_y
+		"center_y": center_y,
+		"surface_mesh": surface_mesh,
+		"surface_y": liquid_top_y
 	}
 
 
@@ -343,3 +417,17 @@ func _add_tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
 	st.add_vertex(a)
 	st.add_vertex(b)
 	st.add_vertex(c)
+
+
+func _update_liquid_surface(delta: float) -> void:
+	if _liquid_surface == null:
+		return
+	_surface_tilt_target = _surface_tilt_target.move_toward(Vector2.ZERO, delta * 0.45)
+	var spring: float = 26.0
+	var damping: float = 4.6
+	_surface_tilt_velocity += (_surface_tilt_target - _surface_tilt) * spring * delta
+	_surface_tilt_velocity = _surface_tilt_velocity.lerp(Vector2.ZERO, clampf(damping * delta, 0.0, 1.0))
+	_surface_tilt += _surface_tilt_velocity * delta
+	_surface_tilt.x = clampf(_surface_tilt.x, deg_to_rad(-8.0), deg_to_rad(8.0))
+	_surface_tilt.y = clampf(_surface_tilt.y, deg_to_rad(-8.0), deg_to_rad(8.0))
+	_liquid_surface.rotation = Vector3(_surface_tilt.x, 0.0, _surface_tilt.y)

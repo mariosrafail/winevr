@@ -104,6 +104,26 @@
         "label": "Reserve Winery",
         "label_offset": [0.0, 0.52, 0.04],
         "visible": true
+      },
+      {
+        "id": "reserve_tasting_glass",
+        "type": "wine_glass",
+        "position": [-0.36, 0.74, -0.86],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [0.72, 0.72, 0.72],
+        "color": "#F2E8D6",
+        "visible": true
+      },
+      {
+        "id": "reserve_tasting_card",
+        "type": "tasting_card",
+        "position": [0.34, 0.72, -0.86],
+        "rotation": [-8.0, -12.0, 0.0],
+        "scale": [0.95, 0.95, 0.95],
+        "color": "#D8C38B",
+        "label": "Tasting Notes",
+        "label_offset": [0.0, 0.22, 0.0],
+        "visible": true
       }
     ],
     "zones": [

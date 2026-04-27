@@ -6,9 +6,20 @@ extends Node
 @onready var panel_dim: ColorRect = $CanvasLayer/PanelDim
 @onready var fade_rect: ColorRect = $CanvasLayer/FadeRect
 
+const DEMO_VIEWPORT_PRESETS: Array[Dictionary] = [
+	{"name": "native", "size": Vector2i.ZERO},
+	{"name": "desktop 16:9", "size": Vector2i(1280, 720)},
+	{"name": "mobile portrait", "size": Vector2i(390, 844)},
+	{"name": "tablet landscape", "size": Vector2i(1024, 768)}
+]
+
 var _transition_in_progress: bool = false
 var _profile_loading: bool = false
 var _active_client_id: String = ""
+var _demo_viewport_preset_index: int = 0
+var _native_window_size: Vector2i = Vector2i.ZERO
+var _demo_mode: bool = false
+var _ui_hidden_for_capture: bool = false
 
 var _qr_screen: QRScreenController
 var _loading_overlay: LoadingOverlayController
@@ -35,6 +46,7 @@ func _ready() -> void:
 	_apply_state(ExperienceManager.current_state)
 	_layout.layout(get_viewport().get_visible_rect().size)
 	panel_dim.modulate.a = 0.0
+	_print_runtime_health_status()
 
 
 func _notification(what: int) -> void:
@@ -53,8 +65,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			_return_to_qr_scan_debug()
 			return
+		if event.keycode == KEY_F7:
+			_set_demo_mode(not _demo_mode)
+			return
+		if event.keycode == KEY_F8:
+			_set_ui_hidden_for_capture(true)
+			return
+		if event.keycode == KEY_F9:
+			_set_ui_hidden_for_capture(false)
+			return
+		if event.keycode == KEY_F10:
+			_reset_current_view_for_demo()
+			return
 		if event.keycode == KEY_F3:
+			if _demo_mode:
+				return
 			_dev_overlay.toggle()
+			return
+		if event.keycode == KEY_F6:
+			_cycle_demo_viewport_preset()
 			return
 		var registry_index: int = _get_debug_registry_index(event.keycode)
 		if registry_index >= 0:
@@ -110,6 +139,7 @@ func _build_components() -> void:
 	_dev_overlay = DevOverlayController.new()
 	add_child(_dev_overlay)
 	_dev_overlay.setup(canvas_layer)
+	_dev_overlay.set_viewport_mode(_demo_viewport_preset_name())
 
 	_layout = ResponsiveLayoutController.new()
 	add_child(_layout)
@@ -148,6 +178,7 @@ func _apply_state(state: int) -> void:
 	_qr_screen.set_visible(state == ExperienceManager.ExperienceState.QR_SCAN)
 	_hud.apply_state(state)
 	_narrative_panel.apply_state(state)
+	canvas_layer.visible = not _ui_hidden_for_capture
 
 	vial_preview.visible = state != ExperienceManager.ExperienceState.WINERY_INTERIOR
 	winery_interior.visible = state == ExperienceManager.ExperienceState.WINERY_INTERIOR
@@ -226,7 +257,10 @@ func _apply_narrative_target_highlight(current_step: Dictionary, show_hint: bool
 
 
 func _on_enter_winery_pressed() -> void:
-	if not _transition_in_progress and _hotspots.can_enter_winery():
+	var can_enter: bool = _hotspots.can_enter_winery()
+	if OS.is_debug_build():
+		print("[WineVR][EnterWinery] request received transition=%s can_enter=%s state=%s" % [_transition_in_progress, can_enter, _state_name(ExperienceManager.current_state)])
+	if not _transition_in_progress and can_enter:
 		ExperienceManager.enter_winery()
 
 
@@ -305,6 +339,35 @@ func _reset_current_experience() -> void:
 	_update_dev_overlay_context()
 
 
+func _set_demo_mode(enabled: bool) -> void:
+	_demo_mode = enabled
+	if _demo_mode and _dev_overlay != null:
+		_dev_overlay.hide_overlay()
+	if OS.is_debug_build():
+		print("[WineVR][Demo] demo_mode=%s" % _demo_mode)
+
+
+func _set_ui_hidden_for_capture(hidden: bool) -> void:
+	_ui_hidden_for_capture = hidden
+	canvas_layer.visible = not hidden
+	if not hidden:
+		_apply_state(ExperienceManager.current_state)
+	if OS.is_debug_build():
+		print("[WineVR][Demo] ui_hidden=%s" % _ui_hidden_for_capture)
+
+
+func _reset_current_view_for_demo() -> void:
+	match ExperienceManager.current_state:
+		ExperienceManager.ExperienceState.WINERY_INTERIOR:
+			winery_interior.reset_view()
+		ExperienceManager.ExperienceState.WINERY_ENTRY:
+			winery_interior.reset_view()
+		_:
+			vial_preview.reset_view()
+	if OS.is_debug_build():
+		print("[WineVR][Demo] reset view for state=%s" % _state_name(ExperienceManager.current_state))
+
+
 # Dev-only shortcut: Escape returns to the QR/client selection screen without unloading data.
 func _return_to_qr_scan_debug() -> void:
 	_hotspots.close_panel()
@@ -325,6 +388,7 @@ func _get_debug_registry_index(keycode: int) -> int:
 func _update_dev_overlay_context() -> void:
 	if _dev_overlay == null:
 		return
+	_dev_overlay.set_viewport_mode(_demo_viewport_preset_name())
 	var step: Dictionary = NarrativeManager.get_current_step()
 	_dev_overlay.set_context(
 		_active_client_id,
@@ -333,6 +397,67 @@ func _update_dev_overlay_context() -> void:
 		str(step.get("target_type", "")),
 		str(step.get("target_id", ""))
 	)
+
+
+func _cycle_demo_viewport_preset() -> void:
+	if OS.has_feature("web"):
+		return
+	if _native_window_size == Vector2i.ZERO:
+		_native_window_size = DisplayServer.window_get_size()
+	_demo_viewport_preset_index = (_demo_viewport_preset_index + 1) % DEMO_VIEWPORT_PRESETS.size()
+	var preset: Dictionary = DEMO_VIEWPORT_PRESETS[_demo_viewport_preset_index]
+	var raw_preset_size: Variant = preset.get("size", Vector2i.ZERO)
+	var preset_size: Vector2i = raw_preset_size if raw_preset_size is Vector2i else Vector2i.ZERO
+	if preset_size == Vector2i.ZERO:
+		preset_size = _native_window_size
+	DisplayServer.window_set_size(preset_size)
+	_center_window(preset_size)
+	_layout.layout(Vector2(preset_size))
+	_hotspots.layout_hotspots()
+	if _dev_overlay != null:
+		_dev_overlay.set_viewport_mode(_demo_viewport_preset_name())
+		_dev_overlay.layout(Vector2(preset_size), 20.0)
+
+
+func _center_window(window_size: Vector2i) -> void:
+	var screen_id: int = DisplayServer.window_get_current_screen()
+	var screen_position: Vector2i = DisplayServer.screen_get_position(screen_id)
+	var screen_size: Vector2i = DisplayServer.screen_get_size(screen_id)
+	DisplayServer.window_set_position(screen_position + (screen_size - window_size) / 2)
+
+
+func _demo_viewport_preset_name() -> String:
+	if _demo_viewport_preset_index < 0 or _demo_viewport_preset_index >= DEMO_VIEWPORT_PRESETS.size():
+		return "native"
+	return str(DEMO_VIEWPORT_PRESETS[_demo_viewport_preset_index].get("name", "native"))
+
+
+func _print_runtime_health_status() -> void:
+	var enabled_clients: Array[Dictionary] = ClientProfileLoader.get_client_registry(false)
+	var active_client_data: Dictionary = ClientProfileLoader.get_active_client_data()
+	var raw_environment_settings: Variant = active_client_data.get("environment_settings", {})
+	var environment_settings: Dictionary = {}
+	if typeof(raw_environment_settings) == TYPE_DICTIONARY:
+		environment_settings = raw_environment_settings as Dictionary
+	var visual_quality: String = str(environment_settings.get("visual_quality", "medium"))
+	var validation_status: String = _runtime_validation_status(enabled_clients, active_client_data, visual_quality)
+	print("[WineVR][Health] registry loaded: %s" % (enabled_clients.size() > 0))
+	print("[WineVR][Health] enabled clients: %s" % enabled_clients.size())
+	print("[WineVR][Health] active client: %s" % (ClientProfileLoader.active_client_id if not ClientProfileLoader.active_client_id.is_empty() else "<none>"))
+	print("[WineVR][Health] validation status: %s" % validation_status)
+	print("[WineVR][Health] visual quality: %s" % visual_quality)
+
+
+func _runtime_validation_status(enabled_clients: Array[Dictionary], active_client_data: Dictionary, visual_quality: String) -> String:
+	if enabled_clients.is_empty():
+		return "warning: no enabled clients"
+	if active_client_data.is_empty():
+		return "warning: no active client profile"
+	if not ["low", "medium", "high"].has(visual_quality):
+		return "warning: invalid visual_quality '%s'" % visual_quality
+	if not active_client_data.has("experience_settings") or not active_client_data.has("environment_settings"):
+		return "warning: active profile missing required runtime sections"
+	return "ok"
 
 
 func _state_name(state: int) -> String:

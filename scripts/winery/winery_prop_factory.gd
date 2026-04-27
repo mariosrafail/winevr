@@ -8,6 +8,7 @@ var prop_data_by_instance_id: Dictionary = {}
 var prop_data_by_id: Dictionary = {}
 var environment: WineryEnvironmentApplier
 var _pulse_tween: Tween
+var _current_quality: String = "medium"
 
 
 func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> void:
@@ -39,6 +40,7 @@ func rebuild_with_quality(raw_props: Array, quality: String) -> void:
 	prop_data_by_id.clear()
 
 	var safe_quality: String = _normalize_quality(quality)
+	_current_quality = safe_quality
 	var max_props: int = _max_props_for_quality(safe_quality, raw_props.size())
 	var created_count: int = 0
 	for raw_prop in raw_props:
@@ -144,6 +146,14 @@ func _create_prop(prop_data: Dictionary) -> Node3D:
 			prop_node = _create_sign_prop(prop_data)
 		"column":
 			prop_node = _create_column_prop(prop_data)
+		"wine_glass":
+			prop_node = _create_wine_glass_prop(prop_data)
+		"bottle_silhouette":
+			prop_node = _create_bottle_silhouette_prop(prop_data)
+		"tasting_card":
+			prop_node = _create_tasting_card_prop(prop_data)
+		"wall_plaque":
+			prop_node = _create_wall_plaque_prop(prop_data)
 		_:
 			prop_node = _create_crate_prop(prop_data)
 	prop_node.name = str(prop_data.get("id", prop_type))
@@ -192,6 +202,69 @@ func _create_table_prop(prop_data: Dictionary) -> Node3D:
 	return table_root
 
 
+func _create_wine_glass_prop(prop_data: Dictionary) -> Node3D:
+	var glass_root: Node3D = Node3D.new()
+	var material: StandardMaterial3D = _make_glass_material(prop_data)
+
+	var bowl_mesh: CylinderMesh = CylinderMesh.new()
+	bowl_mesh.top_radius = 0.14
+	bowl_mesh.bottom_radius = 0.09
+	bowl_mesh.height = 0.28
+	bowl_mesh.radial_segments = 16
+	var bowl: MeshInstance3D = MeshInstance3D.new()
+	bowl.mesh = bowl_mesh
+	bowl.position = Vector3(0.0, 0.34, 0.0)
+	bowl.set_surface_override_material(0, material)
+	glass_root.add_child(bowl)
+
+	var stem_mesh: CylinderMesh = CylinderMesh.new()
+	stem_mesh.top_radius = 0.018
+	stem_mesh.bottom_radius = 0.018
+	stem_mesh.height = 0.28
+	stem_mesh.radial_segments = 10
+	var stem: MeshInstance3D = MeshInstance3D.new()
+	stem.mesh = stem_mesh
+	stem.position = Vector3(0.0, 0.18, 0.0)
+	stem.set_surface_override_material(0, material)
+	glass_root.add_child(stem)
+
+	var base_mesh: CylinderMesh = CylinderMesh.new()
+	base_mesh.top_radius = 0.12
+	base_mesh.bottom_radius = 0.13
+	base_mesh.height = 0.035
+	base_mesh.radial_segments = 16
+	var base: MeshInstance3D = MeshInstance3D.new()
+	base.mesh = base_mesh
+	base.position = Vector3(0.0, 0.02, 0.0)
+	base.set_surface_override_material(0, material)
+	glass_root.add_child(base)
+	return glass_root
+
+
+func _create_bottle_silhouette_prop(prop_data: Dictionary) -> Node3D:
+	var bottle_root: Node3D = Node3D.new()
+	var bottle_color: Color = Color(0.08, 0.06, 0.045, 1.0)
+	bottle_root.add_child(_create_cylinder_part(0.13, 0.15, 0.52, Vector3(0.0, 0.28, 0.0), 14, prop_data, bottle_color))
+	bottle_root.add_child(_create_cylinder_part(0.055, 0.065, 0.28, Vector3(0.0, 0.68, 0.0), 12, prop_data, bottle_color))
+	bottle_root.add_child(_create_cylinder_part_with_color(0.062, 0.062, 0.06, Vector3(0.0, 0.85, 0.0), 12, Color(0.62, 0.46, 0.22, 1.0)))
+	return bottle_root
+
+
+func _create_tasting_card_prop(prop_data: Dictionary) -> Node3D:
+	var card_root: Node3D = Node3D.new()
+	card_root.add_child(_create_box_part(Vector3(0.58, 0.035, 0.38), Vector3.ZERO, prop_data, Color(0.88, 0.81, 0.64, 1.0)))
+	card_root.add_child(_create_box_part_with_color(Vector3(0.54, 0.038, 0.035), Vector3(0.0, 0.005, -0.13), Color(0.58, 0.42, 0.2, 1.0)))
+	return card_root
+
+
+func _create_wall_plaque_prop(prop_data: Dictionary) -> Node3D:
+	var plaque_root: Node3D = Node3D.new()
+	plaque_root.add_child(_create_box_part(Vector3(0.86, 0.5, 0.055), Vector3.ZERO, prop_data, Color(0.38, 0.27, 0.16, 1.0)))
+	plaque_root.add_child(_create_box_part_with_color(Vector3(0.76, 0.055, 0.064), Vector3(0.0, 0.2, 0.006), Color(0.74, 0.56, 0.28, 1.0)))
+	plaque_root.add_child(_create_box_part_with_color(Vector3(0.76, 0.055, 0.064), Vector3(0.0, -0.2, 0.006), Color(0.74, 0.56, 0.28, 1.0)))
+	return plaque_root
+
+
 func _mesh_instance(mesh: Mesh, prop_data: Dictionary, fallback_color: Color) -> MeshInstance3D:
 	var prop: MeshInstance3D = MeshInstance3D.new()
 	prop.mesh = mesh
@@ -207,10 +280,62 @@ func _create_box_part(size: Vector3, part_position: Vector3, prop_data: Dictiona
 	return part
 
 
+func _create_box_part_with_color(size: Vector3, part_position: Vector3, color: Color) -> MeshInstance3D:
+	var mesh: BoxMesh = BoxMesh.new()
+	mesh.size = size
+	var part: MeshInstance3D = MeshInstance3D.new()
+	part.mesh = mesh
+	part.position = part_position
+	part.set_surface_override_material(0, _make_fixed_material(color))
+	return part
+
+
+func _create_cylinder_part(top_radius: float, bottom_radius: float, height: float, part_position: Vector3, radial_segments: int, prop_data: Dictionary, fallback_color: Color) -> MeshInstance3D:
+	var mesh: CylinderMesh = CylinderMesh.new()
+	mesh.top_radius = top_radius
+	mesh.bottom_radius = bottom_radius
+	mesh.height = height
+	mesh.radial_segments = radial_segments
+	var part: MeshInstance3D = _mesh_instance(mesh, prop_data, fallback_color)
+	part.position = part_position
+	return part
+
+
+func _create_cylinder_part_with_color(top_radius: float, bottom_radius: float, height: float, part_position: Vector3, radial_segments: int, color: Color) -> MeshInstance3D:
+	var mesh: CylinderMesh = CylinderMesh.new()
+	mesh.top_radius = top_radius
+	mesh.bottom_radius = bottom_radius
+	mesh.height = height
+	mesh.radial_segments = radial_segments
+	var part: MeshInstance3D = MeshInstance3D.new()
+	part.mesh = mesh
+	part.position = part_position
+	part.set_surface_override_material(0, _make_fixed_material(color))
+	return part
+
+
 func _make_prop_material(prop_data: Dictionary, fallback_color: Color) -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = environment.parse_color(prop_data.get("color", ""), fallback_color) if environment != null else fallback_color
 	material.roughness = 0.82
+	return material
+
+
+func _make_fixed_material(color: Color) -> StandardMaterial3D:
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.82
+	return material
+
+
+func _make_glass_material(prop_data: Dictionary) -> StandardMaterial3D:
+	var material: StandardMaterial3D = _make_prop_material(prop_data, Color(0.86, 0.9, 0.88, 0.32))
+	var glass_color: Color = material.albedo_color
+	glass_color.a = 0.32
+	material.albedo_color = glass_color
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.roughness = 0.18
+	material.metallic = 0.0
 	return material
 
 
@@ -236,16 +361,18 @@ func _attach_prop_label(prop_node: Node3D, prop_data: Dictionary) -> void:
 	var label_text: String = str(prop_data.get("label", ""))
 	if label_text.is_empty():
 		return
+	if _current_quality == "low" and not bool(prop_data.get("show_label_on_low_quality", false)):
+		return
 	var label: Label3D = Label3D.new()
 	if label == null:
 		return
 	label.text = label_text
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.font_size = clampi(int(prop_data.get("label_font_size", 22)), 10, 48)
+	label.font_size = clampi(int(prop_data.get("label_font_size", 22)), 12, 32)
 	label.modulate = environment.parse_color(prop_data.get("label_color", "#F5E8C7"), Color(0.96, 0.91, 0.78, 1.0)) if environment != null else Color(0.96, 0.91, 0.78, 1.0)
-	label.outline_size = 6
+	label.outline_size = clampi(int(prop_data.get("label_outline_size", 5)), 3, 8)
 	label.outline_modulate = Color(0.04, 0.035, 0.03, 0.9)
-	label.position = _array_to_vector3(prop_data.get("label_offset", [0.0, 0.85, 0.0]), Vector3(0.0, 0.85, 0.0))
+	label.position = _clamp_label_offset(_array_to_vector3(prop_data.get("label_offset", [0.0, 0.85, 0.0]), Vector3(0.0, 0.85, 0.0)))
 	prop_node.add_child(label)
 
 
@@ -261,6 +388,14 @@ func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:
 func _array_to_rotation(value: Variant) -> Vector3:
 	var degrees: Vector3 = _array_to_vector3(value, Vector3.ZERO)
 	return Vector3(deg_to_rad(degrees.x), deg_to_rad(degrees.y), deg_to_rad(degrees.z))
+
+
+func _clamp_label_offset(offset: Vector3) -> Vector3:
+	return Vector3(
+		clampf(offset.x, -1.15, 1.15),
+		clampf(offset.y, 0.12, 1.25),
+		clampf(offset.z, -0.45, 0.45)
+	)
 
 
 func _max_props_for_quality(quality: String, total: int) -> int:
