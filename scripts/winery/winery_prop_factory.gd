@@ -9,6 +9,8 @@ var prop_data_by_id: Dictionary = {}
 var environment: WineryEnvironmentApplier
 var _pulse_tween: Tween
 var _current_quality: String = "medium"
+var _active_marker_material: StandardMaterial3D
+var _active_marker_label: Label3D
 
 
 func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> void:
@@ -21,6 +23,8 @@ func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> voi
 	parent.add_child(interaction_root)
 	highlight_root = Node3D.new()
 	highlight_root.name = "ConfigPropHighlights"
+	highlight_root.add_to_group("highlight_effects")
+	highlight_root.add_to_group("performance_optional")
 	parent.add_child(highlight_root)
 
 
@@ -52,6 +56,7 @@ func rebuild_with_quality(raw_props: Array, quality: String) -> void:
 		if not bool(prop_data.get("visible", true)):
 			continue
 		var prop_node: Node3D = _create_prop(prop_data)
+		_tag_prop_for_performance_groups(prop_node, prop_data)
 		root.add_child(prop_node)
 		_attach_prop_label(prop_node, prop_data)
 		_attach_prop_interaction(prop_data)
@@ -78,6 +83,7 @@ func highlight_prop(prop_id: String) -> bool:
 	var marker: Node3D = _create_highlight_marker(str(prop_data.get("title", prop_data.get("id", prop_id))).replace("_", " ").capitalize())
 	marker.position = _array_to_vector3(prop_data.get("position", [0.0, 0.0, 0.0]), Vector3.ZERO) + Vector3(0.0, 0.75, 0.0)
 	highlight_root.add_child(marker)
+	_capture_active_marker_refs()
 	return true
 
 
@@ -93,9 +99,9 @@ func pulse_prop(prop_id: String, owner: Node) -> bool:
 		_pulse_tween.kill()
 	marker.scale = Vector3.ONE
 	_pulse_tween = owner.create_tween()
-	_pulse_tween.set_loops(3)
-	_pulse_tween.tween_property(marker, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
-	_pulse_tween.tween_property(marker, "scale", Vector3.ONE, 0.18)
+	_pulse_tween.set_loops(6)
+	_pulse_tween.tween_property(marker, "scale", Vector3(1.12, 1.12, 1.12), 0.42)
+	_pulse_tween.tween_property(marker, "scale", Vector3.ONE, 0.42)
 	return true
 
 
@@ -105,6 +111,23 @@ func clear_highlight() -> void:
 		_pulse_tween = null
 	for child in highlight_root.get_children():
 		child.free()
+	_active_marker_material = null
+	_active_marker_label = null
+
+
+func set_highlight_completed(completed: bool) -> void:
+	if _active_marker_material == null:
+		return
+	if completed:
+		_active_marker_material.emission = Color(0.64, 0.56, 0.38, 1.0)
+		_active_marker_material.emission_energy_multiplier = 0.25
+		_active_marker_material.albedo_color = Color(0.62, 0.54, 0.38, 0.44)
+		if _active_marker_label != null:
+			_active_marker_label.text = _active_marker_label.text + "  ✓"
+	else:
+		_active_marker_material.emission = Color(0.96, 0.73, 0.32, 1.0)
+		_active_marker_material.emission_energy_multiplier = 1.05
+		_active_marker_material.albedo_color = Color(0.92, 0.68, 0.28, 0.66)
 
 
 func _create_highlight_marker(label_text: String) -> Node3D:
@@ -117,10 +140,10 @@ func _create_highlight_marker(label_text: String) -> Node3D:
 	var marker: MeshInstance3D = MeshInstance3D.new()
 	marker.mesh = sphere
 	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.35, 0.78, 1.0, 0.65)
+	material.albedo_color = Color(0.92, 0.68, 0.28, 0.66)
 	material.emission_enabled = true
-	material.emission = Color(0.35, 0.78, 1.0, 1.0)
-	material.emission_energy_multiplier = 1.4
+	material.emission = Color(0.96, 0.73, 0.32, 1.0)
+	material.emission_energy_multiplier = 1.05
 	marker.set_surface_override_material(0, material)
 	marker_root.add_child(marker)
 
@@ -129,9 +152,35 @@ func _create_highlight_marker(label_text: String) -> Node3D:
 	label.position = Vector3(0.0, 0.3, 0.0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.font_size = 24
-	label.modulate = Color(0.92, 0.96, 1.0, 1.0)
+	label.modulate = Color(0.98, 0.93, 0.84, 1.0)
 	marker_root.add_child(label)
 	return marker_root
+
+
+func _capture_active_marker_refs() -> void:
+	_active_marker_material = null
+	_active_marker_label = null
+	if highlight_root.get_child_count() == 0:
+		return
+	var marker_root: Node3D = highlight_root.get_child(0) as Node3D
+	if marker_root == null:
+		return
+	for child in marker_root.get_children():
+		if child is MeshInstance3D and _active_marker_material == null:
+			_active_marker_material = (child as MeshInstance3D).get_active_material(0) as StandardMaterial3D
+		if child is Label3D and _active_marker_label == null:
+			_active_marker_label = child as Label3D
+
+
+func get_props_by_types(types: Array[String]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for raw_prop in prop_data_by_id.values():
+		if typeof(raw_prop) != TYPE_DICTIONARY:
+			continue
+		var prop_data: Dictionary = raw_prop as Dictionary
+		if types.has(str(prop_data.get("type", ""))):
+			result.append(prop_data.duplicate(true))
+	return result
 
 
 func _create_prop(prop_data: Dictionary) -> Node3D:
@@ -412,3 +461,12 @@ func _normalize_quality(value: String) -> String:
 	if ["low", "medium", "high"].has(value):
 		return value
 	return "medium"
+
+
+func _tag_prop_for_performance_groups(prop_node: Node3D, prop_data: Dictionary) -> void:
+	if prop_node == null:
+		return
+	var prop_type: String = str(prop_data.get("type", ""))
+	if ["barrel", "crate", "column", "sign", "table"].has(prop_type):
+		prop_node.add_to_group("performance_optional")
+		prop_node.add_to_group("ultra_disable")

@@ -90,11 +90,14 @@ func _build_buttons() -> void:
 	for index in range(registry_entries.size()):
 		var entry: Dictionary = registry_entries[index]
 		var button: Button = Button.new()
-		button.text = "%s\n%s / %s" % [
-			str(entry.get("display_name", "")),
-			str(entry.get("wine_name", "")),
-			str(entry.get("region", ""))
-		]
+		var line_1: String = str(entry.get("display_name", ""))
+		var wine_name: String = str(entry.get("wine_name", ""))
+		var winery: String = str(entry.get("winery", ""))
+		var region: String = str(entry.get("region", ""))
+		var wine_type: String = str(entry.get("wine_type", ""))
+		var line_2: String = wine_name + "  |  " + winery
+		var line_3: String = region + ("  |  " + wine_type if not wine_type.is_empty() else "")
+		button.text = line_1 + "\n" + line_2 + "\n" + line_3
 		button.tooltip_text = ""
 		button.custom_minimum_size = Vector2(0.0, 68.0)
 		button.focus_mode = Control.FOCUS_ALL

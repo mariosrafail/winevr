@@ -3,11 +3,20 @@ class_name WineryInteriorController
 
 signal door_prompt_changed(prompt: String)
 signal door_interacted(interactable_data: Dictionary)
+signal interactable_hover_started(interactable: Interactable)
+signal interactable_hover_ended(interactable: Interactable)
+signal interactable_clicked(interactable: Interactable)
+signal guided_step_started(step_index: int, interactable_id: String)
+signal guided_step_completed(step_index: int, interactable_id: String)
 
 @export var move_speed: float = 2.4
 @export var look_sensitivity: float = 0.005
 @export var min_pitch_degrees: float = -30.0
 @export var max_pitch_degrees: float = 30.0
+@export var ambient_audio_path: String = ""
+@export var hover_audio_path: String = ""
+@export var click_audio_path: String = ""
+@export var completion_audio_path: String = ""
 
 @onready var player_rig: Node3D = $PlayerRig
 @onready var camera_pivot: Node3D = $PlayerRig/CameraPivot
@@ -27,6 +36,28 @@ var _environment: WineryEnvironmentApplier
 var _visual_details: WineryVisualDetailer
 var _props: WineryPropFactory
 var _zones: WineryZoneManager
+var _guided: GuidedExperienceManager
+var _current_hovered_interactable: Interactable
+var _interactable_by_id: Dictionary = {}
+var _completed_guided_ids: Dictionary = {}
+var _is_demo_mode: bool = false
+var _active_showcase_tween: Tween
+var _camera_transition_quality: float = 1.0
+var _ultra_low_mode: bool = false
+var _ambient_player: AudioStreamPlayer
+var _hover_player: AudioStreamPlayer
+var _click_player: AudioStreamPlayer
+var _completion_player: AudioStreamPlayer
+var _spotlight_root: Node3D
+
+var _interaction_ui_layer: CanvasLayer
+var _tooltip_panel: PanelContainer
+var _tooltip_title: Label
+var _tooltip_description: Label
+var _tooltip_action: Label
+var _info_panel: PanelContainer
+var _info_title: Label
+var _info_description: Label
 
 
 func _ready() -> void:
@@ -55,6 +86,16 @@ func _ready() -> void:
 	_movement = WineryMovementController.new()
 	_movement.setup(player_rig, camera_pivot, move_speed, look_sensitivity, min_pitch_degrees, max_pitch_degrees)
 
+	_guided = GuidedExperienceManager.new()
+	_guided.step_started.connect(_on_guided_step_started)
+	_guided.step_completed.connect(_on_guided_step_completed)
+
+	_setup_interaction_ui()
+	_setup_audio_players()
+	_setup_spotlight_root()
+	fill_light.add_to_group("optional_lights")
+	fill_light.add_to_group("performance_optional")
+	_register_scene_interactables()
 	apply_client_profile(ClientProfileLoader.get_active_client_data())
 	_update_interaction_prompt()
 
@@ -73,6 +114,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventScreenTouch and event.pressed:
 		_try_interact()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+		show_current_guided_target()
 		return
 	if _movement.handle_input(event):
 		_update_interaction_prompt()
@@ -106,13 +150,21 @@ func apply_client_profile(client_data: Dictionary) -> void:
 
 	_apply_camera_start(environment_settings.get("camera_start", {}))
 	_props.rebuild_with_quality(environment_settings.get("props", []), str(environment_settings.get("visual_quality", "medium")))
+	_rebuild_prop_spotlights()
 	_zones.rebuild(environment_settings.get("zones", []))
+	var guided_ids: Variant = environment_settings.get("guided_interactable_ids", [])
+	if typeof(guided_ids) == TYPE_ARRAY:
+		configure_guided_steps(guided_ids as Array)
+	else:
+		configure_guided_steps([])
 
 
 func set_controls_enabled(enabled: bool) -> void:
 	if _movement == null:
 		return
 	_movement.set_controls_enabled(enabled)
+	if _interaction_ui_layer != null:
+		_interaction_ui_layer.visible = enabled
 	if not enabled:
 		_door.set_highlight(false)
 		door_prompt_changed.emit("")
@@ -143,6 +195,62 @@ func handle_look_drag(relative_motion: Vector2) -> void:
 func interact_current() -> void:
 	if _movement != null and _movement.controls_enabled:
 		_try_interact()
+
+
+func configure_guided_steps(step_ids: Array) -> void:
+	_completed_guided_ids.clear()
+	_guided.configure(step_ids)
+
+
+func set_demo_mode(enabled: bool) -> void:
+	_is_demo_mode = enabled
+
+
+func set_camera_transition_quality(multiplier: float) -> void:
+	_camera_transition_quality = clampf(multiplier, 0.0, 1.35)
+	_ultra_low_mode = _camera_transition_quality <= 0.01
+
+
+func show_current_guided_target() -> void:
+	if _guided == null or not _guided.is_active():
+		return
+	var target_id: String = _guided.get_current_interactable_id()
+	if _interactable_by_id.has(target_id):
+		smooth_look_at(_interactable_by_id[target_id] as Node3D)
+		return
+	if _props != null and _props.highlight_prop(target_id):
+		return
+	if _zones != null and _zones.highlight_zone(target_id):
+		return
+	if _door_target_matches(target_id):
+		_door.set_highlight(true)
+
+
+func smooth_look_at(target: Node3D) -> void:
+	if target == null or camera_pivot == null or camera == null:
+		return
+	if _active_showcase_tween != null:
+		_active_showcase_tween.kill()
+	var look_transform: Transform3D = camera_pivot.global_transform.looking_at(target.global_position, Vector3.UP)
+	var target_basis: Basis = look_transform.basis
+	var target_euler: Vector3 = target_basis.get_euler()
+	var target_pitch: float = clampf(target_euler.x, deg_to_rad(min_pitch_degrees), deg_to_rad(max_pitch_degrees))
+	var target_yaw: float = target_euler.y
+	if _ultra_low_mode:
+		camera_pivot.rotation.x = target_pitch
+		player_rig.rotation.y = target_yaw
+		camera.fov = 68.0
+		return
+
+	var move_duration: float = (0.95 if _is_demo_mode else 0.72) * _camera_transition_quality
+	var zoom_fov: float = 58.0 if _is_demo_mode else 60.0
+	var hold_duration: float = (0.34 if _is_demo_mode else 0.22) * _camera_transition_quality
+	_active_showcase_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_active_showcase_tween.tween_property(camera_pivot, "rotation:x", target_pitch, move_duration)
+	_active_showcase_tween.parallel().tween_property(player_rig, "rotation:y", target_yaw, move_duration)
+	_active_showcase_tween.parallel().tween_property(camera, "fov", zoom_fov, move_duration * 0.7)
+	_active_showcase_tween.tween_interval(hold_duration)
+	_active_showcase_tween.tween_property(camera, "fov", 68.0, move_duration * 0.55)
 
 
 func highlight_narrative_target(target_type: String, target_id: String) -> bool:
@@ -187,28 +295,54 @@ func clear_narrative_highlight() -> void:
 
 
 func _try_interact() -> void:
+	if _current_hovered_interactable != null:
+		var interactable_id: String = _current_hovered_interactable.id
+		if _guided != null and not _guided.can_interact(interactable_id):
+			return
+		_play_click_audio()
+		_current_hovered_interactable.interact()
+		interactable_clicked.emit(_current_hovered_interactable)
+		door_interacted.emit(_current_hovered_interactable.to_dict())
+		if _guided != null:
+			_guided.try_complete_step(interactable_id)
+		_show_info_panel(_current_hovered_interactable.to_dict())
+		return
+
 	if not interaction_ray.is_colliding():
 		return
 
 	var collider: Object = interaction_ray.get_collider()
 	if collider is Node and (collider as Node).is_in_group("winery_door"):
-		_door.toggle(self)
-		door_interacted.emit(_zones.door_interactable.duplicate(true))
+		var door_data: Dictionary = _zones.door_interactable.duplicate(true)
+		if _can_interact_payload(door_data):
+			_door.toggle(self)
+			door_interacted.emit(door_data)
+			_show_info_panel(door_data)
+			_complete_guided_from_payload(door_data)
+			_play_click_audio()
 		return
 
 	var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
-	if not zone_data.is_empty():
+	if not zone_data.is_empty() and _can_interact_payload(zone_data):
 		door_interacted.emit(zone_data)
+		_show_info_panel(zone_data)
+		_complete_guided_from_payload(zone_data)
+		_play_click_audio()
 		return
 
 	var prop_data: Dictionary = _props.get_prop_data_from_collider(collider)
 	if not prop_data.is_empty():
-		door_interacted.emit({
+		var payload: Dictionary = {
 			"id": str(prop_data.get("id", "")),
 			"title": str(prop_data.get("id", "Prop")).replace("_", " ").capitalize(),
 			"text": "This configured prop is part of the current winery layout.",
 			"type": "prop"
-		})
+		}
+		if _can_interact_payload(payload):
+			door_interacted.emit(payload)
+			_show_info_panel(payload)
+			_complete_guided_from_payload(payload)
+			_play_click_audio()
 
 
 func _update_interaction_prompt() -> void:
@@ -216,24 +350,89 @@ func _update_interaction_prompt() -> void:
 		return
 	var looking_at_door: bool = false
 	var prompt: String = ""
+	var hovered: Interactable = null
 	interaction_ray.force_raycast_update()
 	if interaction_ray.is_colliding():
 		var collider: Object = interaction_ray.get_collider()
+		hovered = _find_interactable_node(collider)
 		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
-		if looking_at_door:
+		if hovered != null:
+			prompt = "Interact"
+			_show_tooltip(hovered.title, hovered.description, _tooltip_action_text(hovered.id))
+		elif looking_at_door:
 			prompt = "Open the cellar door"
+			_show_tooltip("Cellar Door", str(_zones.door_interactable.get("text", "")), _tooltip_action_text(str(_zones.door_interactable.get("id", ""))))
 		else:
 			var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
 			if not zone_data.is_empty():
-				prompt = "View %s" % str(zone_data.get("title", "this detail"))
+				prompt = "View " + str(zone_data.get("title", "this detail"))
+				_show_tooltip(str(zone_data.get("title", "Detail")), str(zone_data.get("text", "")), _tooltip_action_text(str(zone_data.get("id", ""))))
 			else:
 				var prop_data: Dictionary = _props.get_prop_data_from_collider(collider)
 				if not prop_data.is_empty():
-					prompt = "Inspect %s" % str(prop_data.get("id", "this cellar detail")).replace("_", " ")
+					prompt = "Inspect " + str(prop_data.get("id", "this cellar detail")).replace("_", " ")
+					_show_tooltip(str(prop_data.get("id", "Prop")).replace("_", " ").capitalize(), "Configured winery detail.", _tooltip_action_text(str(prop_data.get("id", ""))))
+	else:
+		_hide_tooltip()
 
+	_set_hovered_interactable(hovered)
 	if _door != null:
 		_door.set_highlight(looking_at_door)
 	door_prompt_changed.emit(prompt)
+
+
+func _set_hovered_interactable(next_hovered: Interactable) -> void:
+	if _current_hovered_interactable == next_hovered:
+		return
+	if _current_hovered_interactable != null:
+		_current_hovered_interactable.set_hovered(false)
+		interactable_hover_ended.emit(_current_hovered_interactable)
+	_current_hovered_interactable = next_hovered
+	if _current_hovered_interactable != null:
+		_current_hovered_interactable.set_hovered(true)
+		interactable_hover_started.emit(_current_hovered_interactable)
+		_play_hover_audio()
+
+
+func _find_interactable_node(collider: Object) -> Interactable:
+	if collider is Node:
+		var node: Node = collider as Node
+		while node != null:
+			if node is Interactable:
+				return node as Interactable
+			node = node.get_parent()
+	return null
+
+
+func _register_scene_interactables() -> void:
+	_interactable_by_id.clear()
+	for node in find_children("*", "Interactable", true, false):
+		var interactable: Interactable = node as Interactable
+		if interactable == null:
+			continue
+		if interactable.id.is_empty():
+			interactable.id = interactable.name.to_lower().replace(" ", "_")
+		_interactable_by_id[interactable.id] = interactable
+
+
+func _can_interact_payload(data: Dictionary) -> bool:
+	if _guided == null:
+		return true
+	return _guided.can_interact(str(data.get("id", "")))
+
+
+func _complete_guided_from_payload(data: Dictionary) -> void:
+	if _guided == null:
+		return
+	_guided.try_complete_step(str(data.get("id", "")))
+
+
+func _tooltip_action_text(interactable_id: String) -> String:
+	if _completed_guided_ids.has(interactable_id):
+		return "Completed ✓"
+	if _guided != null and _guided.is_active() and not _guided.can_interact(interactable_id):
+		return "Next"
+	return "Interact"
 
 
 func _get_interactable_by_type(environment_settings: Dictionary, interactable_type: String) -> Dictionary:
@@ -286,3 +485,241 @@ func _dict_value(value: Variant) -> Dictionary:
 	if typeof(value) == TYPE_DICTIONARY:
 		return value as Dictionary
 	return {}
+
+
+func _on_guided_step_started(step_index: int, interactable_id: String) -> void:
+	guided_step_started.emit(step_index, interactable_id)
+	if _door_target_matches(interactable_id):
+		_door.set_highlight(true)
+		return
+	if _interactable_by_id.has(interactable_id):
+		var interactable: Interactable = _interactable_by_id[interactable_id] as Interactable
+		if interactable != null:
+			interactable.set_hovered(true)
+			return
+	if _props != null and _props.pulse_prop(interactable_id, self):
+		return
+	if _zones != null and _zones.pulse_zone(interactable_id, self):
+		return
+
+
+func _on_guided_step_completed(step_index: int, interactable_id: String) -> void:
+	guided_step_completed.emit(step_index, interactable_id)
+	_completed_guided_ids[interactable_id] = true
+	_play_completion_audio()
+	if _door_target_matches(interactable_id):
+		_door.set_highlight(false)
+	if _props != null and _props.prop_data_by_id.has(interactable_id):
+		_props.set_highlight_completed(true)
+	if _zones != null and _zones.zone_data_by_id.has(interactable_id):
+		_zones.set_highlight_completed(true)
+	if _interactable_by_id.has(interactable_id):
+		var interactable: Interactable = _interactable_by_id[interactable_id] as Interactable
+		if interactable != null and interactable != _current_hovered_interactable:
+			interactable.set_hovered(false)
+
+
+func _setup_interaction_ui() -> void:
+	_interaction_ui_layer = CanvasLayer.new()
+	_interaction_ui_layer.name = "InteractionUI"
+	add_child(_interaction_ui_layer)
+
+	_tooltip_panel = PanelContainer.new()
+	_tooltip_panel.custom_minimum_size = Vector2(360.0, 112.0)
+	_tooltip_panel.position = Vector2(20.0, 20.0)
+	_tooltip_panel.modulate.a = 0.0
+	_tooltip_panel.visible = false
+	_interaction_ui_layer.add_child(_tooltip_panel)
+
+	var tooltip_bg: StyleBoxFlat = StyleBoxFlat.new()
+	tooltip_bg.bg_color = Color(0.04, 0.04, 0.05, 0.86)
+	tooltip_bg.corner_radius_top_left = 10
+	tooltip_bg.corner_radius_top_right = 10
+	tooltip_bg.corner_radius_bottom_left = 10
+	tooltip_bg.corner_radius_bottom_right = 10
+	tooltip_bg.border_width_left = 1
+	tooltip_bg.border_width_top = 1
+	tooltip_bg.border_width_right = 1
+	tooltip_bg.border_width_bottom = 1
+	tooltip_bg.border_color = Color(0.8, 0.63, 0.36, 0.5)
+	_tooltip_panel.add_theme_stylebox_override("panel", tooltip_bg)
+
+	var tooltip_margin: MarginContainer = MarginContainer.new()
+	tooltip_margin.add_theme_constant_override("margin_left", 12)
+	tooltip_margin.add_theme_constant_override("margin_right", 12)
+	tooltip_margin.add_theme_constant_override("margin_top", 10)
+	tooltip_margin.add_theme_constant_override("margin_bottom", 10)
+	_tooltip_panel.add_child(tooltip_margin)
+
+	var tooltip_vbox: VBoxContainer = VBoxContainer.new()
+	tooltip_margin.add_child(tooltip_vbox)
+	_tooltip_title = Label.new()
+	_tooltip_title.modulate = Color(0.96, 0.92, 0.84, 1.0)
+	tooltip_vbox.add_child(_tooltip_title)
+	_tooltip_description = Label.new()
+	_tooltip_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tooltip_description.modulate = Color(0.86, 0.84, 0.8, 1.0)
+	tooltip_vbox.add_child(_tooltip_description)
+	_tooltip_action = Label.new()
+	_tooltip_action.modulate = Color(0.94, 0.76, 0.46, 1.0)
+	tooltip_vbox.add_child(_tooltip_action)
+
+	_info_panel = PanelContainer.new()
+	_info_panel.custom_minimum_size = Vector2(440.0, 190.0)
+	_info_panel.position = Vector2(20.0, 150.0)
+	_info_panel.modulate.a = 0.0
+	_info_panel.visible = false
+	_interaction_ui_layer.add_child(_info_panel)
+
+	var info_bg: StyleBoxFlat = tooltip_bg.duplicate()
+	info_bg.bg_color = Color(0.035, 0.035, 0.045, 0.94)
+	_info_panel.add_theme_stylebox_override("panel", info_bg)
+
+	var info_margin: MarginContainer = MarginContainer.new()
+	info_margin.add_theme_constant_override("margin_left", 14)
+	info_margin.add_theme_constant_override("margin_right", 14)
+	info_margin.add_theme_constant_override("margin_top", 12)
+	info_margin.add_theme_constant_override("margin_bottom", 12)
+	_info_panel.add_child(info_margin)
+	var info_vbox: VBoxContainer = VBoxContainer.new()
+	info_margin.add_child(info_vbox)
+	_info_title = Label.new()
+	_info_title.modulate = Color(0.98, 0.93, 0.84, 1.0)
+	info_vbox.add_child(_info_title)
+	_info_description = Label.new()
+	_info_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_description.modulate = Color(0.87, 0.86, 0.82, 1.0)
+	info_vbox.add_child(_info_description)
+
+
+func _show_tooltip(title_text: String, description_text: String, action_text: String) -> void:
+	if _tooltip_panel == null:
+		return
+	_tooltip_title.text = title_text
+	_tooltip_description.text = description_text
+	_tooltip_action.text = action_text
+	_tooltip_panel.visible = true
+	if _tooltip_panel.get_meta("anim_tween") is Tween:
+		(_tooltip_panel.get_meta("anim_tween") as Tween).kill()
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var target_pos: Vector2 = Vector2((viewport_size.x - _tooltip_panel.custom_minimum_size.x) * 0.5, viewport_size.y * 0.57)
+	_tooltip_panel.position = target_pos + Vector2(0.0, 10.0)
+	_tooltip_panel.modulate.a = 0.0
+	var tween: Tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_tooltip_panel.set_meta("anim_tween", tween)
+	tween.set_parallel(true)
+	tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.16)
+	tween.tween_property(_tooltip_panel, "position", target_pos, 0.2)
+
+
+func _hide_tooltip() -> void:
+	if _tooltip_panel != null:
+		if _tooltip_panel.get_meta("anim_tween") is Tween:
+			(_tooltip_panel.get_meta("anim_tween") as Tween).kill()
+		_tooltip_panel.modulate.a = 0.0
+		_tooltip_panel.visible = false
+
+
+func _show_info_panel(data: Dictionary) -> void:
+	if _info_panel == null:
+		return
+	_info_title.text = str(data.get("title", "Detail"))
+	_info_description.text = str(data.get("description", data.get("text", "")))
+	_info_panel.visible = true
+	if _info_panel.get_meta("fade_tween") is Tween:
+		(_info_panel.get_meta("fade_tween") as Tween).kill()
+	var tween: Tween = create_tween()
+	_info_panel.set_meta("fade_tween", tween)
+	_info_panel.modulate.a = 0.0
+	var target_pos: Vector2 = Vector2(20.0, 150.0)
+	_info_panel.position = target_pos + Vector2(0.0, 14.0)
+	tween.set_parallel(true)
+	tween.tween_property(_info_panel, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_info_panel, "position", target_pos, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+func _setup_audio_players() -> void:
+	_ambient_player = _make_audio_player("AmbientWineCellar", true)
+	_hover_player = _make_audio_player("HoverSfx")
+	_click_player = _make_audio_player("ClickSfx")
+	_completion_player = _make_audio_player("CompleteSfx")
+	_assign_stream_if_exists(_ambient_player, ambient_audio_path)
+	_assign_stream_if_exists(_hover_player, hover_audio_path)
+	_assign_stream_if_exists(_click_player, click_audio_path)
+	_assign_stream_if_exists(_completion_player, completion_audio_path)
+	if _ambient_player != null:
+		_ambient_player.add_to_group("performance_optional")
+	if _completion_player != null:
+		_completion_player.add_to_group("cinematic_only")
+	if _ambient_player != null and _ambient_player.stream != null:
+		_ambient_player.volume_db = -16.0
+		_ambient_player.play()
+	if _hover_player != null:
+		_hover_player.volume_db = -21.0
+	if _click_player != null:
+		_click_player.volume_db = -14.0
+	if _completion_player != null:
+		_completion_player.volume_db = -12.0
+
+
+func _make_audio_player(name: String, looped: bool = false) -> AudioStreamPlayer:
+	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	player.name = name
+	player.bus = "Master"
+	player.stream_paused = false
+	add_child(player)
+	if looped and player.stream is AudioStream:
+		(player.stream as AudioStream).resource_local_to_scene = true
+	return player
+
+
+func _assign_stream_if_exists(player: AudioStreamPlayer, path: String) -> void:
+	if player == null or path.is_empty():
+		return
+	if ResourceLoader.exists(path):
+		player.stream = load(path)
+
+
+func _play_hover_audio() -> void:
+	if _hover_player != null and _hover_player.stream != null and not _hover_player.playing:
+		_hover_player.play()
+
+
+func _play_click_audio() -> void:
+	if _click_player != null and _click_player.stream != null:
+		_click_player.play()
+
+
+func _play_completion_audio() -> void:
+	if _completion_player != null and _completion_player.stream != null:
+		_completion_player.play()
+
+
+func _setup_spotlight_root() -> void:
+	_spotlight_root = Node3D.new()
+	_spotlight_root.name = "CinematicPropSpotlights"
+	_spotlight_root.add_to_group("premium_lights")
+	_spotlight_root.add_to_group("performance_optional")
+	add_child(_spotlight_root)
+
+
+func _rebuild_prop_spotlights() -> void:
+	if _spotlight_root == null or _props == null:
+		return
+	for child in _spotlight_root.get_children():
+		child.queue_free()
+	var target_props: Array[Dictionary] = _props.get_props_by_types(["wine_glass", "bottle_silhouette", "tasting_card", "wall_plaque"])
+	for prop_data in target_props:
+		var spotlight: SpotLight3D = SpotLight3D.new()
+		spotlight.light_color = Color(1.0, 0.83, 0.62, 1.0)
+		spotlight.light_energy = 1.55
+		spotlight.spot_angle = 34.0
+		spotlight.spot_range = 3.2
+		spotlight.shadow_enabled = false
+		spotlight.light_volumetric_fog_energy = 0.08
+		spotlight.add_to_group("premium_lights")
+		spotlight.add_to_group("performance_optional")
+		var pos: Vector3 = _array_to_vector3((prop_data as Dictionary).get("position", [0.0, 0.0, 0.0]), Vector3.ZERO)
+		spotlight.position = pos + Vector3(0.0, 1.45, 0.15)
+		spotlight.look_at(pos + Vector3(0.0, 0.35, 0.0), Vector3.UP)
+		_spotlight_root.add_child(spotlight)

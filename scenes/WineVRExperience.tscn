@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/VialPreview.tscn" id="1_vial_preview"]
 [ext_resource type="PackedScene" path="res://scenes/WineryInterior.tscn" id="2_winery_interior"]
 [ext_resource type="Script" path="res://scripts/wine_vr_experience.gd" id="3_experience_script"]
+[ext_resource type="Script" path="res://scripts/components/fps_label_controller.gd" id="4_fps_label_script"]
 
 [sub_resource type="StyleBoxFlat" id="1_dark_panel"]
 bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.88)
@@ -56,6 +57,15 @@ script = ExtResource("3_experience_script")
 [node name="WineryInterior" parent="." instance=ExtResource("2_winery_interior")]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="FPSLabel" type="Label" parent="CanvasLayer"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 150.0
+offset_bottom = 34.0
+mouse_filter = 2
+text = "FPS: 0"
+script = ExtResource("4_fps_label_script")
 
 [node name="PanelDim" type="ColorRect" parent="CanvasLayer"]
 anchors_preset = 15

@@ -63,7 +63,7 @@ func set_context(client_id: String, state_name: String, step_name: String, targe
 	if target_type.is_empty():
 		active_target = ""
 	else:
-		active_target = "%s:%s" % [target_type, target_id]
+		active_target = target_type + ":" + target_id
 	if visible_enabled:
 		_refresh_text()
 
@@ -80,15 +80,15 @@ func _process(_delta: float) -> void:
 
 
 func _refresh_text() -> void:
-	label.text = "Client: %s\nState: %s\nStep: %s\nTarget: %s\nViewport: %s\nFPS: %s\nInput: %s" % [
-		current_client_id if not current_client_id.is_empty() else "<none>",
-		current_state if not current_state.is_empty() else "<unknown>",
-		current_step if not current_step.is_empty() else "<none>",
-		active_target if not active_target.is_empty() else "<none>",
-		viewport_mode,
-		Engine.get_frames_per_second(),
-		input_hint
-	]
+	label.text = (
+		"Client: " + (current_client_id if not current_client_id.is_empty() else "<none>") +
+		"\nState: " + (current_state if not current_state.is_empty() else "<unknown>") +
+		"\nStep: " + (current_step if not current_step.is_empty() else "<none>") +
+		"\nTarget: " + (active_target if not active_target.is_empty() else "<none>") +
+		"\nViewport: " + viewport_mode +
+		"\nFPS: " + str(Engine.get_frames_per_second()) +
+		"\nInput: " + input_hint
+	)
 
 
 func _make_panel_style() -> StyleBoxFlat:

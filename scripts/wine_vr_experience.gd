@@ -30,6 +30,8 @@ var _narrative_panel: NarrativePanelController
 var _onboarding: OnboardingOverlayController
 var _dev_overlay: DevOverlayController
 var _layout: ResponsiveLayoutController
+var _graphics_manager: GraphicsSettingsManager
+var _graphics_panel: GraphicsSettingsPanelController
 
 
 func _ready() -> void:
@@ -63,6 +65,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_reset_current_experience()
 			return
 		if event.keycode == KEY_ESCAPE:
+			if _graphics_panel != null and _graphics_panel.is_open():
+				_graphics_panel.close()
+				return
+			if ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+				_graphics_panel.open()
+				return
 			_return_to_qr_scan_debug()
 			return
 		if event.keycode == KEY_F7:
@@ -91,9 +99,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _build_components() -> void:
+	WineDatabase.load_profiles()
+	var tasting_entries: Array[Dictionary] = WineDatabase.get_selection_entries()
+	var selection_entries: Array[Dictionary] = tasting_entries if not tasting_entries.is_empty() else ClientProfileLoader.get_client_registry(false)
+	if tasting_entries.is_empty():
+		print("[WineDB] No selection entries from database. Falling back to client registry.")
+
 	_qr_screen = QRScreenController.new()
 	add_child(_qr_screen)
-	_qr_screen.setup(canvas_layer, ClientProfileLoader.get_client_registry(false))
+	_qr_screen.setup(canvas_layer, selection_entries)
 	_qr_screen.client_selected.connect(_select_qr_client)
 
 	_loading_overlay = LoadingOverlayController.new()
@@ -145,6 +159,20 @@ func _build_components() -> void:
 	add_child(_layout)
 	_layout.setup(_qr_screen, _hud, _mobile_controls, _narrative_panel, _onboarding)
 
+	_graphics_manager = GraphicsSettingsManager.new()
+	add_child(_graphics_manager)
+	_graphics_manager.setup(get_tree(), get_viewport(), _resolve_world_environment())
+	_graphics_manager.camera_quality_changed.connect(_on_camera_quality_changed)
+	_graphics_manager.performance_fallback_suggested.connect(_on_performance_fallback_suggested)
+
+	_graphics_panel = GraphicsSettingsPanelController.new()
+	add_child(_graphics_panel)
+	_graphics_panel.setup(canvas_layer)
+	_graphics_panel.set_values(_graphics_manager.current_preset, _graphics_manager.fps_friendly)
+	_graphics_panel.apply_requested.connect(_on_graphics_apply_requested)
+	_graphics_panel.fallback_accept_requested.connect(_on_performance_fallback_accepted)
+	_graphics_panel.fallback_ignore_requested.connect(_on_performance_fallback_ignored)
+
 
 func _on_client_profile_changed(_client_id: String, client_data: Dictionary) -> void:
 	_apply_client_profile(client_data)
@@ -170,6 +198,9 @@ func _apply_client_profile(client_data: Dictionary) -> void:
 	_hud.apply_client_profile(client_data)
 	vial_preview.apply_client_profile(client_data)
 	winery_interior.apply_client_profile(client_data)
+	if _graphics_manager != null:
+		_graphics_manager.set_environment(_resolve_world_environment())
+		_graphics_manager.apply_current()
 	_hotspots.build_hotspots(experience_settings.get("hotspots", []))
 	_update_dev_overlay_context()
 
@@ -309,11 +340,23 @@ func _select_qr_client(client_id: String) -> void:
 	_hotspots.reset_viewed()
 	_hotspots.close_panel()
 	_hud.close_winery_modal()
-
-	if not ClientProfileLoader.profile_exists(client_id):
+	var selected_wine_profile: Dictionary = WineDatabase.get_profile_by_id(client_id)
+	if not selected_wine_profile.is_empty():
+		AppState.set_selected_profile(client_id, selected_wine_profile)
+		var runtime_profile: Dictionary = WineDatabase.build_runtime_client_profile(selected_wine_profile)
+		if ClientProfileLoader.load_runtime_profile(client_id, runtime_profile):
+			vial_preview.reset_view()
+			winery_interior.reset_view()
+			ExperienceManager.enter_intro()
+			_onboarding.show_once()
+		else:
+			_qr_screen.set_error("This tasting profile is not available right now.")
+			ExperienceManager.show_qr_scan()
+	elif not ClientProfileLoader.profile_exists(client_id):
 		_qr_screen.set_error("This tasting profile is not ready yet.")
 		ExperienceManager.show_qr_scan()
 	elif ClientProfileLoader.load_client_profile(client_id):
+		AppState.clear_selected_profile()
 		vial_preview.reset_view()
 		winery_interior.reset_view()
 		ExperienceManager.enter_intro()
@@ -341,10 +384,51 @@ func _reset_current_experience() -> void:
 
 func _set_demo_mode(enabled: bool) -> void:
 	_demo_mode = enabled
+	winery_interior.set_demo_mode(enabled)
 	if _demo_mode and _dev_overlay != null:
 		_dev_overlay.hide_overlay()
 	if OS.is_debug_build():
 		print("[WineVR][Demo] demo_mode=%s" % _demo_mode)
+
+
+func _on_graphics_apply_requested(preset_name: String, fps_friendly: bool) -> void:
+	if _graphics_manager == null:
+		return
+	_graphics_manager.set_preset(preset_name)
+	_graphics_manager.set_fps_friendly(fps_friendly)
+	_graphics_manager.apply_current()
+	_graphics_panel.set_values(_graphics_manager.current_preset, _graphics_manager.fps_friendly)
+
+
+func _on_camera_quality_changed(multiplier: float) -> void:
+	winery_interior.set_camera_transition_quality(multiplier)
+
+
+func _on_performance_fallback_suggested() -> void:
+	if _graphics_panel != null:
+		_graphics_panel.show_fallback_prompt()
+
+
+func _on_performance_fallback_accepted() -> void:
+	if _graphics_manager == null:
+		return
+	_graphics_manager.set_preset(GraphicsSettingsManager.PRESET_ULTRA_LOW)
+	_graphics_manager.set_fps_friendly(true)
+	_graphics_manager.apply_current()
+	_graphics_manager.mark_fallback_suggestion_resolved()
+	if _graphics_panel != null:
+		_graphics_panel.set_values(_graphics_manager.current_preset, _graphics_manager.fps_friendly)
+
+
+func _on_performance_fallback_ignored() -> void:
+	if _graphics_manager != null:
+		_graphics_manager.mark_fallback_suggestion_resolved()
+
+
+func _resolve_world_environment() -> Environment:
+	if winery_interior == null or winery_interior.world_environment == null:
+		return null
+	return winery_interior.world_environment.environment
 
 
 func _set_ui_hidden_for_capture(hidden: bool) -> void:

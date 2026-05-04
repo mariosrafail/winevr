@@ -8,6 +8,8 @@ var zone_data_by_id: Dictionary = {}
 var highlight_root: Node3D
 var active_highlight: Node3D
 var _pulse_tween: Tween
+var _active_marker_material: StandardMaterial3D
+var _active_marker_label: Label3D
 
 
 func setup(parent: Node3D) -> void:
@@ -16,6 +18,8 @@ func setup(parent: Node3D) -> void:
 	parent.add_child(root)
 	highlight_root = Node3D.new()
 	highlight_root.name = "ConfigZoneHighlights"
+	highlight_root.add_to_group("highlight_effects")
+	highlight_root.add_to_group("performance_optional")
 	parent.add_child(highlight_root)
 
 
@@ -70,6 +74,7 @@ func highlight_zone(zone_id: String) -> bool:
 	active_highlight = _create_highlight_marker(str(zone_data.get("title", zone_id)))
 	active_highlight.position = _array_to_vector3(zone_data.get("position", [0.0, 1.1, -1.0]), Vector3(0.0, 1.1, -1.0))
 	highlight_root.add_child(active_highlight)
+	_capture_active_marker_refs()
 	return true
 
 
@@ -87,6 +92,23 @@ func clear_highlight() -> void:
 	for child in highlight_root.get_children():
 		child.free()
 	active_highlight = null
+	_active_marker_material = null
+	_active_marker_label = null
+
+
+func set_highlight_completed(completed: bool) -> void:
+	if _active_marker_material == null:
+		return
+	if completed:
+		_active_marker_material.emission = Color(0.64, 0.56, 0.38, 1.0)
+		_active_marker_material.emission_energy_multiplier = 0.24
+		_active_marker_material.albedo_color = Color(0.62, 0.54, 0.38, 0.44)
+		if _active_marker_label != null:
+			_active_marker_label.text = _active_marker_label.text + "  ✓"
+	else:
+		_active_marker_material.emission = Color(0.96, 0.73, 0.32, 1.0)
+		_active_marker_material.emission_energy_multiplier = 1.0
+		_active_marker_material.albedo_color = Color(0.92, 0.68, 0.28, 0.66)
 
 
 func _create_highlight_marker(label_text: String) -> Node3D:
@@ -99,10 +121,10 @@ func _create_highlight_marker(label_text: String) -> Node3D:
 	var marker: MeshInstance3D = MeshInstance3D.new()
 	marker.mesh = sphere
 	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.35, 0.78, 1.0, 0.65)
+	material.albedo_color = Color(0.92, 0.68, 0.28, 0.66)
 	material.emission_enabled = true
-	material.emission = Color(0.35, 0.78, 1.0, 1.0)
-	material.emission_energy_multiplier = 1.4
+	material.emission = Color(0.96, 0.73, 0.32, 1.0)
+	material.emission_energy_multiplier = 1.0
 	marker.set_surface_override_material(0, material)
 	marker_root.add_child(marker)
 
@@ -111,7 +133,7 @@ func _create_highlight_marker(label_text: String) -> Node3D:
 	label.position = Vector3(0.0, 0.34, 0.0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.font_size = 24
-	label.modulate = Color(0.92, 0.96, 1.0, 1.0)
+	label.modulate = Color(0.98, 0.93, 0.84, 1.0)
 	marker_root.add_child(label)
 	return marker_root
 
@@ -123,9 +145,21 @@ func _pulse_active_highlight(owner: Node) -> void:
 		_pulse_tween.kill()
 	active_highlight.scale = Vector3.ONE
 	_pulse_tween = owner.create_tween()
-	_pulse_tween.set_loops(3)
-	_pulse_tween.tween_property(active_highlight, "scale", Vector3(1.35, 1.35, 1.35), 0.18)
-	_pulse_tween.tween_property(active_highlight, "scale", Vector3.ONE, 0.18)
+	_pulse_tween.set_loops(6)
+	_pulse_tween.tween_property(active_highlight, "scale", Vector3(1.1, 1.1, 1.1), 0.42)
+	_pulse_tween.tween_property(active_highlight, "scale", Vector3.ONE, 0.42)
+
+
+func _capture_active_marker_refs() -> void:
+	_active_marker_material = null
+	_active_marker_label = null
+	if active_highlight == null:
+		return
+	for child in active_highlight.get_children():
+		if child is MeshInstance3D and _active_marker_material == null:
+			_active_marker_material = (child as MeshInstance3D).get_active_material(0) as StandardMaterial3D
+		if child is Label3D and _active_marker_label == null:
+			_active_marker_label = child as Label3D
 
 
 func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:

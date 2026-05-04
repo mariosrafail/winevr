@@ -75,14 +75,17 @@ func _apply_lighting_preset(lighting_preset: String, environment_settings: Dicti
 	var secondary_light_color: Color = parse_color(environment_settings.get("secondary_light_color", ""), Color.TRANSPARENT)
 	match lighting_preset:
 		"dark_premium":
-			_set_directional_light(Color(1.0, 0.78, 0.55, 1.0), 1.05)
-			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(0.95, 0.54, 0.32, 1.0), 0.72)
+			_set_directional_light(Color(1.0, 0.78, 0.55, 1.0), 1.15)
+			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(0.95, 0.54, 0.32, 1.0), 0.8)
 		"bright_modern":
-			_set_directional_light(Color(0.95, 0.98, 1.0, 1.0), 2.65)
-			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(0.82, 0.92, 1.0, 1.0), 1.85)
+			_set_directional_light(Color(0.95, 0.98, 1.0, 1.0), 2.45)
+			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(0.82, 0.92, 1.0, 1.0), 1.62)
+		"cinematic_warm":
+			_set_directional_light(Color(1.0, 0.89, 0.75, 1.0), 1.72)
+			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(0.89, 0.58, 0.34, 1.0), 1.08)
 		_:
-			_set_directional_light(Color(1.0, 0.925, 0.831, 1.0), 2.0)
-			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(1.0, 0.875, 0.733, 1.0), 1.5)
+			_set_directional_light(Color(1.0, 0.92, 0.8, 1.0), 1.88)
+			_set_fill_light(secondary_light_color if secondary_light_color.a > 0.0 else Color(1.0, 0.84, 0.69, 1.0), 1.28)
 
 
 func _apply_quality(quality: String, environment_settings: Dictionary) -> void:

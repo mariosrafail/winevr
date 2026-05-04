@@ -12,6 +12,8 @@ func setup(parent: Node3D, environment_applier: WineryEnvironmentApplier) -> voi
 	environment = environment_applier
 	root = Node3D.new()
 	root.name = "ProceduralVisualDetails"
+	root.add_to_group("performance_optional")
+	root.add_to_group("ultra_disable")
 	parent.add_child(root)
 
 

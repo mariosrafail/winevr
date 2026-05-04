@@ -17,6 +17,8 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+AppState="*res://scripts/app_state.gd"
+WineDatabase="*res://scripts/data/WineDatabase.gd"
 ClientProfileLoader="*res://core/client_profile_loader.gd"
 ExperienceManager="*res://core/experience_manager.gd"
 NarrativeManager="*res://core/narrative_manager.gd"

@@ -87,7 +87,7 @@ func _process(delta: float) -> void:
 
 
 func _build_signature() -> String:
-	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [
+	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [
 		str(vial_height),
 		str(vial_radius),
 		str(glass_thickness),
@@ -99,7 +99,8 @@ func _build_signature() -> String:
 		str(liquid_slosh_response),
 		str(cap_height),
 		str(cap_overhang),
-		str(radial_segments) + "|" + str(cap_color)
+		str(radial_segments),
+		str(cap_color)
 	]
 
 
@@ -110,10 +111,9 @@ func _build_materials() -> void:
 	_glass_material.albedo_color = Color(0.92, 0.93, 0.95, 0.1)
 	_glass_material.metallic = 0.0
 	_glass_material.roughness = 0.035
-	_glass_material.specular = 0.95
 	_glass_material.rim_enabled = true
-	_glass_material.rim = 0.14
-	_glass_material.rim_tint = 0.25
+	_glass_material.rim = 0.19
+	_glass_material.rim_tint = 0.36
 	_glass_material.clearcoat_enabled = true
 	_glass_material.clearcoat = 1.0
 	_glass_material.clearcoat_roughness = 0.02
@@ -123,34 +123,31 @@ func _build_materials() -> void:
 	_liquid_material = StandardMaterial3D.new()
 	_liquid_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_liquid_material.cull_mode = BaseMaterial3D.CULL_BACK
-	_liquid_material.albedo_color = liquid_color.darkened(0.12)
-	_liquid_material.roughness = 0.07
-	_liquid_material.specular = 0.96
+	_liquid_material.albedo_color = Color(0.23, 0.035, 0.055, 0.84)
+	_liquid_material.roughness = 0.06
 	_liquid_material.rim_enabled = true
-	_liquid_material.rim = 0.08
-	_liquid_material.rim_tint = 0.2
+	_liquid_material.rim = 0.18
+	_liquid_material.rim_tint = 0.28
 	_liquid_material.clearcoat_enabled = true
-	_liquid_material.clearcoat = 0.72
+	_liquid_material.clearcoat = 0.78
 	_liquid_material.clearcoat_roughness = 0.02
 
 	_liquid_surface_material = StandardMaterial3D.new()
 	_liquid_surface_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_liquid_surface_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_liquid_surface_material.albedo_color = liquid_color.lightened(0.18)
-	_liquid_surface_material.roughness = 0.035
-	_liquid_surface_material.specular = 1.0
+	_liquid_surface_material.albedo_color = Color(0.31, 0.07, 0.09, 0.88)
+	_liquid_surface_material.roughness = 0.025
 	_liquid_surface_material.rim_enabled = true
-	_liquid_surface_material.rim = 0.22
-	_liquid_surface_material.rim_tint = 0.36
+	_liquid_surface_material.rim = 0.28
+	_liquid_surface_material.rim_tint = 0.45
 	_liquid_surface_material.clearcoat_enabled = true
-	_liquid_surface_material.clearcoat = 0.9
+	_liquid_surface_material.clearcoat = 0.95
 	_liquid_surface_material.clearcoat_roughness = 0.015
 
 	_cap_material = StandardMaterial3D.new()
 	_cap_material.albedo_color = cap_color
 	_cap_material.roughness = 0.9
 	_cap_material.metallic = 0.0
-	_cap_material.specular = 0.12
 
 
 func rebuild_vial() -> void:
@@ -195,7 +192,12 @@ func _rebuild_geometry() -> void:
 	var liquid_mesh_data := _build_liquid_mesh(inner_r, body_h, safe_base)
 	_liquid.mesh = liquid_mesh_data["mesh"]
 	_liquid.position.y = liquid_mesh_data["center_y"]
-	_liquid_material.albedo_color = liquid_color.darkened(0.12)
+	_liquid_material.albedo_color = Color(
+		clampf(liquid_color.r * 0.78 + 0.06, 0.0, 1.0),
+		clampf(liquid_color.g * 0.44, 0.0, 1.0),
+		clampf(liquid_color.b * 0.62, 0.0, 1.0),
+		clampf(liquid_color.a, 0.78, 0.94)
+	)
 	_liquid.set_surface_override_material(0, _liquid_material)
 	if _liquid_surface != null:
 		_liquid_surface.mesh = liquid_mesh_data["surface_mesh"]

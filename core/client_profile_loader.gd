@@ -98,6 +98,22 @@ func load_client_profile(client_id: String) -> bool:
 	return true
 
 
+func load_runtime_profile(client_id: String, profile_data: Dictionary) -> bool:
+	if profile_data.is_empty():
+		push_warning("Runtime profile is empty for client '%s'." % client_id)
+		return false
+	var profile: Dictionary = profile_data.duplicate(true)
+	_normalize_profile(profile)
+	if not _validate_profile(profile):
+		push_warning("Runtime profile failed validation: %s" % client_id)
+		return false
+	active_client_id = client_id
+	active_client_data = profile
+	client_profile_changed.emit(active_client_id, active_client_data)
+	print("[ClientProfileLoader] Runtime profile loaded: %s" % client_id)
+	return true
+
+
 func profile_exists(client_id: String) -> bool:
 	return FileAccess.file_exists(get_profile_path(client_id))
 
