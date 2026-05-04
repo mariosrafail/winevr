@@ -9,6 +9,7 @@ var min_pitch_degrees: float = -30.0
 var max_pitch_degrees: float = 30.0
 var controls_enabled: bool = false
 var look_dragging: bool = false
+var exploration_mode: bool = false
 var mobile_move_vector: Vector2 = Vector2.ZERO
 var camera_start_position: Vector3 = Vector3(0.0, 0.0, 1.55)
 var camera_start_rotation: Vector3 = Vector3.ZERO
@@ -58,8 +59,14 @@ func handle_input(event: InputEvent) -> bool:
 		return false
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if exploration_mode:
+			return true
 		look_dragging = event.pressed
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if look_dragging else Input.MOUSE_MODE_VISIBLE
+		return true
+
+	if event is InputEventMouseMotion and exploration_mode:
+		apply_look_drag(event.relative)
 		return true
 
 	if event is InputEventMouseMotion and look_dragging:
@@ -73,9 +80,15 @@ func set_controls_enabled(enabled: bool) -> void:
 	controls_enabled = enabled
 	if not enabled:
 		look_dragging = false
+		exploration_mode = false
 		mobile_move_vector = Vector2.ZERO
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func set_exploration_mode(enabled: bool) -> void:
+	exploration_mode = enabled
+	look_dragging = false
 
 
 func set_mobile_move_axis(axis: String, pressed: bool) -> void:

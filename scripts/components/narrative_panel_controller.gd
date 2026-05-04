@@ -3,6 +3,7 @@ class_name NarrativePanelController
 
 signal show_target_requested(current_step: Dictionary)
 signal restart_requested
+signal layout_refresh_requested(reason: String)
 
 var panel: PanelContainer
 var title_label: Label
@@ -83,6 +84,7 @@ func _build_panel() -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 7)
 	margin.add_child(box)
+	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	var header: HBoxContainer = HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
@@ -90,7 +92,7 @@ func _build_panel() -> void:
 
 	progress_label = Label.new()
 	progress_label.text = "0/0"
-	progress_label.label_settings = _make_label_settings(13, Color(0.92, 0.76, 0.45, 1.0))
+	progress_label.label_settings = _make_label_settings(13, PremiumUIStyles.GOLD_ACCENT)
 	header.add_child(progress_label)
 
 	title_label = Label.new()
@@ -101,11 +103,12 @@ func _build_panel() -> void:
 	var hide_button: Button = Button.new()
 	hide_button.text = "Minimize"
 	hide_button.custom_minimum_size = Vector2(62.0, 38.0)
+	PremiumUIStyles.apply_gold_outline_button(hide_button)
 	hide_button.pressed.connect(_set_collapsed.bind(true))
 	header.add_child(hide_button)
 
 	target_label = Label.new()
-	target_label.label_settings = _make_label_settings(12, Color(0.92, 0.76, 0.45, 0.9))
+	target_label.label_settings = _make_label_settings(12, Color(PremiumUIStyles.GOLD_ACCENT.r, PremiumUIStyles.GOLD_ACCENT.g, PremiumUIStyles.GOLD_ACCENT.b, 0.9))
 	box.add_child(target_label)
 
 	text_scroll = ScrollContainer.new()
@@ -141,6 +144,7 @@ func _build_panel() -> void:
 	show_me_button.text = "Show me"
 	show_me_button.custom_minimum_size = Vector2(0.0, 44.0)
 	show_me_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	PremiumUIStyles.apply_gold_outline_button(show_me_button)
 	show_me_button.pressed.connect(_on_show_me_pressed)
 	actions.add_child(show_me_button)
 
@@ -148,6 +152,7 @@ func _build_panel() -> void:
 	next_button.text = "Continue"
 	next_button.custom_minimum_size = Vector2(0.0, 44.0)
 	next_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	PremiumUIStyles.apply_gold_outline_button(next_button)
 	next_button.pressed.connect(_on_next_pressed)
 	actions.add_child(next_button)
 
@@ -158,6 +163,7 @@ func _build_panel() -> void:
 	show_button.z_index = 50
 	show_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	show_button.custom_minimum_size = Vector2(104.0, 44.0)
+	PremiumUIStyles.apply_gold_outline_button(show_button)
 	show_button.pressed.connect(_set_collapsed.bind(false))
 	canvas_layer.add_child(show_button)
 
@@ -193,6 +199,7 @@ func _build_completion_modal() -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
 	margin.add_child(box)
+	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	completion_title = Label.new()
 	completion_title.text = "Tasting Complete"
@@ -212,11 +219,7 @@ func _build_completion_modal() -> void:
 	restart_button = Button.new()
 	restart_button.text = "Restart Experience"
 	restart_button.custom_minimum_size = Vector2(0.0, 48.0)
-	restart_button.add_theme_stylebox_override("normal", _make_restart_button_style(Color(0.12, 0.098, 0.055, 1.0)))
-	restart_button.add_theme_stylebox_override("hover", _make_restart_button_style(Color(0.18, 0.145, 0.075, 1.0)))
-	restart_button.add_theme_stylebox_override("pressed", _make_restart_button_style(Color(0.08, 0.066, 0.04, 1.0)))
-	restart_button.add_theme_color_override("font_color", Color(0.976, 0.968, 0.941, 1.0))
-	restart_button.add_theme_color_override("font_hover_color", Color(1.0, 0.91, 0.62, 1.0))
+	PremiumUIStyles.apply_gold_outline_button(restart_button)
 	restart_button.pressed.connect(_on_restart_pressed)
 	box.add_child(restart_button)
 
@@ -255,6 +258,7 @@ func _update_visibility(can_show: bool) -> void:
 	show_button.visible = has_step and can_show and collapsed
 	completion_overlay.visible = completion_active and can_show
 	if panel.visible or show_button.visible or completion_overlay.visible:
+		layout_refresh_requested.emit("panel opened")
 		_raise_to_front()
 
 
@@ -289,6 +293,7 @@ func _show_completion_modal() -> void:
 	panel.visible = false
 	show_button.visible = false
 	completion_overlay.visible = true
+	layout_refresh_requested.emit("panel opened")
 	_raise_to_front()
 
 
@@ -307,30 +312,14 @@ func _raise_to_front() -> void:
 
 
 func _make_panel_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.9)
-	style.border_color = Color(0.92, 0.76, 0.45, 0.22)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
+	var style: StyleBoxFlat = PremiumUIStyles.make_panel_style(0.9)
 	style.set_content_margin_all(20.0)
 	return style
 
 
 func _make_completion_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.96)
-	style.border_color = Color(0.92, 0.76, 0.45, 0.38)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	return style
-
-
-func _make_restart_button_style(background_color: Color) -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = background_color
-	style.border_color = Color(0.92, 0.76, 0.45, 0.5)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
+	var style: StyleBoxFlat = PremiumUIStyles.make_panel_style(0.94)
+	style.set_content_margin_all(18.0)
 	return style
 
 

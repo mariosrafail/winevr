@@ -3,6 +3,7 @@ extends Node
 const PROFILES_PATH: String = "res://data/tasting_profiles/profiles.json"
 const USER_PROFILES_PATH: String = "user://profiles.json"
 const EXTERNAL_PROFILES_FILENAME: String = "profiles.json"
+const DEFAULT_QR_IMAGE: String = "res://assets/qr/demo_winery_qr.png"
 
 var _profiles: Array[Dictionary] = []
 var _profiles_by_id: Dictionary = {}
@@ -138,12 +139,16 @@ func get_selection_entries() -> Array[Dictionary]:
 		entries.append({
 			"client_id": str(profile.get("id", "")),
 			"display_name": str(profile.get("name", "")),
-			"wine_name": str(profile.get("name", "")),
-			"winery": str(profile.get("winery", "")),
-			"region": str(profile.get("region", "")),
-			"wine_type": str(profile.get("wine_type", "")),
-			"enabled": true
-		})
+		"wine_name": str(profile.get("name", "")),
+		"winery": str(profile.get("winery", "")),
+		"region": str(profile.get("region", "")),
+		"wine_type": str(profile.get("wine_type", "")),
+		"organization_id": str(profile.get("organization_id", "")),
+		"organization_name": str(profile.get("organization_name", profile.get("winery", ""))),
+		"qr_code_image": str(profile.get("qr_code_image", DEFAULT_QR_IMAGE)),
+		"qr_target_url": str(profile.get("qr_target_url", "")),
+		"enabled": true
+	})
 	return entries
 
 
@@ -157,6 +162,10 @@ func build_runtime_client_profile(profile: Dictionary) -> Dictionary:
 	var description: String = str(profile.get("description", ""))
 	var wine_type: String = str(profile.get("wine_type", "Wine"))
 	var vintage: String = str(profile.get("vintage", ""))
+	var organization_id: String = str(profile.get("organization_id", _stable_id_from_text(winery)))
+	var organization_name: String = str(profile.get("organization_name", winery))
+	var qr_code_image: String = str(profile.get("qr_code_image", DEFAULT_QR_IMAGE))
+	var qr_target_url: String = str(profile.get("qr_target_url", ""))
 
 	var hotspots: Array = _map_hotspots_to_experience(profile.get("hotspots", []))
 	var narrative_steps: Array = _map_hotspots_to_narrative(profile.get("hotspots", []), story_text)
@@ -168,6 +177,10 @@ func build_runtime_client_profile(profile: Dictionary) -> Dictionary:
 		"region_name": region,
 		"country": "Greece",
 		"qr_id": profile_id,
+		"organization_id": organization_id,
+		"organization_name": organization_name,
+		"qr_code_image": qr_code_image,
+		"qr_target_url": qr_target_url,
 		"vial_settings": {
 			"liquid_fill_amount": 0.72,
 			"liquid_color": color_hex,
@@ -266,6 +279,10 @@ func _normalize_profile(profile: Dictionary) -> Dictionary:
 	p["color_hex"] = str(p.get("color_hex", "#7A1E2B"))
 	p["scene_theme"] = str(p.get("scene_theme", "default_cellar"))
 	p["unlocked_by_default"] = bool(p.get("unlocked_by_default", false))
+	p["organization_id"] = str(p.get("organization_id", _stable_id_from_text(str(p.get("winery", "Unknown Winery")))))
+	p["organization_name"] = str(p.get("organization_name", p.get("winery", "Unknown Winery")))
+	p["qr_code_image"] = str(p.get("qr_code_image", _default_qr_for_organization(str(p.get("organization_id", "")))))
+	p["qr_target_url"] = str(p.get("qr_target_url", ""))
 	p["tasting_notes"] = _normalize_string_array(p.get("tasting_notes", []))
 	p["aroma_notes"] = _normalize_string_array(p.get("aroma_notes", []))
 	p["pairing_suggestions"] = _normalize_string_array(p.get("pairing_suggestions", []))
@@ -307,6 +324,29 @@ func _normalize_string_array(value: Variant) -> Array:
 	for item in value as Array:
 		result.append(str(item))
 	return result
+
+
+func _stable_id_from_text(text: String) -> String:
+	var result: String = text.strip_edges().to_lower()
+	result = result.replace(" ", "_")
+	result = result.replace("-", "_")
+	result = result.replace(",", "")
+	result = result.replace(".", "")
+	return "demo_winery" if result.is_empty() else result
+
+
+func _default_qr_for_organization(organization_id: String) -> String:
+	if organization_id.contains("naousa") or organization_id.contains("naoussa") or organization_id.contains("xinomavro"):
+		return "res://assets/qr/naousa_cellar_qr.png"
+	if organization_id.contains("santorini") or organization_id.contains("nemea") or organization_id.contains("agiorgitiko"):
+		return "res://assets/qr/santorini_estate_qr.png"
+	match organization_id:
+		"naousa_cellar":
+			return "res://assets/qr/naousa_cellar_qr.png"
+		"santorini_estate":
+			return "res://assets/qr/santorini_estate_qr.png"
+		_:
+			return DEFAULT_QR_IMAGE
 
 
 func _build_winery_info(profile: Dictionary) -> String:
@@ -434,6 +474,10 @@ func _fallback_profiles() -> Array[Dictionary]:
 			"color_hex": "#EDE5B8",
 			"unlocked_by_default": true,
 			"scene_theme": "island_modern",
+			"organization_id": "demo_winery",
+			"organization_name": "Demo Winery",
+			"qr_code_image": "res://assets/qr/demo_winery_qr.png",
+			"qr_target_url": "https://example.com/demo-winery",
 			"hotspots": [{
 				"id": "assyrtiko_origin",
 				"title": "Volcanic Origin",
@@ -459,6 +503,10 @@ func _fallback_profiles() -> Array[Dictionary]:
 			"color_hex": "#7A1E2B",
 			"unlocked_by_default": true,
 			"scene_theme": "classic_cellar",
+			"organization_id": "santorini_estate",
+			"organization_name": "Santorini Estate",
+			"qr_code_image": "res://assets/qr/santorini_estate_qr.png",
+			"qr_target_url": "https://example.com/santorini-estate",
 			"hotspots": [{
 				"id": "agiorgitiko_color",
 				"title": "Color",
@@ -484,6 +532,10 @@ func _fallback_profiles() -> Array[Dictionary]:
 			"color_hex": "#5C1723",
 			"unlocked_by_default": true,
 			"scene_theme": "reserve_winery",
+			"organization_id": "naousa_cellar",
+			"organization_name": "Naousa Cellar",
+			"qr_code_image": "res://assets/qr/naousa_cellar_qr.png",
+			"qr_target_url": "https://example.com/naousa-cellar",
 			"hotspots": [{
 				"id": "xinomavro_structure",
 				"title": "Structure",

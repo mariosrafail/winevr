@@ -10,20 +10,20 @@ content_margin_left = 20.0
 content_margin_top = 20.0
 content_margin_right = 20.0
 content_margin_bottom = 20.0
-bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.88)
+bg_color = Color(0.066, 0.062, 0.051, 0.88)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.92, 0.76, 0.45, 0.22)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+border_color = Color(0.784, 0.655, 0.353, 0.5)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [sub_resource type="LabelSettings" id="3_eyebrow"]
 font_size = 13
-font_color = Color(0.91, 0.76, 0.49, 1)
+font_color = Color(0.839, 0.694, 0.369, 1)
 
 [sub_resource type="LabelSettings" id="4_title"]
 font_size = 28
@@ -31,23 +31,23 @@ font_color = Color(0.976471, 0.968627, 0.941176, 1)
 
 [sub_resource type="LabelSettings" id="5_body"]
 font_size = 15
-font_color = Color(0.84, 0.86, 0.86, 1)
+font_color = Color(0.851, 0.82, 0.753, 1)
 
 [sub_resource type="StyleBoxFlat" id="2_modal_panel"]
 content_margin_left = 20.0
 content_margin_top = 20.0
 content_margin_right = 20.0
 content_margin_bottom = 20.0
-bg_color = Color(0.07, 0.074, 0.082, 0.96)
+bg_color = Color(0.066, 0.062, 0.051, 0.9)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.95, 0.78, 0.45, 0.28)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+border_color = Color(0.784, 0.655, 0.353, 0.65)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [node name="WineVRExperience" type="Node" unique_id=1724632651]
 script = ExtResource("3_experience_script")

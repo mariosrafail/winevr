@@ -83,6 +83,7 @@ func apply_client_profile(client_data: Dictionary) -> void:
 	vial.liquid_tilt_response = float(vial_settings.get("liquid_tilt_response", vial.liquid_tilt_response))
 	vial.liquid_slosh_response = float(vial_settings.get("liquid_slosh_response", vial.liquid_slosh_response))
 	vial.rebuild_vial()
+	vial.apply_qr_profile(client_data)
 
 	var environment_settings: Dictionary = _dict_value(client_data.get("environment_settings", {}))
 	var accent_color: Color = _parse_color(environment_settings.get("accent_color", vial.cap_color), vial.cap_color)

@@ -4,6 +4,7 @@ class_name ExperienceHUDController
 signal start_requested
 signal enter_winery_requested
 signal return_to_vial_requested
+signal layout_refresh_requested(reason: String)
 
 var intro_screen: Control
 var inspection_hud: Control
@@ -61,7 +62,7 @@ func setup(root: Node) -> void:
 	unlock_feedback_label = Label.new()
 	unlock_feedback_label.text = ""
 	unlock_feedback_label.visible = false
-	unlock_feedback_label.label_settings = _make_label_settings(13, Color(0.92, 0.76, 0.45, 1.0))
+	unlock_feedback_label.label_settings = _make_label_settings(13, PremiumUIStyles.GOLD_ACCENT)
 	(root.get_node("CanvasLayer/InspectionHUD/InfoCard/Margin/VBox") as VBoxContainer).add_child(unlock_feedback_label)
 	hotspot_panel = root.get_node("CanvasLayer/InspectionHUD/HotspotPanel") as PanelContainer
 	inspection_hint = root.get_node("CanvasLayer/InspectionHUD/InspectionHint") as Label
@@ -147,7 +148,7 @@ func show_interactable_modal(interactable_data: Dictionary) -> void:
 	if not interactable_data.is_empty():
 		winery_modal_title.text = str(interactable_data.get("title", winery_modal_title.text))
 		winery_modal_text.text = str(interactable_data.get("text", winery_modal_text.text))
-	_show_winery_modal()
+	await open_centered_annotation_panel(winery_modal_title.text, winery_modal_text.text)
 
 
 func close_winery_modal() -> void:
@@ -157,11 +158,10 @@ func close_winery_modal() -> void:
 func _show_winery_modal() -> void:
 	_stop_winery_modal_tween()
 	winery_modal.visible = true
-	winery_modal.pivot_offset = winery_modal.size * 0.5
-	_winery_modal_tween = create_tween()
-	_winery_modal_tween.set_parallel(true)
-	_winery_modal_tween.tween_property(winery_modal, "modulate:a", 1.0, 0.16)
-	_winery_modal_tween.tween_property(winery_modal, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	layout_refresh_requested.emit("panel opened")
+	await get_tree().process_frame
+	ResponsiveLayoutController.center_panel_safe(winery_modal, winery_modal.get_viewport(), clampf(winery_modal.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), 0.45)
+	_winery_modal_tween = PremiumUIStyles.animate_panel_open(winery_modal, 10.0)
 
 
 func _hide_winery_modal() -> void:
@@ -191,15 +191,6 @@ func _on_enter_winery_button_pressed() -> void:
 	if OS.is_debug_build():
 		print("[WineVR][EnterWinery] button pressed disabled=%s visible=%s" % [enter_winery_button.disabled, enter_winery_button.visible])
 	enter_winery_requested.emit()
-
-
-func _make_button_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = background_color
-	style.border_color = border_color
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	return style
 
 
 func _stop_winery_modal_tween() -> void:
@@ -300,3 +291,15 @@ func _attach_premium_chrome(panel_node: PanelContainer) -> void:
 		var insert_index: int = mini(3, vbox.get_child_count())
 		vbox.add_child(divider)
 		vbox.move_child(divider, insert_index)
+
+
+func open_centered_annotation_panel(title: String, body: String, extra_data: Dictionary = {}) -> void:
+	winery_modal_title.text = title
+	winery_modal_text.text = body
+	if extra_data.has("min_height"):
+		winery_modal.custom_minimum_size.y = float(extra_data.get("min_height", 180.0))
+	await _show_winery_modal()
+	if winery_modal.has_focus() == false:
+		var close_button: Button = winery_modal.get_node_or_null("Margin/VBox/CloseButton") as Button
+		if close_button != null:
+			close_button.grab_focus()

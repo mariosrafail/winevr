@@ -35,10 +35,11 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	margin.add_child(box)
+	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	var title: Label = Label.new()
 	title.text = "How to explore"
-	title.label_settings = _make_label_settings(24, Color(0.976, 0.968, 0.941, 1.0))
+	title.label_settings = _make_label_settings(24, PremiumUIStyles.TEXT_TITLE)
 	box.add_child(title)
 
 	for text in [
@@ -49,17 +50,13 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 		var label: Label = Label.new()
 		label.text = text
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.label_settings = _make_label_settings(15, Color(0.86, 0.86, 0.82, 1.0))
+		label.label_settings = _make_label_settings(15, PremiumUIStyles.TEXT_BODY)
 		box.add_child(label)
 
 	var button: Button = Button.new()
 	button.text = "Got it"
 	button.custom_minimum_size = Vector2(0.0, 46.0)
-	button.add_theme_stylebox_override("normal", _make_button_style(Color(0.13, 0.105, 0.058, 1.0)))
-	button.add_theme_stylebox_override("hover", _make_button_style(Color(0.19, 0.15, 0.078, 1.0)))
-	button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.09, 0.072, 0.042, 1.0)))
-	button.add_theme_color_override("font_color", Color(0.976, 0.968, 0.941, 1.0))
-	button.add_theme_color_override("font_hover_color", Color(1.0, 0.91, 0.62, 1.0))
+	PremiumUIStyles.apply_gold_outline_button(button)
 	button.pressed.connect(hide)
 	box.add_child(button)
 
@@ -78,6 +75,7 @@ func show_once() -> void:
 	has_shown = true
 	overlay.visible = true
 	canvas_layer.move_child(overlay, canvas_layer.get_child_count() - 1)
+	PremiumUIStyles.animate_panel_open(card, 10.0)
 
 
 func hide() -> void:
@@ -85,11 +83,8 @@ func hide() -> void:
 
 
 func _make_panel_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.96)
-	style.border_color = Color(0.92, 0.76, 0.45, 0.32)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(12)
+	var style: StyleBoxFlat = PremiumUIStyles.make_panel_style(0.94)
+	style.set_content_margin_all(18.0)
 	return style
 
 
@@ -98,12 +93,3 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 	settings.font_size = font_size
 	settings.font_color = font_color
 	return settings
-
-
-func _make_button_style(background_color: Color) -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = background_color
-	style.border_color = Color(0.92, 0.76, 0.45, 0.5)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	return style

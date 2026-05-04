@@ -8,6 +8,8 @@ signal interactable_hover_ended(interactable: Interactable)
 signal interactable_clicked(interactable: Interactable)
 signal guided_step_started(step_index: int, interactable_id: String)
 signal guided_step_completed(step_index: int, interactable_id: String)
+signal layout_refresh_requested(reason: String)
+signal interaction_target_changed(can_interact: bool, prompt_text: String)
 
 @export var move_speed: float = 2.4
 @export var look_sensitivity: float = 0.005
@@ -49,6 +51,7 @@ var _hover_player: AudioStreamPlayer
 var _click_player: AudioStreamPlayer
 var _completion_player: AudioStreamPlayer
 var _spotlight_root: Node3D
+var _exploration_mode_active: bool = false
 
 var _interaction_ui_layer: CanvasLayer
 var _tooltip_panel: PanelContainer
@@ -111,7 +114,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _movement == null or not _movement.controls_enabled:
 		return
 
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if event.is_action_pressed("interact") or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
 		_try_interact()
 		return
 	if event is InputEventScreenTouch and event.pressed:
@@ -136,6 +139,7 @@ func apply_client_profile(client_data: Dictionary) -> void:
 		held_vial.liquid_color = _environment.parse_color(vial_settings.get("liquid_color", held_vial.liquid_color), held_vial.liquid_color)
 		held_vial.cap_color = _environment.parse_color(vial_settings.get("cap_color", held_vial.cap_color), held_vial.cap_color)
 		held_vial.rebuild_vial()
+		held_vial.apply_qr_profile(client_data)
 
 	var environment_settings: Dictionary = _dict_value(client_data.get("environment_settings", {}))
 	_environment.apply(environment_settings)
@@ -168,7 +172,9 @@ func set_controls_enabled(enabled: bool) -> void:
 	if _interaction_ui_layer != null:
 		_interaction_ui_layer.visible = enabled
 	if not enabled:
+		_exploration_mode_active = false
 		_door.set_highlight(false)
+		interaction_target_changed.emit(false, "")
 		door_prompt_changed.emit("")
 
 
@@ -192,6 +198,17 @@ func handle_look_drag(relative_motion: Vector2) -> void:
 		return
 	_movement.apply_look_drag(relative_motion)
 	_update_interaction_prompt()
+
+
+func set_exploration_mode_active(active: bool) -> void:
+	_exploration_mode_active = active
+	if _movement != null:
+		_movement.set_exploration_mode(active)
+	_hide_tooltip()
+	if active:
+		_update_interaction_prompt()
+	else:
+		interaction_target_changed.emit(false, "")
 
 
 func interact_current() -> void:
@@ -353,6 +370,8 @@ func _update_interaction_prompt() -> void:
 	var looking_at_door: bool = false
 	var prompt: String = ""
 	var hovered: Interactable = null
+	var crosshair_can_interact: bool = false
+	var crosshair_prompt: String = "Click to interact"
 	interaction_ray.force_raycast_update()
 	if interaction_ray.is_colliding():
 		var collider: Object = interaction_ray.get_collider()
@@ -360,27 +379,45 @@ func _update_interaction_prompt() -> void:
 		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
 		if hovered != null:
 			prompt = "Interact"
-			_show_tooltip(hovered.title, hovered.description, _tooltip_action_text(hovered.id))
+			crosshair_can_interact = _guided == null or _guided.can_interact(hovered.id)
+			crosshair_prompt = "Click to interact"
+			if not _exploration_mode_active:
+				_show_tooltip(hovered.title, hovered.description, _tooltip_action_text(hovered.id))
 		elif looking_at_door:
 			prompt = "Open the cellar door"
-			_show_tooltip("Cellar Door", str(_zones.door_interactable.get("text", "")), _tooltip_action_text(str(_zones.door_interactable.get("id", ""))))
+			var door_data: Dictionary = _zones.door_interactable.duplicate(true)
+			crosshair_can_interact = _can_interact_payload(door_data)
+			crosshair_prompt = "Click to open"
+			if not _exploration_mode_active:
+				_show_tooltip("Cellar Door", str(_zones.door_interactable.get("text", "")), _tooltip_action_text(str(_zones.door_interactable.get("id", ""))))
 		else:
 			var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
 			if not zone_data.is_empty():
 				prompt = "View " + str(zone_data.get("title", "this detail"))
-				_show_tooltip(str(zone_data.get("title", "Detail")), str(zone_data.get("text", "")), _tooltip_action_text(str(zone_data.get("id", ""))))
+				crosshair_can_interact = _can_interact_payload(zone_data)
+				crosshair_prompt = "Click to inspect"
+				if not _exploration_mode_active:
+					_show_tooltip(str(zone_data.get("title", "Detail")), str(zone_data.get("text", "")), _tooltip_action_text(str(zone_data.get("id", ""))))
 			else:
 				var prop_data: Dictionary = _props.get_prop_data_from_collider(collider)
 				if not prop_data.is_empty():
 					prompt = "Inspect " + str(prop_data.get("id", "this cellar detail")).replace("_", " ")
-					_show_tooltip(str(prop_data.get("id", "Prop")).replace("_", " ").capitalize(), "Configured winery detail.", _tooltip_action_text(str(prop_data.get("id", ""))))
+					crosshair_can_interact = _guided == null or _guided.can_interact(str(prop_data.get("id", "")))
+					crosshair_prompt = "Click to inspect"
+					if not _exploration_mode_active:
+						_show_tooltip(str(prop_data.get("id", "Prop")).replace("_", " ").capitalize(), "Configured winery detail.", _tooltip_action_text(str(prop_data.get("id", ""))))
+				else:
+					_hide_tooltip()
 	else:
 		_hide_tooltip()
 
+	if _exploration_mode_active:
+		_hide_tooltip()
 	_set_hovered_interactable(hovered)
 	if _door != null:
 		_door.set_highlight(looking_at_door)
 	door_prompt_changed.emit(prompt)
+	interaction_target_changed.emit(crosshair_can_interact, crosshair_prompt)
 
 
 func _set_hovered_interactable(next_hovered: Interactable) -> void:
@@ -533,19 +570,7 @@ func _setup_interaction_ui() -> void:
 	_tooltip_panel.visible = false
 	_interaction_ui_layer.add_child(_tooltip_panel)
 
-	var tooltip_bg: StyleBoxFlat = StyleBoxFlat.new()
-	tooltip_bg.bg_color = PremiumUIStyles.PANEL_BG
-	tooltip_bg.corner_radius_top_left = 12
-	tooltip_bg.corner_radius_top_right = 12
-	tooltip_bg.corner_radius_bottom_left = 12
-	tooltip_bg.corner_radius_bottom_right = 12
-	tooltip_bg.border_width_left = 1
-	tooltip_bg.border_width_top = 1
-	tooltip_bg.border_width_right = 1
-	tooltip_bg.border_width_bottom = 1
-	tooltip_bg.border_color = PremiumUIStyles.GOLD_BORDER
-	tooltip_bg.shadow_color = PremiumUIStyles.SHADOW
-	tooltip_bg.shadow_size = 8
+	var tooltip_bg: StyleBoxFlat = PremiumUIStyles.make_panel_style(0.88)
 	_tooltip_panel.add_theme_stylebox_override("panel", tooltip_bg)
 
 	var tooltip_margin: MarginContainer = MarginContainer.new()
@@ -556,7 +581,9 @@ func _setup_interaction_ui() -> void:
 	_tooltip_panel.add_child(tooltip_margin)
 
 	var tooltip_vbox: VBoxContainer = VBoxContainer.new()
+	tooltip_vbox.add_theme_constant_override("separation", 6)
 	tooltip_margin.add_child(tooltip_vbox)
+	PremiumUIStyles.apply_panel_chrome_to_vbox(tooltip_vbox)
 	_tooltip_title = Label.new()
 	_tooltip_title.modulate = PremiumUIStyles.TEXT_TITLE
 	tooltip_vbox.add_child(_tooltip_title)
@@ -575,8 +602,7 @@ func _setup_interaction_ui() -> void:
 	_info_panel.visible = false
 	_interaction_ui_layer.add_child(_info_panel)
 
-	var info_bg: StyleBoxFlat = tooltip_bg.duplicate()
-	info_bg.bg_color = Color(PremiumUIStyles.PANEL_BG.r, PremiumUIStyles.PANEL_BG.g, PremiumUIStyles.PANEL_BG.b, 0.87)
+	var info_bg: StyleBoxFlat = PremiumUIStyles.make_panel_style(0.9)
 	_info_panel.add_theme_stylebox_override("panel", info_bg)
 
 	var info_margin: MarginContainer = MarginContainer.new()
@@ -586,7 +612,9 @@ func _setup_interaction_ui() -> void:
 	info_margin.add_theme_constant_override("margin_bottom", 12)
 	_info_panel.add_child(info_margin)
 	var info_vbox: VBoxContainer = VBoxContainer.new()
+	info_vbox.add_theme_constant_override("separation", 7)
 	info_margin.add_child(info_vbox)
+	PremiumUIStyles.apply_panel_chrome_to_vbox(info_vbox)
 	_info_title = Label.new()
 	_info_title.modulate = PremiumUIStyles.TEXT_TITLE
 	info_vbox.add_child(_info_title)
@@ -599,6 +627,7 @@ func _setup_interaction_ui() -> void:
 func _show_tooltip(title_text: String, description_text: String, action_text: String) -> void:
 	if _tooltip_panel == null:
 		return
+	var was_visible: bool = _tooltip_panel.visible
 	_tooltip_title.text = title_text
 	_tooltip_description.text = description_text
 	_tooltip_action.text = action_text
@@ -609,8 +638,11 @@ func _show_tooltip(title_text: String, description_text: String, action_text: St
 	var tooltip_width: float = clampf(360.0, 260.0, viewport_size.x - 32.0)
 	var tooltip_height: float = clampf(float(_tooltip_description.get_minimum_size().y) + 86.0, 120.0, minf(_tooltip_max_height, viewport_size.y * 0.28))
 	_tooltip_panel.size = Vector2(tooltip_width, tooltip_height)
-	var target_pos: Vector2 = Vector2((viewport_size.x - _tooltip_panel.size.x) * 0.5, clampf(viewport_size.y * 0.57, 12.0, viewport_size.y - _tooltip_panel.size.y - 12.0))
+	ResponsiveLayoutController.center_panel_safe(_tooltip_panel, get_viewport(), clampf(viewport_size.x * 0.36, 360.0, 560.0), 0.28)
+	var target_pos: Vector2 = _tooltip_panel.position
 	_tooltip_panel.position = target_pos + Vector2(0.0, 10.0)
+	if not was_visible:
+		layout_refresh_requested.emit("panel opened")
 	_tooltip_panel.modulate.a = 0.0
 	var tween: Tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_tooltip_panel.set_meta("anim_tween", tween)
@@ -642,8 +674,10 @@ func _show_info_panel(data: Dictionary) -> void:
 	var info_width: float = clampf(460.0, 300.0, viewport_size.x - 40.0)
 	var info_height: float = clampf(float(_info_description.get_minimum_size().y) + 100.0, 180.0, minf(_info_max_height, viewport_size.y * 0.5))
 	_info_panel.size = Vector2(info_width, info_height)
-	var target_pos: Vector2 = Vector2((viewport_size.x - info_width) * 0.5, clampf(viewport_size.y * 0.22, 14.0, viewport_size.y - info_height - 14.0))
+	ResponsiveLayoutController.center_panel_safe(_info_panel, get_viewport(), clampf(viewport_size.x * 0.36, 360.0, 560.0), 0.45)
+	var target_pos: Vector2 = _info_panel.position
 	_info_panel.position = target_pos + Vector2(0.0, 14.0)
+	layout_refresh_requested.emit("panel opened")
 	tween.set_parallel(true)
 	tween.tween_property(_info_panel, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tween.tween_property(_info_panel, "position", target_pos, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -734,3 +768,22 @@ func _rebuild_prop_spotlights() -> void:
 		spotlight.position = pos + Vector3(0.0, 1.45, 0.15)
 		spotlight.look_at_from_position(spotlight.position, pos + Vector3(0.0, 0.35, 0.0), Vector3.UP)
 		_spotlight_root.add_child(spotlight)
+
+
+func refresh_interaction_ui_layout(viewport_size: Vector2) -> void:
+	if _tooltip_panel != null and _tooltip_panel.visible:
+		var tooltip_width: float = clampf(_tooltip_panel.size.x, 260.0, viewport_size.x - 32.0)
+		var tooltip_height: float = clampf(_tooltip_panel.size.y, 120.0, minf(_tooltip_max_height, viewport_size.y * 0.28))
+		_tooltip_panel.size = Vector2(tooltip_width, tooltip_height)
+		_tooltip_panel.position = Vector2(
+			clampf(_tooltip_panel.position.x, 12.0, maxf(12.0, viewport_size.x - tooltip_width - 12.0)),
+			clampf(_tooltip_panel.position.y, 12.0, maxf(12.0, viewport_size.y - tooltip_height - 12.0))
+		)
+	if _info_panel != null and _info_panel.visible:
+		var info_width: float = clampf(_info_panel.size.x, 300.0, viewport_size.x - 40.0)
+		var info_height: float = clampf(_info_panel.size.y, 180.0, minf(_info_max_height, viewport_size.y * 0.5))
+		_info_panel.size = Vector2(info_width, info_height)
+		_info_panel.position = Vector2(
+			clampf(_info_panel.position.x, 14.0, maxf(14.0, viewport_size.x - info_width - 14.0)),
+			clampf(_info_panel.position.y, 14.0, maxf(14.0, viewport_size.y - info_height - 14.0))
+		)

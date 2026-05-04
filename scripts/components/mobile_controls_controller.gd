@@ -23,6 +23,7 @@ func set_zoom_visible(is_visible: bool) -> void:
 
 func set_winery_controls_visible(is_visible: bool) -> void:
 	mobile_controls.visible = is_visible
+	_hide_move_pad()
 
 
 func layout(viewport_size: Vector2, margin: float) -> void:
@@ -33,8 +34,10 @@ func layout(viewport_size: Vector2, margin: float) -> void:
 
 	var move_pad: Control = mobile_controls.get_node_or_null("MovePad") as Control
 	if move_pad != null:
+		move_pad.visible = false
+		move_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		move_pad.position = Vector2(margin, viewport_size.y - 132.0)
-		move_pad.size = Vector2(210.0, 116.0)
+		move_pad.size = Vector2.ZERO
 
 	if look_pad == null:
 		return
@@ -76,6 +79,7 @@ func _build_mobile_winery_controls() -> void:
 
 	var pad: Control = Control.new()
 	pad.name = "MovePad"
+	pad.visible = false
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mobile_controls.add_child(pad)
 
@@ -90,6 +94,7 @@ func _build_mobile_winery_controls() -> void:
 	look_pad.mouse_filter = Control.MOUSE_FILTER_STOP
 	look_pad.gui_input.connect(_on_look_pad_input)
 	mobile_controls.add_child(look_pad)
+	_hide_move_pad()
 
 
 func _add_move_button(parent: Control, axis: String, label: String, button_position: Vector2) -> void:
@@ -97,6 +102,9 @@ func _add_move_button(parent: Control, axis: String, label: String, button_posit
 	button.text = label
 	button.position = button_position
 	button.custom_minimum_size = Vector2(56.0, 52.0)
+	button.visible = false
+	button.disabled = true
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.button_down.connect(winery_interior.set_mobile_move_axis.bind(axis, true))
 	button.button_up.connect(winery_interior.set_mobile_move_axis.bind(axis, false))
 	parent.add_child(button)
@@ -107,3 +115,20 @@ func _on_look_pad_input(event: InputEvent) -> void:
 		winery_interior.handle_look_drag(event.relative)
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		winery_interior.handle_look_drag(event.relative)
+
+
+func _hide_move_pad() -> void:
+	if mobile_controls == null:
+		return
+	var move_pad: Control = mobile_controls.get_node_or_null("MovePad") as Control
+	if move_pad == null:
+		return
+	move_pad.visible = false
+	move_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in move_pad.get_children():
+		if child is Control:
+			var control: Control = child as Control
+			control.visible = false
+			control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if child is BaseButton:
+			(child as BaseButton).disabled = true

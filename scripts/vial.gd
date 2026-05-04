@@ -35,6 +35,7 @@ var _glass_material: StandardMaterial3D
 var _liquid_material: StandardMaterial3D
 var _liquid_surface_material: StandardMaterial3D
 var _cap_material: StandardMaterial3D
+var _qr_controller: BottleQRCodeController
 
 var _last_signature: String = ""
 var _editor_check_interval: float = 0.25
@@ -61,6 +62,7 @@ func _ready() -> void:
 
 	_build_materials()
 	_rebuild_geometry()
+	_setup_qr_controller()
 
 
 func _process(delta: float) -> void:
@@ -154,6 +156,14 @@ func rebuild_vial() -> void:
 	if _glass_body == null or _liquid == null or _cap == null:
 		return
 	_rebuild_geometry()
+	if _qr_controller != null:
+		_qr_controller.refresh_transform()
+
+
+func apply_qr_profile(profile_data: Dictionary) -> void:
+	_setup_qr_controller()
+	if _qr_controller != null:
+		_qr_controller.apply_profile(profile_data)
 
 
 func add_liquid_interaction(relative_motion: Vector2) -> void:
@@ -217,6 +227,19 @@ func _rebuild_geometry() -> void:
 	_cap.set_surface_override_material(0, _cap_material)
 
 	_last_signature = _build_signature()
+	if _qr_controller != null:
+		_qr_controller.refresh_transform()
+
+
+func _setup_qr_controller() -> void:
+	if _qr_controller != null:
+		return
+	_qr_controller = BottleQRCodeController.new()
+	_qr_controller.name = "BottleQRCodeController"
+	add_child(_qr_controller)
+	_qr_controller.setup(self)
+	if not Engine.is_editor_hint():
+		_qr_controller.apply_selected_profile()
 
 
 func _build_liquid_mesh(inner_r: float, body_h: float, safe_base: float) -> Dictionary:

@@ -33,30 +33,39 @@ var _dev_overlay: DevOverlayController
 var _layout: ResponsiveLayoutController
 var _graphics_manager: GraphicsSettingsManager
 var _graphics_panel: GraphicsSettingsPanelController
+var _crosshair: CrosshairController
+var _exploration_mode: ExplorationModeController
+var _journey: TastingJourneyController
 
 
 func _ready() -> void:
+	_ensure_exploration_input_actions()
 	_build_components()
 	canvas_layer.move_child(fade_rect, canvas_layer.get_child_count() - 1)
+	if _graphics_panel != null:
+		await _graphics_panel.apply_saved_display_settings()
 
 	ClientProfileLoader.client_profile_changed.connect(_on_client_profile_changed)
 	ExperienceManager.state_changed.connect(_on_state_changed)
 	winery_interior.door_prompt_changed.connect(Callable(_hud, "set_door_prompt"))
 	winery_interior.door_interacted.connect(_on_winery_interacted)
+	winery_interior.layout_refresh_requested.connect(refresh_all_ui_layouts)
 
 	_apply_client_profile(ClientProfileLoader.get_active_client_data())
 	_narrative_panel.refresh()
 	_apply_state(ExperienceManager.current_state)
 	_last_window_size = DisplayServer.window_get_size()
 	panel_dim.modulate.a = 0.0
+	await refresh_all_ui_layouts("startup")
+	await refresh_all_ui_layouts("startup")
 	_print_runtime_health_status()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
 		var new_window_size: Vector2i = DisplayServer.window_get_size()
+		await refresh_all_ui_layouts("window size changed")
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-		_relayout_all_ui(viewport_size)
 		var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
 		print("[WineVR][Viewport] old_window=%s new_window=%s viewport=%s options_pos=%s options_size=%s" % [
 			str(_last_window_size),
@@ -70,12 +79,17 @@ func _notification(what: int) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if _exploration_mode != null and _exploration_mode.handle_input(event):
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_R:
 			_reset_current_experience()
 			return
 		if event.keycode == KEY_ESCAPE:
 			if _graphics_panel != null and _graphics_panel.is_open():
 				_graphics_panel.close()
+				return
+			if _journey != null and _journey.close_open_modal():
 				return
 			if _graphics_panel != null and ExperienceManager.current_state != ExperienceManager.ExperienceState.QR_SCAN:
 				_graphics_panel.open()
@@ -105,6 +119,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		var registry_index: int = _get_debug_registry_index(event.keycode)
 		if registry_index >= 0:
 			_qr_screen.select_debug_index(registry_index)
+	elif _exploration_mode != null:
+		if _exploration_mode.handle_input(event):
+			get_viewport().set_input_as_handled()
 
 
 func _build_components() -> void:
@@ -129,6 +146,7 @@ func _build_components() -> void:
 	_hud.start_requested.connect(Callable(ExperienceManager, "start_experience"))
 	_hud.enter_winery_requested.connect(_on_enter_winery_pressed)
 	_hud.return_to_vial_requested.connect(_on_return_to_vial_pressed)
+	_hud.layout_refresh_requested.connect(refresh_all_ui_layouts)
 
 	_hotspots = HotspotUIController.new()
 	add_child(_hotspots)
@@ -143,6 +161,7 @@ func _build_components() -> void:
 	)
 	_hotspots.hotspot_viewed.connect(_on_hotspot_viewed)
 	_hotspots.enter_winery_state_changed.connect(Callable(_hud, "set_enter_winery_enabled"))
+	_hotspots.layout_refresh_requested.connect(refresh_all_ui_layouts)
 
 	_mobile_controls = MobileControlsController.new()
 	add_child(_mobile_controls)
@@ -153,6 +172,7 @@ func _build_components() -> void:
 	_narrative_panel.setup(canvas_layer)
 	_narrative_panel.show_target_requested.connect(_on_show_narrative_target_requested)
 	_narrative_panel.restart_requested.connect(_reset_current_experience)
+	_narrative_panel.layout_refresh_requested.connect(refresh_all_ui_layouts)
 	NarrativeManager.narrative_changed.connect(_on_narrative_changed)
 
 	_onboarding = OnboardingOverlayController.new()
@@ -179,10 +199,29 @@ func _build_components() -> void:
 	_graphics_panel.setup(canvas_layer)
 	_graphics_panel.set_values(_graphics_manager.current_preset, _graphics_manager.fps_friendly)
 	_graphics_panel.layout(get_viewport().get_visible_rect().size)
+	_layout.register_panel(_graphics_panel.prompt_bar, "top_right", Vector2(760.0, 116.0), 0.25)
 	_graphics_panel.apply_requested.connect(_on_graphics_apply_requested)
 	_graphics_panel.fallback_accept_requested.connect(_on_performance_fallback_accepted)
 	_graphics_panel.fallback_ignore_requested.connect(_on_performance_fallback_ignored)
 	_graphics_panel.display_settings_applied.connect(_on_display_settings_applied)
+	_graphics_panel.layout_refresh_requested.connect(refresh_all_ui_layouts)
+
+	_crosshair = CrosshairController.new()
+	_crosshair.setup(canvas_layer)
+	winery_interior.interaction_target_changed.connect(_crosshair.set_interactable_state)
+
+	_exploration_mode = ExplorationModeController.new()
+	add_child(_exploration_mode)
+	_exploration_mode.setup(canvas_layer, winery_interior, _crosshair, _graphics_panel)
+
+	_journey = TastingJourneyController.new()
+	add_child(_journey)
+	_journey.setup(canvas_layer)
+	_journey.active_step_changed.connect(_on_journey_active_step_changed)
+	_journey.restart_requested.connect(_reset_current_experience)
+	_journey.choose_another_requested.connect(_choose_another_tasting)
+	_journey.show_qr_requested.connect(_show_selected_qr_info)
+	_journey.layout_refresh_requested.connect(refresh_all_ui_layouts)
 
 
 func _on_client_profile_changed(_client_id: String, client_data: Dictionary) -> void:
@@ -213,7 +252,10 @@ func _apply_client_profile(client_data: Dictionary) -> void:
 		_graphics_manager.set_environment(_resolve_world_environment())
 		_graphics_manager.apply_current()
 	_hotspots.build_hotspots(experience_settings.get("hotspots", []))
+	if _journey != null:
+		_journey.configure_from_profile(_get_current_journey_profile(client_data), client_data)
 	_update_dev_overlay_context()
+	refresh_all_ui_layouts("profile cards loaded")
 
 
 func _apply_state(state: int) -> void:
@@ -230,6 +272,10 @@ func _apply_state(state: int) -> void:
 	winery_interior.set_controls_enabled(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
 	_mobile_controls.set_zoom_visible(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
+	if _exploration_mode != null:
+		_exploration_mode.set_available(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
+	if _journey != null:
+		_journey.set_visible_for_state(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_relayout_all_ui(get_viewport().get_visible_rect().size)
 
 	if state != ExperienceManager.ExperienceState.VIAL_INSPECTION:
@@ -239,10 +285,65 @@ func _apply_state(state: int) -> void:
 
 
 func _on_hotspot_viewed(hotspot_data: Dictionary) -> void:
-	NarrativeManager.complete_target("hotspot", _hotspots.get_hotspot_id(hotspot_data))
+	var hotspot_id: String = _hotspots.get_hotspot_id(hotspot_data)
+	if _journey != null:
+		_journey.complete_hotspot(hotspot_id)
+	NarrativeManager.complete_target("hotspot", hotspot_id)
+
+
+func _on_journey_active_step_changed(step: Dictionary) -> void:
+	if _hotspots == null:
+		return
+	if step.is_empty():
+		_hotspots.set_guided_active_hotspot("", false)
+		if _crosshair != null and _crosshair.visible:
+			_crosshair.set_interactable_state(false, "")
+		return
+
+	var hotspot_id: String = str(step.get("id", ""))
+	var title: String = str(step.get("title", "Tasting Step"))
+	_hotspots.set_guided_active_hotspot(hotspot_id, true)
+	_hotspots.pulse_target(hotspot_id)
+	if _crosshair != null and _crosshair.visible:
+		_crosshair.set_interactable_state(true, title)
+
+
+func _choose_another_tasting() -> void:
+	if _exploration_mode != null and _exploration_mode.active:
+		_exploration_mode.exit_mode()
+	_hotspots.close_panel()
+	_hud.close_winery_modal()
+	_narrative_panel.clear_hint()
+	ExperienceManager.show_qr_scan()
+	refresh_all_ui_layouts("choose another tasting")
+
+
+func _show_selected_qr_info() -> void:
+	var profile: Dictionary = AppState.selected_profile_data
+	var organization_name: String = str(profile.get("organization_name", profile.get("winery", "this winery")))
+	var qr_url: String = str(profile.get("qr_target_url", ""))
+	var body: String = "Scan this QR to learn more about %s." % organization_name
+	if not qr_url.is_empty():
+		body += "\n\n%s" % qr_url
+	await _hotspots.open_centered_annotation_panel("Winery QR", body)
+
+
+func _get_current_journey_profile(client_data: Dictionary) -> Dictionary:
+	if not AppState.selected_profile_data.is_empty():
+		return AppState.selected_profile_data
+	var profile: Dictionary = {
+		"name": str(client_data.get("wine_name", client_data.get("client_name", "Selected Wine"))),
+		"winery": str(client_data.get("organization_name", client_data.get("client_name", ""))),
+		"region": str(client_data.get("region_name", client_data.get("region", "")))
+	}
+	var experience_settings: Dictionary = client_data.get("experience_settings", {})
+	profile["hotspots"] = experience_settings.get("hotspots", [])
+	return profile
 
 
 func _on_winery_interacted(interactable_data: Dictionary = {}) -> void:
+	if _exploration_mode != null and _exploration_mode.active:
+		_exploration_mode.exit_mode()
 	if not interactable_data.is_empty():
 		var interactable_id: String = str(interactable_data.get("id", ""))
 		var interactable_type: String = str(interactable_data.get("type", "zone"))
@@ -263,10 +364,15 @@ func _on_show_narrative_target_requested(current_step: Dictionary) -> void:
 
 
 func _apply_narrative_target_highlight(current_step: Dictionary, show_hint: bool, pulse_target: bool = false) -> void:
-	_hotspots.clear_target_highlight()
+	var journey_step: Dictionary = _journey.get_active_step() if _journey != null else {}
+	var journey_controls_hotspots: bool = not journey_step.is_empty() and ExperienceManager.current_state == ExperienceManager.ExperienceState.VIAL_INSPECTION
+	if not journey_controls_hotspots:
+		_hotspots.clear_target_highlight()
 	winery_interior.clear_narrative_highlight()
 	_narrative_panel.clear_hint()
 	if current_step.is_empty():
+		if journey_controls_hotspots:
+			_on_journey_active_step_changed(journey_step)
 		return
 
 	var target_type: String = str(current_step.get("target_type", "free"))
@@ -276,13 +382,17 @@ func _apply_narrative_target_highlight(current_step: Dictionary, show_hint: bool
 	match target_type:
 		"hotspot":
 			if state == ExperienceManager.ExperienceState.VIAL_INSPECTION:
-				var hotspot_found: bool = false
-				if pulse_target:
-					hotspot_found = _hotspots.pulse_target(target_id)
+				if journey_controls_hotspots:
+					if show_hint:
+						_narrative_panel.show_hint("Follow the active tasting step: %s." % str(journey_step.get("title", "Tasting Step")))
 				else:
-					hotspot_found = _hotspots.highlight_target(target_id)
-				if show_hint:
-					_narrative_panel.show_hint("Open the highlighted note on the vial." if hotspot_found else "This tasting note is not available in the current vial.")
+					var hotspot_found: bool = false
+					if pulse_target:
+						hotspot_found = _hotspots.pulse_target(target_id)
+					else:
+						hotspot_found = _hotspots.highlight_target(target_id)
+					if show_hint:
+						_narrative_panel.show_hint("Open the highlighted note on the vial." if hotspot_found else "This tasting note is not available in the current vial.")
 			elif show_hint:
 				_narrative_panel.show_hint("Return to the vial to continue the tasting.")
 		"zone", "prop", "door":
@@ -295,6 +405,8 @@ func _apply_narrative_target_highlight(current_step: Dictionary, show_hint: bool
 		_:
 			if show_hint:
 				_narrative_panel.show_hint("Continue when you are ready.")
+	if journey_controls_hotspots:
+		_on_journey_active_step_changed(journey_step)
 
 
 func _on_enter_winery_pressed() -> void:
@@ -318,6 +430,7 @@ func _enter_winery_with_fade() -> void:
 	await _fade_to(1.0)
 	ExperienceManager.finish_winery_entry()
 	winery_interior.reset_view()
+	await refresh_all_ui_layouts("winery scene loaded")
 	await _fade_to(0.0)
 	_transition_in_progress = false
 
@@ -359,6 +472,7 @@ func _select_qr_client(client_id: String) -> void:
 			winery_interior.reset_view()
 			ExperienceManager.enter_intro()
 			_onboarding.show_once()
+			await refresh_all_ui_layouts("tasting selected")
 		else:
 			_qr_screen.set_error("This tasting profile is not available right now.")
 			ExperienceManager.show_qr_scan()
@@ -371,6 +485,7 @@ func _select_qr_client(client_id: String) -> void:
 		winery_interior.reset_view()
 		ExperienceManager.enter_intro()
 		_onboarding.show_once()
+		await refresh_all_ui_layouts("tasting selected")
 	else:
 		_qr_screen.set_error("This tasting profile is not available right now.")
 		ExperienceManager.show_qr_scan()
@@ -385,11 +500,15 @@ func _reset_current_experience() -> void:
 	_hud.close_winery_modal()
 	_narrative_panel.clear_hint()
 	NarrativeManager.reset()
+	if _journey != null:
+		_journey.configure_from_profile(_get_current_journey_profile(ClientProfileLoader.get_active_client_data()), ClientProfileLoader.get_active_client_data())
+		_journey.set_visible_for_state(false)
 	vial_preview.reset_view()
 	winery_interior.reset_view()
 	winery_interior.clear_narrative_highlight()
 	ExperienceManager.enter_intro()
 	_update_dev_overlay_context()
+	refresh_all_ui_layouts("panel opened")
 
 
 func _set_demo_mode(enabled: bool) -> void:
@@ -507,6 +626,7 @@ func _cycle_demo_viewport_preset() -> void:
 	DisplayServer.window_set_size(preset_size)
 	_center_window(preset_size)
 	_relayout_all_ui(Vector2(preset_size))
+	refresh_all_ui_layouts("resolution changed")
 	if _dev_overlay != null:
 		_dev_overlay.set_viewport_mode(_demo_viewport_preset_name())
 
@@ -569,7 +689,7 @@ func _state_name(state: int) -> String:
 
 
 func _on_display_settings_applied(old_window_size: Vector2i, new_window_size: Vector2i, viewport_size: Vector2) -> void:
-	_relayout_all_ui(viewport_size)
+	await refresh_all_ui_layouts("resolution changed")
 	var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
 	print("[WineVR][Viewport] old_window=%s new_window=%s viewport=%s options_pos=%s options_size=%s" % [
 		str(old_window_size),
@@ -583,12 +703,89 @@ func _on_display_settings_applied(old_window_size: Vector2i, new_window_size: Ve
 
 func _relayout_all_ui(viewport_size: Vector2) -> void:
 	if _layout != null:
-		_layout.layout(viewport_size)
+		_layout.refresh_all(viewport_size, "legacy relayout")
 	if _hud != null:
 		_hud.apply_panel_height_policy(viewport_size)
 	if _graphics_panel != null:
 		_graphics_panel.layout(viewport_size)
 	if _hotspots != null:
 		_hotspots.layout_hotspots()
+	if winery_interior != null:
+		winery_interior.refresh_interaction_ui_layout(viewport_size)
 	if _dev_overlay != null:
 		_dev_overlay.layout(viewport_size, 20.0)
+	if _exploration_mode != null:
+		_exploration_mode.layout(viewport_size)
+	if _journey != null:
+		_journey.layout(viewport_size)
+
+
+func refresh_all_ui_layouts(reason: String = "manual") -> void:
+	await get_tree().process_frame
+	await _wait_for_valid_viewport()
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	if _layout != null:
+		_layout.refresh_all(viewport_size, reason)
+	if _hud != null:
+		_hud.apply_panel_height_policy(viewport_size)
+	if _graphics_panel != null:
+		_graphics_panel.layout(viewport_size)
+	if _hotspots != null:
+		_hotspots.layout_hotspots()
+	if winery_interior != null:
+		winery_interior.refresh_interaction_ui_layout(viewport_size)
+	if _dev_overlay != null:
+		_dev_overlay.layout(viewport_size, 20.0)
+	if _exploration_mode != null:
+		_exploration_mode.layout(viewport_size)
+	if _journey != null:
+		_journey.layout(viewport_size)
+	var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
+	print("[WineVR][UI] layout refresh complete: %s viewport=%s options_pos=%s options_size=%s" % [
+		reason,
+		str(viewport_size),
+		str(panel_rect.position),
+		str(panel_rect.size)
+	])
+
+
+func _wait_for_valid_viewport() -> void:
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	if viewport_size.x >= 120.0 and viewport_size.y >= 120.0:
+		return
+	await get_tree().process_frame
+	viewport_size = get_viewport().get_visible_rect().size
+	if viewport_size.x >= 120.0 and viewport_size.y >= 120.0:
+		return
+	await get_tree().process_frame
+
+
+func _ensure_exploration_input_actions() -> void:
+	_ensure_input_action_key("toggle_explore_mode", KEY_TAB)
+	_ensure_input_action_key("toggle_explore_mode", KEY_E)
+	_ensure_input_action_key("exit_mode", KEY_ESCAPE)
+	_ensure_input_action_mouse("interact", MOUSE_BUTTON_LEFT)
+
+
+func _ensure_input_action_key(action_name: String, keycode: int) -> void:
+	if not InputMap.has_action(action_name):
+		InputMap.add_action(action_name)
+	for event in InputMap.action_get_events(action_name):
+		var existing_key_event: InputEventKey = event as InputEventKey
+		if existing_key_event != null and existing_key_event.keycode == keycode:
+			return
+	var key_event: InputEventKey = InputEventKey.new()
+	key_event.keycode = keycode
+	InputMap.action_add_event(action_name, key_event)
+
+
+func _ensure_input_action_mouse(action_name: String, button_index: int) -> void:
+	if not InputMap.has_action(action_name):
+		InputMap.add_action(action_name)
+	for event in InputMap.action_get_events(action_name):
+		var existing_mouse_event: InputEventMouseButton = event as InputEventMouseButton
+		if existing_mouse_event != null and existing_mouse_event.button_index == button_index:
+			return
+	var mouse_event: InputEventMouseButton = InputEventMouseButton.new()
+	mouse_event.button_index = button_index
+	InputMap.action_add_event(action_name, mouse_event)

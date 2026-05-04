@@ -40,15 +40,16 @@ func setup(parent_canvas_layer: CanvasLayer, entries: Array[Dictionary]) -> void
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	margin.add_child(box)
+	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	var title: Label = Label.new()
 	title.text = "Select Your Tasting"
-	title.label_settings = _make_label_settings(28, Color(0.976, 0.968, 0.941, 1.0))
+	title.label_settings = _make_label_settings(28, PremiumUIStyles.TEXT_TITLE)
 	box.add_child(title)
 
 	var subtitle: Label = Label.new()
 	subtitle.text = "Choose a wine profile to begin"
-	subtitle.label_settings = _make_label_settings(15, Color(0.84, 0.86, 0.86, 1.0))
+	subtitle.label_settings = _make_label_settings(15, PremiumUIStyles.TEXT_MUTED)
 	box.add_child(subtitle)
 
 	button_box = VBoxContainer.new()
@@ -97,9 +98,9 @@ func _build_buttons() -> void:
 		var wine_type: String = str(entry.get("wine_type", ""))
 		var line_2: String = wine_name + "  |  " + winery
 		var line_3: String = region + ("  |  " + wine_type if not wine_type.is_empty() else "")
-		button.text = line_1 + "\n" + line_2 + "\n" + line_3
+		button.text = line_1 + "\n" + line_2 + "\n" + line_3 + "\nBegin Tasting"
 		button.tooltip_text = ""
-		button.custom_minimum_size = Vector2(0.0, 68.0)
+		button.custom_minimum_size = Vector2(0.0, 96.0)
 		button.focus_mode = Control.FOCUS_ALL
 		_apply_selection_button_style(button)
 		button.pressed.connect(_on_button_pressed.bind(str(entry.get("client_id", ""))))
@@ -117,12 +118,7 @@ func _make_panel_style() -> StyleBoxFlat:
 
 
 func _apply_selection_button_style(button: Button) -> void:
-	button.add_theme_stylebox_override("normal", PremiumUIStyles.make_button_style(PremiumUIStyles.PANEL_BG_INNER, Color(PremiumUIStyles.GOLD_BORDER.r, PremiumUIStyles.GOLD_BORDER.g, PremiumUIStyles.GOLD_BORDER.b, 0.45)))
-	button.add_theme_stylebox_override("hover", PremiumUIStyles.make_button_style(Color(0.12, 0.108, 0.085, 0.96), PremiumUIStyles.GOLD_BORDER))
-	button.add_theme_stylebox_override("pressed", PremiumUIStyles.make_button_style(Color(0.16, 0.13, 0.075, 0.98), PremiumUIStyles.GOLD_ACCENT))
-	button.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
-	button.add_theme_color_override("font_hover_color", PremiumUIStyles.TEXT_TITLE)
-	button.add_theme_color_override("font_pressed_color", PremiumUIStyles.TEXT_TITLE)
+	PremiumUIStyles.apply_profile_card_button(button)
 
 
 func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:

@@ -8,9 +8,22 @@
     "wine_type": "White",
     "vintage": "2023",
     "description": "A saline, mineral-driven island white with bright citrus and tension.",
-    "tasting_notes": ["Lemon zest", "Wet stone", "Sea breeze", "Green apple"],
-    "aroma_notes": ["Citrus blossom", "Lime peel", "White peach"],
-    "pairing_suggestions": ["Grilled octopus", "Oysters", "Goat cheese"],
+    "tasting_notes": [
+      "Lemon zest",
+      "Wet stone",
+      "Sea breeze",
+      "Green apple"
+    ],
+    "aroma_notes": [
+      "Citrus blossom",
+      "Lime peel",
+      "White peach"
+    ],
+    "pairing_suggestions": [
+      "Grilled octopus",
+      "Oysters",
+      "Goat cheese"
+    ],
     "story": "Born from volcanic soils and Aegean winds, this Assyrtiko reflects maritime freshness and precision.",
     "color_hex": "#EDE5B8",
     "unlocked_by_default": true,
@@ -40,7 +53,11 @@
         "order": 3,
         "completion_required": true
       }
-    ]
+    ],
+    "organization_id": "demo_winery",
+    "organization_name": "Demo Winery",
+    "qr_code_image": "res://assets/qr/demo_winery_qr.png",
+    "qr_target_url": "https://example.com/demo-winery"
   },
   {
     "id": "agiorgitiko_demo",
@@ -51,9 +68,22 @@
     "wine_type": "Red",
     "vintage": "2022",
     "description": "A velvet-textured red with ripe red fruit and warm spice.",
-    "tasting_notes": ["Cherry", "Plum", "Sweet spice", "Soft tannin"],
-    "aroma_notes": ["Rose petal", "Red berries", "Cocoa"],
-    "pairing_suggestions": ["Lamb kebab", "Tomato braises", "Aged graviera"],
+    "tasting_notes": [
+      "Cherry",
+      "Plum",
+      "Sweet spice",
+      "Soft tannin"
+    ],
+    "aroma_notes": [
+      "Rose petal",
+      "Red berries",
+      "Cocoa"
+    ],
+    "pairing_suggestions": [
+      "Lamb kebab",
+      "Tomato braises",
+      "Aged graviera"
+    ],
     "story": "A modern expression of Nemea's classic red grape, crafted for depth and elegance.",
     "color_hex": "#7A1E2B",
     "unlocked_by_default": true,
@@ -83,7 +113,11 @@
         "order": 3,
         "completion_required": false
       }
-    ]
+    ],
+    "organization_id": "santorini_estate",
+    "organization_name": "Santorini Estate",
+    "qr_code_image": "res://assets/qr/santorini_estate_qr.png",
+    "qr_target_url": "https://example.com/santorini-estate"
   },
   {
     "id": "xinomavro_demo",
@@ -94,10 +128,23 @@
     "wine_type": "Red",
     "vintage": "2021",
     "description": "Structured and aromatic, with savory complexity and age-worthy grip.",
-    "tasting_notes": ["Dried tomato", "Sour cherry", "Olive", "Firm tannin"],
-    "aroma_notes": ["Sun-dried herbs", "Black tea", "Forest floor"],
-    "pairing_suggestions": ["Braised beef", "Mushroom risotto", "Hard cheeses"],
-    "story": "High-altitude vineyards and careful élevage shape this powerful northern red.",
+    "tasting_notes": [
+      "Dried tomato",
+      "Sour cherry",
+      "Olive",
+      "Firm tannin"
+    ],
+    "aroma_notes": [
+      "Sun-dried herbs",
+      "Black tea",
+      "Forest floor"
+    ],
+    "pairing_suggestions": [
+      "Braised beef",
+      "Mushroom risotto",
+      "Hard cheeses"
+    ],
+    "story": "High-altitude vineyards and careful elevage shape this powerful northern red.",
     "color_hex": "#5C1723",
     "unlocked_by_default": true,
     "scene_theme": "reserve_winery",
@@ -126,6 +173,10 @@
         "order": 3,
         "completion_required": true
       }
-    ]
+    ],
+    "organization_id": "naousa_cellar",
+    "organization_name": "Naousa Cellar",
+    "qr_code_image": "res://assets/qr/naousa_cellar_qr.png",
+    "qr_target_url": "https://example.com/naousa-cellar"
   }
 ]
