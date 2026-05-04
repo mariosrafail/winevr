@@ -11,6 +11,7 @@ var _loaded_source: String = ""
 
 
 func _ready() -> void:
+	_export_profiles_next_to_executable_if_missing()
 	export_default_profiles_to_user_folder()
 	load_profiles()
 
@@ -67,6 +68,30 @@ func export_default_profiles_to_user_folder() -> bool:
 		return false
 	output.store_string(content)
 	print("[WineDB] Exported default profiles to " + USER_PROFILES_PATH)
+	return true
+
+
+func _export_profiles_next_to_executable_if_missing() -> bool:
+	var external_path: String = _get_executable_neighbor_profiles_path()
+	if external_path.is_empty():
+		return false
+	if FileAccess.file_exists(external_path):
+		return true
+
+	var content: String = ""
+	if FileAccess.file_exists(PROFILES_PATH):
+		var source: FileAccess = FileAccess.open(PROFILES_PATH, FileAccess.READ)
+		if source != null:
+			content = source.get_as_text()
+	if content.is_empty():
+		content = JSON.stringify(_fallback_profiles(), "\t")
+
+	var output: FileAccess = FileAccess.open(external_path, FileAccess.WRITE)
+	if output == null:
+		print("[WineDB] Cannot export defaults next to executable: " + external_path)
+		return false
+	output.store_string(content)
+	print("[WineDB] Exported default profiles next to executable: " + external_path)
 	return true
 
 

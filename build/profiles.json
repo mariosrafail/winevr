@@ -1,0 +1,131 @@
+[
+  {
+    "id": "assyrtiko_demo",
+    "name": "Assyrtiko Demo",
+    "winery": "Aegean Cellars",
+    "region": "Santorini, Greece",
+    "grape_variety": "Assyrtiko",
+    "wine_type": "White",
+    "vintage": "2023",
+    "description": "A saline, mineral-driven island white with bright citrus and tension.",
+    "tasting_notes": ["Lemon zest", "Wet stone", "Sea breeze", "Green apple"],
+    "aroma_notes": ["Citrus blossom", "Lime peel", "White peach"],
+    "pairing_suggestions": ["Grilled octopus", "Oysters", "Goat cheese"],
+    "story": "Born from volcanic soils and Aegean winds, this Assyrtiko reflects maritime freshness and precision.",
+    "color_hex": "#EDE5B8",
+    "unlocked_by_default": true,
+    "scene_theme": "island_modern",
+    "hotspots": [
+      {
+        "id": "assyrtiko_origin",
+        "title": "Volcanic Origin",
+        "description": "Volcanic soils shape the crisp mineral backbone.",
+        "target_node_name": "VialBody",
+        "order": 1,
+        "completion_required": true
+      },
+      {
+        "id": "assyrtiko_aroma",
+        "title": "Aroma Lift",
+        "description": "Citrus blossom and sea-spray freshness define the nose.",
+        "target_node_name": "VialNeck",
+        "order": 2,
+        "completion_required": true
+      },
+      {
+        "id": "assyrtiko_pairing",
+        "title": "Pairing Focus",
+        "description": "Ideal with seafood and saline-forward dishes.",
+        "target_node_name": "VialLabel",
+        "order": 3,
+        "completion_required": true
+      }
+    ]
+  },
+  {
+    "id": "agiorgitiko_demo",
+    "name": "Agiorgitiko Demo",
+    "winery": "Nemea Heritage",
+    "region": "Nemea, Greece",
+    "grape_variety": "Agiorgitiko",
+    "wine_type": "Red",
+    "vintage": "2022",
+    "description": "A velvet-textured red with ripe red fruit and warm spice.",
+    "tasting_notes": ["Cherry", "Plum", "Sweet spice", "Soft tannin"],
+    "aroma_notes": ["Rose petal", "Red berries", "Cocoa"],
+    "pairing_suggestions": ["Lamb kebab", "Tomato braises", "Aged graviera"],
+    "story": "A modern expression of Nemea's classic red grape, crafted for depth and elegance.",
+    "color_hex": "#7A1E2B",
+    "unlocked_by_default": true,
+    "scene_theme": "classic_cellar",
+    "hotspots": [
+      {
+        "id": "agiorgitiko_color",
+        "title": "Color Density",
+        "description": "Observe the ruby core and garnet hints near the rim.",
+        "target_node_name": "VialBody",
+        "order": 1,
+        "completion_required": true
+      },
+      {
+        "id": "agiorgitiko_texture",
+        "title": "Texture",
+        "description": "Supple tannins and broad mid-palate define the style.",
+        "target_node_name": "VialBase",
+        "order": 2,
+        "completion_required": true
+      },
+      {
+        "id": "agiorgitiko_story",
+        "title": "Estate Story",
+        "description": "A balance of tradition and precision winemaking.",
+        "target_node_name": "VialLabel",
+        "order": 3,
+        "completion_required": false
+      }
+    ]
+  },
+  {
+    "id": "xinomavro_demo",
+    "name": "Xinomavro Demo",
+    "winery": "Naoussa Ridge",
+    "region": "Naoussa, Greece",
+    "grape_variety": "Xinomavro",
+    "wine_type": "Red",
+    "vintage": "2021",
+    "description": "Structured and aromatic, with savory complexity and age-worthy grip.",
+    "tasting_notes": ["Dried tomato", "Sour cherry", "Olive", "Firm tannin"],
+    "aroma_notes": ["Sun-dried herbs", "Black tea", "Forest floor"],
+    "pairing_suggestions": ["Braised beef", "Mushroom risotto", "Hard cheeses"],
+    "story": "High-altitude vineyards and careful élevage shape this powerful northern red.",
+    "color_hex": "#5C1723",
+    "unlocked_by_default": true,
+    "scene_theme": "reserve_winery",
+    "hotspots": [
+      {
+        "id": "xinomavro_structure",
+        "title": "Structure",
+        "description": "Notice the linear tension and persistent finish.",
+        "target_node_name": "VialBody",
+        "order": 1,
+        "completion_required": true
+      },
+      {
+        "id": "xinomavro_aroma",
+        "title": "Savory Aromatics",
+        "description": "Herbal and earthy notes bring complexity.",
+        "target_node_name": "VialNeck",
+        "order": 2,
+        "completion_required": true
+      },
+      {
+        "id": "xinomavro_pairing",
+        "title": "Food Pairing",
+        "description": "Ideal for rich, slow-cooked dishes.",
+        "target_node_name": "VialLabel",
+        "order": 3,
+        "completion_required": true
+      }
+    ]
+  }
+]
