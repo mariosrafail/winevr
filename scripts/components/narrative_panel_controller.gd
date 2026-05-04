@@ -34,22 +34,23 @@ func apply_state(state: int) -> void:
 
 
 func layout(viewport_size: Vector2, margin: float) -> void:
-	var width: float = minf(380.0, viewport_size.x - margin * 2.0)
-	var height: float = minf(184.0, viewport_size.y * 0.30)
-	var panel_position: Vector2 = Vector2(viewport_size.x - width - margin, viewport_size.y - height - margin)
+	var width: float = clampf(minf(380.0, viewport_size.x - margin * 2.0), 180.0, maxf(180.0, viewport_size.x - margin * 2.0))
+	var height: float = clampf(minf(184.0, viewport_size.y * 0.30), 120.0, maxf(120.0, viewport_size.y - margin * 2.0))
+	var panel_position: Vector2 = Vector2((viewport_size.x - width) * 0.5, viewport_size.y - height - margin)
 	if ExperienceManager.current_state == ExperienceManager.ExperienceState.VIAL_INSPECTION and viewport_size.x >= 760.0:
 		panel_position.y = margin
 	if viewport_size.x < 760.0:
-		width = minf(360.0, viewport_size.x - margin * 2.0)
-		height = minf(176.0, viewport_size.y * 0.28)
-		panel_position = Vector2(viewport_size.x - width - margin, margin)
+		width = clampf(minf(360.0, viewport_size.x - margin * 2.0), 180.0, maxf(180.0, viewport_size.x - margin * 2.0))
+		height = clampf(minf(176.0, viewport_size.y * 0.28), 120.0, maxf(120.0, viewport_size.y - margin * 2.0))
+		panel_position = Vector2((viewport_size.x - width) * 0.5, margin)
+	panel_position.y = clampf(panel_position.y, margin, maxf(margin, viewport_size.y - height - margin))
 	panel.position = panel_position
 	panel.size = Vector2(width, height)
-	show_button.position = Vector2(viewport_size.x - 104.0 - margin, margin)
+	show_button.position = Vector2((viewport_size.x - 104.0) * 0.5, clampf(margin, 4.0, maxf(4.0, viewport_size.y - 44.0 - 4.0)))
 	show_button.size = Vector2(104.0, 44.0)
 
-	var completion_width: float = minf(460.0, viewport_size.x - margin * 2.0)
-	var completion_height: float = minf(285.0, viewport_size.y - margin * 2.0)
+	var completion_width: float = clampf(minf(460.0, viewport_size.x - margin * 2.0), 200.0, maxf(200.0, viewport_size.x - margin * 2.0))
+	var completion_height: float = clampf(minf(285.0, viewport_size.y - margin * 2.0), 160.0, maxf(160.0, viewport_size.y - margin * 2.0))
 	completion_card.position = (viewport_size - Vector2(completion_width, completion_height)) * 0.5
 	completion_card.size = Vector2(completion_width, completion_height)
 

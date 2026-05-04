@@ -53,10 +53,13 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
-		_layout.layout(get_viewport().get_visible_rect().size)
+		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+		_layout.layout(viewport_size)
 		_hotspots.layout_hotspots()
+		if _graphics_panel != null:
+			_graphics_panel.layout(viewport_size)
 		if _dev_overlay != null:
-			_dev_overlay.layout(get_viewport().get_visible_rect().size, 20.0)
+			_dev_overlay.layout(viewport_size, 20.0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -68,7 +71,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _graphics_panel != null and _graphics_panel.is_open():
 				_graphics_panel.close()
 				return
-			if ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+			if _graphics_panel != null and ExperienceManager.current_state != ExperienceManager.ExperienceState.QR_SCAN:
 				_graphics_panel.open()
 				return
 			_return_to_qr_scan_debug()
@@ -169,6 +172,7 @@ func _build_components() -> void:
 	add_child(_graphics_panel)
 	_graphics_panel.setup(canvas_layer)
 	_graphics_panel.set_values(_graphics_manager.current_preset, _graphics_manager.fps_friendly)
+	_graphics_panel.layout(get_viewport().get_visible_rect().size)
 	_graphics_panel.apply_requested.connect(_on_graphics_apply_requested)
 	_graphics_panel.fallback_accept_requested.connect(_on_performance_fallback_accepted)
 	_graphics_panel.fallback_ignore_requested.connect(_on_performance_fallback_ignored)
