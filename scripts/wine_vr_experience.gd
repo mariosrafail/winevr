@@ -18,6 +18,7 @@ var _profile_loading: bool = false
 var _active_client_id: String = ""
 var _demo_viewport_preset_index: int = 0
 var _native_window_size: Vector2i = Vector2i.ZERO
+var _last_window_size: Vector2i = Vector2i.ZERO
 var _demo_mode: bool = false
 var _ui_hidden_for_capture: bool = false
 
@@ -46,20 +47,25 @@ func _ready() -> void:
 	_apply_client_profile(ClientProfileLoader.get_active_client_data())
 	_narrative_panel.refresh()
 	_apply_state(ExperienceManager.current_state)
-	_layout.layout(get_viewport().get_visible_rect().size)
+	_last_window_size = DisplayServer.window_get_size()
 	panel_dim.modulate.a = 0.0
 	_print_runtime_health_status()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
+		var new_window_size: Vector2i = DisplayServer.window_get_size()
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-		_layout.layout(viewport_size)
-		_hotspots.layout_hotspots()
-		if _graphics_panel != null:
-			_graphics_panel.layout(viewport_size)
-		if _dev_overlay != null:
-			_dev_overlay.layout(viewport_size, 20.0)
+		_relayout_all_ui(viewport_size)
+		var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
+		print("[WineVR][Viewport] old_window=%s new_window=%s viewport=%s options_pos=%s options_size=%s" % [
+			str(_last_window_size),
+			str(new_window_size),
+			str(viewport_size),
+			str(panel_rect.position),
+			str(panel_rect.size)
+		])
+		_last_window_size = new_window_size
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -176,6 +182,7 @@ func _build_components() -> void:
 	_graphics_panel.apply_requested.connect(_on_graphics_apply_requested)
 	_graphics_panel.fallback_accept_requested.connect(_on_performance_fallback_accepted)
 	_graphics_panel.fallback_ignore_requested.connect(_on_performance_fallback_ignored)
+	_graphics_panel.display_settings_applied.connect(_on_display_settings_applied)
 
 
 func _on_client_profile_changed(_client_id: String, client_data: Dictionary) -> void:
@@ -223,8 +230,7 @@ func _apply_state(state: int) -> void:
 	winery_interior.set_controls_enabled(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
 	_mobile_controls.set_zoom_visible(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
-	_layout.layout(get_viewport().get_visible_rect().size)
-	_dev_overlay.layout(get_viewport().get_visible_rect().size, 20.0)
+	_relayout_all_ui(get_viewport().get_visible_rect().size)
 
 	if state != ExperienceManager.ExperienceState.VIAL_INSPECTION:
 		_hotspots.close_panel()
@@ -500,11 +506,9 @@ func _cycle_demo_viewport_preset() -> void:
 		preset_size = _native_window_size
 	DisplayServer.window_set_size(preset_size)
 	_center_window(preset_size)
-	_layout.layout(Vector2(preset_size))
-	_hotspots.layout_hotspots()
+	_relayout_all_ui(Vector2(preset_size))
 	if _dev_overlay != null:
 		_dev_overlay.set_viewport_mode(_demo_viewport_preset_name())
-		_dev_overlay.layout(Vector2(preset_size), 20.0)
 
 
 func _center_window(window_size: Vector2i) -> void:
@@ -562,3 +566,29 @@ func _state_name(state: int) -> String:
 			return "WINERY_INTERIOR"
 		_:
 			return "UNKNOWN"
+
+
+func _on_display_settings_applied(old_window_size: Vector2i, new_window_size: Vector2i, viewport_size: Vector2) -> void:
+	_relayout_all_ui(viewport_size)
+	var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
+	print("[WineVR][Viewport] old_window=%s new_window=%s viewport=%s options_pos=%s options_size=%s" % [
+		str(old_window_size),
+		str(new_window_size),
+		str(viewport_size),
+		str(panel_rect.position),
+		str(panel_rect.size)
+	])
+	_last_window_size = new_window_size
+
+
+func _relayout_all_ui(viewport_size: Vector2) -> void:
+	if _layout != null:
+		_layout.layout(viewport_size)
+	if _hud != null:
+		_hud.apply_panel_height_policy(viewport_size)
+	if _graphics_panel != null:
+		_graphics_panel.layout(viewport_size)
+	if _hotspots != null:
+		_hotspots.layout_hotspots()
+	if _dev_overlay != null:
+		_dev_overlay.layout(viewport_size, 20.0)

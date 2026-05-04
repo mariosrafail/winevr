@@ -4,6 +4,7 @@ class_name GraphicsSettingsPanelController
 signal apply_requested(preset_name: String, fps_friendly: bool)
 signal fallback_accept_requested()
 signal fallback_ignore_requested()
+signal display_settings_applied(old_window_size: Vector2i, new_window_size: Vector2i, viewport_size: Vector2)
 
 const CONFIG_PATH: String = "user://graphics_settings.cfg"
 
@@ -17,90 +18,14 @@ var vsync_dropdown: OptionButton
 var apply_button: Button
 var prompt_bar: PanelContainer
 var menu_button: Button
+var close_button: Button
+var prompt_buttons: BoxContainer
+var _last_viewport_size: Vector2 = Vector2.ZERO
 
 
 func setup(canvas_layer: CanvasLayer) -> void:
 	root = canvas_layer
-	panel = PanelContainer.new()
-	panel.name = "OptionsPanel"
-	panel.visible = false
-	panel.z_index = 98
-	panel.position = Vector2(20.0, 80.0)
-	panel.size = Vector2(420.0, 320.0)
-	panel.add_theme_stylebox_override("panel", _make_panel_style())
-	root.add_child(panel)
-
-	menu_button = Button.new()
-	menu_button.name = "OptionsMenuButton"
-	menu_button.text = "Options"
-	menu_button.tooltip_text = "Open Options"
-	menu_button.position = Vector2(16.0, 16.0)
-	menu_button.size = Vector2(110.0, 40.0)
-	menu_button.z_index = 98
-	menu_button.pressed.connect(toggle)
-	root.add_child(menu_button)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
-	panel.add_child(margin)
-
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
-
-	var title: Label = Label.new()
-	title.text = "Options"
-	title.modulate = Color(0.97, 0.92, 0.82, 1.0)
-	vbox.add_child(title)
-
-	var graphics_title: Label = Label.new()
-	graphics_title.text = "Graphics Quality"
-	graphics_title.modulate = Color(0.82, 0.82, 0.78, 1.0)
-	vbox.add_child(graphics_title)
-
-	quality_dropdown = OptionButton.new()
-	quality_dropdown.add_item("Ultra Low")
-	quality_dropdown.add_item("Low")
-	quality_dropdown.add_item("Medium")
-	quality_dropdown.add_item("High")
-	quality_dropdown.add_item("Cinematic")
-	vbox.add_child(quality_dropdown)
-
-	fps_toggle = CheckBox.new()
-	fps_toggle.text = "FPS-friendly"
-	vbox.add_child(fps_toggle)
-
-	var display_title: Label = Label.new()
-	display_title.text = "Display"
-	display_title.modulate = Color(0.82, 0.82, 0.78, 1.0)
-	vbox.add_child(display_title)
-
-	resolution_dropdown = OptionButton.new()
-	_populate_resolution_options()
-	vbox.add_child(resolution_dropdown)
-
-	fullscreen_toggle = CheckBox.new()
-	fullscreen_toggle.text = "Fullscreen"
-	vbox.add_child(fullscreen_toggle)
-
-	vsync_dropdown = OptionButton.new()
-	vsync_dropdown.add_item("VSync: Off")
-	vsync_dropdown.add_item("VSync: On")
-	vbox.add_child(vsync_dropdown)
-
-	apply_button = Button.new()
-	apply_button.text = "Apply"
-	vbox.add_child(apply_button)
-	apply_button.pressed.connect(_on_apply_pressed)
-
-	var hint: Label = Label.new()
-	hint.text = "ESC: close panel | values saved"
-	hint.modulate = Color(0.78, 0.76, 0.72, 1.0)
-	vbox.add_child(hint)
-
+	_build_options_panel()
 	_build_prompt_bar()
 	_load_display_settings()
 
@@ -121,22 +46,32 @@ func is_open() -> bool:
 	return panel != null and panel.visible
 
 
+func get_panel_rect() -> Rect2:
+	if panel == null:
+		return Rect2()
+	return Rect2(panel.position, panel.size)
+
+
 func layout(viewport_size: Vector2) -> void:
+	_last_viewport_size = viewport_size
 	if menu_button != null:
 		menu_button.position = Vector2(16.0, 16.0)
-		menu_button.size = Vector2(110.0, 40.0)
+		menu_button.size = Vector2(112.0, 40.0)
+
 	if panel != null:
-		var margin: float = minf(16.0, minf(viewport_size.x * 0.08, viewport_size.y * 0.08))
-		var width: float = clampf(minf(460.0, viewport_size.x - margin * 2.0), 220.0, maxf(220.0, viewport_size.x - margin * 2.0))
-		var height: float = clampf(minf(360.0, viewport_size.y - margin * 2.0), 180.0, maxf(180.0, viewport_size.y - margin * 2.0))
-		panel.position = Vector2(margin, margin + 44.0)
-		panel.position.y = clampf(panel.position.y, margin, maxf(margin, viewport_size.y - height - margin))
-		panel.size = Vector2(width, height)
+		var anchor_mode: String = "top_left"
+		if viewport_size.x < 1100.0 or viewport_size.y < 760.0:
+			anchor_mode = "center"
+		var preferred: Vector2 = Vector2(500.0, 430.0)
+		if viewport_size.x < 960.0 or viewport_size.y < 680.0:
+			preferred = Vector2(viewport_size.x * 0.92, viewport_size.y * 0.9)
+		ResponsiveLayoutController.apply_safe_panel_layout(panel, viewport_size, preferred, anchor_mode)
+
 	if prompt_bar != null:
-		var p_width: float = clampf(minf(560.0, viewport_size.x - 24.0), 180.0, maxf(180.0, viewport_size.x - 24.0))
-		var p_height: float = clampf(68.0, 44.0, maxf(44.0, viewport_size.y - 12.0))
-		prompt_bar.size = Vector2(p_width, p_height)
-		prompt_bar.position = Vector2((viewport_size.x - p_width) * 0.5, clampf(16.0, 6.0, maxf(6.0, viewport_size.y - p_height - 6.0)))
+		var prompt_rect: Rect2 = ResponsiveLayoutController.apply_safe_panel_layout(prompt_bar, viewport_size, Vector2(760.0, 116.0), "top_right")
+		prompt_bar.position = Vector2(maxf(8.0, prompt_rect.position.x), 8.0)
+		if prompt_buttons != null:
+			prompt_buttons.vertical = prompt_rect.size.x < 560.0
 
 
 func set_values(preset_name: String, fps_friendly: bool) -> void:
@@ -166,53 +101,167 @@ func hide_fallback_prompt() -> void:
 		prompt_bar.visible = false
 
 
+func _build_options_panel() -> void:
+	panel = PanelContainer.new()
+	panel.name = "OptionsPanel"
+	panel.visible = false
+	panel.z_index = 98
+	panel.add_theme_stylebox_override("panel", _make_panel_style())
+	root.add_child(panel)
+
+	menu_button = Button.new()
+	menu_button.name = "OptionsMenuButton"
+	menu_button.text = "Options"
+	menu_button.tooltip_text = "Open Options"
+	menu_button.z_index = 98
+	menu_button.pressed.connect(toggle)
+	root.add_child(menu_button)
+
+	var outer_margin: MarginContainer = MarginContainer.new()
+	outer_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	outer_margin.add_theme_constant_override("margin_left", 12)
+	outer_margin.add_theme_constant_override("margin_right", 12)
+	outer_margin.add_theme_constant_override("margin_top", 12)
+	outer_margin.add_theme_constant_override("margin_bottom", 12)
+	panel.add_child(outer_margin)
+
+	var outer_vbox: VBoxContainer = VBoxContainer.new()
+	outer_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	outer_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer_vbox.add_theme_constant_override("separation", 10)
+	outer_margin.add_child(outer_vbox)
+
+	var header: HBoxContainer = HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	outer_vbox.add_child(header)
+
+	var title: Label = Label.new()
+	title.text = "Options"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.modulate = Color(0.97, 0.92, 0.82, 1.0)
+	header.add_child(title)
+
+	close_button = Button.new()
+	close_button.text = "Close"
+	close_button.custom_minimum_size = Vector2(88.0, 34.0)
+	close_button.pressed.connect(close)
+	header.add_child(close_button)
+
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer_vbox.add_child(scroll)
+
+	var content: VBoxContainer = VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.custom_minimum_size = Vector2(0.0, 420.0)
+	content.add_theme_constant_override("separation", 10)
+	scroll.add_child(content)
+
+	var graphics_title: Label = Label.new()
+	graphics_title.text = "Graphics Quality"
+	graphics_title.modulate = Color(0.82, 0.82, 0.78, 1.0)
+	content.add_child(graphics_title)
+
+	quality_dropdown = OptionButton.new()
+	quality_dropdown.add_item("Ultra Low")
+	quality_dropdown.add_item("Low")
+	quality_dropdown.add_item("Medium")
+	quality_dropdown.add_item("High")
+	quality_dropdown.add_item("Cinematic")
+	content.add_child(quality_dropdown)
+
+	fps_toggle = CheckBox.new()
+	fps_toggle.text = "FPS-friendly"
+	content.add_child(fps_toggle)
+
+	var display_title: Label = Label.new()
+	display_title.text = "Display"
+	display_title.modulate = Color(0.82, 0.82, 0.78, 1.0)
+	content.add_child(display_title)
+
+	resolution_dropdown = OptionButton.new()
+	_populate_resolution_options()
+	content.add_child(resolution_dropdown)
+
+	fullscreen_toggle = CheckBox.new()
+	fullscreen_toggle.text = "Fullscreen"
+	content.add_child(fullscreen_toggle)
+
+	vsync_dropdown = OptionButton.new()
+	vsync_dropdown.add_item("VSync: Off")
+	vsync_dropdown.add_item("VSync: On")
+	content.add_child(vsync_dropdown)
+
+	apply_button = Button.new()
+	apply_button.text = "Apply"
+	apply_button.custom_minimum_size = Vector2(0.0, 40.0)
+	apply_button.pressed.connect(_on_apply_pressed)
+	content.add_child(apply_button)
+
+	var hint: Label = Label.new()
+	hint.text = "ESC: close panel"
+	hint.modulate = Color(0.78, 0.76, 0.72, 1.0)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(hint)
+
+
 func _on_apply_pressed() -> void:
 	var preset: String = quality_dropdown.get_item_text(quality_dropdown.selected)
-	_apply_display_settings()
 	apply_requested.emit(preset, fps_toggle.button_pressed)
+	await _apply_display_settings()
 
 
 func _build_prompt_bar() -> void:
 	prompt_bar = PanelContainer.new()
 	prompt_bar.visible = false
 	prompt_bar.z_index = 99
-	prompt_bar.position = Vector2(20.0, 20.0)
-	prompt_bar.size = Vector2(500.0, 68.0)
 	prompt_bar.add_theme_stylebox_override("panel", _make_prompt_style())
 	root.add_child(prompt_bar)
 
 	var margin: MarginContainer = MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 10)
 	margin.add_theme_constant_override("margin_right", 10)
 	margin.add_theme_constant_override("margin_top", 10)
 	margin.add_theme_constant_override("margin_bottom", 10)
 	prompt_bar.add_child(margin)
 
-	var hbox: HBoxContainer = HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 10)
-	margin.add_child(hbox)
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 10)
+	margin.add_child(vbox)
 
 	var label: Label = Label.new()
 	label.text = "Ultra Performance Mode recommended"
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.modulate = Color(0.95, 0.93, 0.89, 1.0)
-	hbox.add_child(label)
+	vbox.add_child(label)
+
+	prompt_buttons = BoxContainer.new()
+	prompt_buttons.vertical = false
+	prompt_buttons.add_theme_constant_override("separation", 10)
+	vbox.add_child(prompt_buttons)
 
 	var accept_button: Button = Button.new()
 	accept_button.text = "Use Ultra Low"
+	accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	accept_button.pressed.connect(func() -> void:
 		fallback_accept_requested.emit()
 		hide_fallback_prompt()
 	)
-	hbox.add_child(accept_button)
+	prompt_buttons.add_child(accept_button)
 
 	var ignore_button: Button = Button.new()
 	ignore_button.text = "Ignore"
+	ignore_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ignore_button.pressed.connect(func() -> void:
 		fallback_ignore_requested.emit()
 		hide_fallback_prompt()
 	)
-	hbox.add_child(ignore_button)
+	prompt_buttons.add_child(ignore_button)
 
 
 func _populate_resolution_options() -> void:
@@ -243,6 +292,7 @@ func _populate_resolution_options() -> void:
 
 
 func _apply_display_settings() -> void:
+	var old_window_size: Vector2i = DisplayServer.window_get_size()
 	var resolution_text: String = resolution_dropdown.get_item_text(resolution_dropdown.selected)
 	var size_parts: PackedStringArray = resolution_text.split("x")
 	if size_parts.size() == 2:
@@ -258,6 +308,12 @@ func _apply_display_settings() -> void:
 	DisplayServer.window_set_vsync_mode(vsync_mode)
 	_save_display_settings()
 
+	await get_tree().process_frame
+	var new_window_size: Vector2i = DisplayServer.window_get_size()
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	layout(viewport_size)
+	display_settings_applied.emit(old_window_size, new_window_size, viewport_size)
+
 
 func _load_display_settings() -> void:
 	var config: ConfigFile = ConfigFile.new()
@@ -272,7 +328,6 @@ func _load_display_settings() -> void:
 				if resolution_dropdown.get_item_text(index) == resolution:
 					resolution_dropdown.select(index)
 					break
-	_apply_display_settings()
 
 
 func _save_display_settings() -> void:
@@ -292,18 +347,8 @@ func _center_window(window_size: Vector2i) -> void:
 
 
 func _make_panel_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.03, 0.03, 0.04, 0.92)
-	style.border_color = Color(0.84, 0.65, 0.38, 0.5)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	return style
+	return PremiumUIStyles.make_panel_style(0.9)
 
 
 func _make_prompt_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.05, 0.9)
-	style.border_color = Color(0.84, 0.65, 0.38, 0.48)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	return style
+	return PremiumUIStyles.make_panel_style(0.88)

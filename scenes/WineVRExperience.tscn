@@ -1,11 +1,15 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://dcf5orfh0gkhe"]
 
-[ext_resource type="PackedScene" path="res://scenes/VialPreview.tscn" id="1_vial_preview"]
+[ext_resource type="PackedScene" uid="uid://bn8nq24uqx626" path="res://scenes/VialPreview.tscn" id="1_vial_preview"]
 [ext_resource type="PackedScene" path="res://scenes/WineryInterior.tscn" id="2_winery_interior"]
-[ext_resource type="Script" path="res://scripts/wine_vr_experience.gd" id="3_experience_script"]
-[ext_resource type="Script" path="res://scripts/components/fps_label_controller.gd" id="4_fps_label_script"]
+[ext_resource type="Script" uid="uid://cuj78mxwijjfq" path="res://scripts/wine_vr_experience.gd" id="3_experience_script"]
+[ext_resource type="Script" uid="uid://bkx7uo4olw82t" path="res://scripts/components/fps_label_controller.gd" id="4_fps_label_script"]
 
 [sub_resource type="StyleBoxFlat" id="1_dark_panel"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
 bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.88)
 border_width_left = 1
 border_width_top = 1
@@ -16,26 +20,6 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
-content_margin_left = 20.0
-content_margin_top = 20.0
-content_margin_right = 20.0
-content_margin_bottom = 20.0
-
-[sub_resource type="StyleBoxFlat" id="2_modal_panel"]
-bg_color = Color(0.07, 0.074, 0.082, 0.96)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.95, 0.78, 0.45, 0.28)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-content_margin_left = 20.0
-content_margin_top = 20.0
-content_margin_right = 20.0
-content_margin_bottom = 20.0
 
 [sub_resource type="LabelSettings" id="3_eyebrow"]
 font_size = 13
@@ -49,25 +33,41 @@ font_color = Color(0.976471, 0.968627, 0.941176, 1)
 font_size = 15
 font_color = Color(0.84, 0.86, 0.86, 1)
 
-[node name="WineVRExperience" type="Node"]
+[sub_resource type="StyleBoxFlat" id="2_modal_panel"]
+content_margin_left = 20.0
+content_margin_top = 20.0
+content_margin_right = 20.0
+content_margin_bottom = 20.0
+bg_color = Color(0.07, 0.074, 0.082, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.78, 0.45, 0.28)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="WineVRExperience" type="Node" unique_id=1724632651]
 script = ExtResource("3_experience_script")
 
-[node name="VialPreview" parent="." instance=ExtResource("1_vial_preview")]
+[node name="VialPreview" parent="." unique_id=759955501 instance=ExtResource("1_vial_preview")]
 
-[node name="WineryInterior" parent="." instance=ExtResource("2_winery_interior")]
+[node name="WineryInterior" parent="." unique_id=1194601847 instance=ExtResource("2_winery_interior")]
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=899327066]
 
-[node name="FPSLabel" type="Label" parent="CanvasLayer"]
+[node name="FPSLabel" type="Label" parent="CanvasLayer" unique_id=1679382973]
 offset_left = 10.0
 offset_top = 10.0
 offset_right = 150.0
 offset_bottom = 34.0
-mouse_filter = 2
 text = "FPS: 0"
 script = ExtResource("4_fps_label_script")
 
-[node name="PanelDim" type="ColorRect" parent="CanvasLayer"]
+[node name="PanelDim" type="ColorRect" parent="CanvasLayer" unique_id=639392961]
+modulate = Color(1, 1, 1, 0)
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -75,17 +75,17 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0.46)
-modulate = Color(1, 1, 1, 0)
 
-[node name="IntroScreen" type="Control" parent="CanvasLayer"]
+[node name="IntroScreen" type="Control" parent="CanvasLayer" unique_id=1267101461]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Dimmer" type="ColorRect" parent="CanvasLayer/IntroScreen"]
-anchors_preset = 15
+[node name="Dimmer" type="ColorRect" parent="CanvasLayer/IntroScreen" unique_id=1794551885]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
@@ -93,133 +93,147 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.0235294, 0.027451, 0.0352941, 0.6)
 
-[node name="IntroCard" type="PanelContainer" parent="CanvasLayer/IntroScreen"]
+[node name="IntroCard" type="PanelContainer" parent="CanvasLayer/IntroScreen" unique_id=1697809605]
+layout_mode = 0
 offset_left = 40.0
 offset_top = 40.0
 offset_right = 470.0
 offset_bottom = 390.0
 theme_override_styles/panel = SubResource("1_dark_panel")
 
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/IntroScreen/IntroCard"]
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/IntroScreen/IntroCard" unique_id=1765470192]
+layout_mode = 2
 theme_override_constants/margin_left = 2
 theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 2
 theme_override_constants/margin_bottom = 2
 
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/IntroScreen/IntroCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/IntroScreen/IntroCard/Margin" unique_id=1924595614]
+layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="WineryName" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-text = ""
+[node name="WineryName" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox" unique_id=1447345811]
+layout_mode = 2
 label_settings = SubResource("3_eyebrow")
 
-[node name="WineName" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-text = ""
+[node name="WineName" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox" unique_id=31426050]
+layout_mode = 2
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
-[node name="Region" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
-text = ""
+[node name="Region" type="Label" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox" unique_id=1476371027]
+layout_mode = 2
 label_settings = SubResource("5_body")
 
-[node name="IntroText" type="RichTextLabel" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
+[node name="IntroText" type="RichTextLabel" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox" unique_id=1267886940]
 custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
 fit_content = true
 scroll_active = false
-text = ""
 
-[node name="StartButton" type="Button" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox"]
+[node name="StartButton" type="Button" parent="CanvasLayer/IntroScreen/IntroCard/Margin/VBox" unique_id=141867303]
 custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
 text = "Begin Tasting"
 
-[node name="InspectionHUD" type="Control" parent="CanvasLayer"]
+[node name="InspectionHUD" type="Control" parent="CanvasLayer" unique_id=1326005842]
+visible = false
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
-visible = false
 
-[node name="InfoCard" type="PanelContainer" parent="CanvasLayer/InspectionHUD"]
+[node name="InfoCard" type="PanelContainer" parent="CanvasLayer/InspectionHUD" unique_id=681386007]
+layout_mode = 0
 offset_left = 24.0
 offset_top = 24.0
 offset_right = 430.0
 offset_bottom = 320.0
 theme_override_styles/panel = SubResource("1_dark_panel")
 
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/InspectionHUD/InfoCard"]
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/InspectionHUD/InfoCard" unique_id=96103520]
+layout_mode = 2
 theme_override_constants/margin_left = 2
 theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 2
 theme_override_constants/margin_bottom = 2
 
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/InspectionHUD/InfoCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/InspectionHUD/InfoCard/Margin" unique_id=1191896549]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="WineryName" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-text = ""
+[node name="WineryName" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox" unique_id=1479606693]
+layout_mode = 2
 label_settings = SubResource("3_eyebrow")
 
-[node name="WineName" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-text = ""
+[node name="WineName" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox" unique_id=34950001]
+layout_mode = 2
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
-[node name="Region" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
-text = ""
+[node name="Region" type="Label" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox" unique_id=536559766]
+layout_mode = 2
 label_settings = SubResource("5_body")
 
-[node name="IntroText" type="RichTextLabel" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
+[node name="IntroText" type="RichTextLabel" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox" unique_id=171773935]
 custom_minimum_size = Vector2(0, 118)
+layout_mode = 2
 fit_content = true
 scroll_active = false
-text = ""
 
-[node name="EnterWineryButton" type="Button" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox"]
+[node name="EnterWineryButton" type="Button" parent="CanvasLayer/InspectionHUD/InfoCard/Margin/VBox" unique_id=1044408932]
 custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
 text = "Enter Winery"
 
-[node name="HotspotsLayer" type="Control" parent="CanvasLayer/InspectionHUD"]
-anchors_preset = 15
+[node name="HotspotsLayer" type="Control" parent="CanvasLayer/InspectionHUD" unique_id=1055348807]
+anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="HotspotPanel" type="PanelContainer" parent="CanvasLayer/InspectionHUD"]
+[node name="HotspotPanel" type="PanelContainer" parent="CanvasLayer/InspectionHUD" unique_id=378552426]
+visible = false
+layout_mode = 0
 offset_left = 24.0
 offset_top = 344.0
 offset_right = 430.0
 offset_bottom = 548.0
 theme_override_styles/panel = SubResource("2_modal_panel")
-visible = false
 
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/InspectionHUD/HotspotPanel"]
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/InspectionHUD/HotspotPanel" unique_id=602741903]
+layout_mode = 2
 theme_override_constants/margin_left = 2
 theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 2
 theme_override_constants/margin_bottom = 2
 
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin" unique_id=2063797072]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
-text = ""
+[node name="Title" type="Label" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox" unique_id=141442444]
+layout_mode = 2
 label_settings = SubResource("4_title")
 
-[node name="Text" type="RichTextLabel" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
+[node name="Text" type="RichTextLabel" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox" unique_id=1689055101]
 custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
 fit_content = true
 scroll_active = false
-text = ""
 
-[node name="CloseButton" type="Button" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox"]
+[node name="CloseButton" type="Button" parent="CanvasLayer/InspectionHUD/HotspotPanel/Margin/VBox" unique_id=408514314]
 custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
 text = "Close"
 
-[node name="InspectionHint" type="Label" parent="CanvasLayer/InspectionHUD"]
+[node name="InspectionHint" type="Label" parent="CanvasLayer/InspectionHUD" unique_id=544452321]
+layout_mode = 0
 offset_left = 24.0
 offset_top = 674.0
 offset_right = 360.0
@@ -227,87 +241,96 @@ offset_bottom = 704.0
 text = "Turn the vial to explore its notes"
 label_settings = SubResource("5_body")
 
-[node name="WineryHUD" type="Control" parent="CanvasLayer"]
+[node name="WineryHUD" type="Control" parent="CanvasLayer" unique_id=381651756]
+visible = false
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
-visible = false
 
-[node name="InfoCard" type="PanelContainer" parent="CanvasLayer/WineryHUD"]
+[node name="InfoCard" type="PanelContainer" parent="CanvasLayer/WineryHUD" unique_id=1580727068]
+layout_mode = 0
 offset_left = 24.0
 offset_top = 24.0
 offset_right = 420.0
 offset_bottom = 260.0
 theme_override_styles/panel = SubResource("1_dark_panel")
 
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/WineryHUD/InfoCard"]
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/WineryHUD/InfoCard" unique_id=2085542282]
+layout_mode = 2
 theme_override_constants/margin_left = 2
 theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 2
 theme_override_constants/margin_bottom = 2
 
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/WineryHUD/InfoCard/Margin"]
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/WineryHUD/InfoCard/Margin" unique_id=1589460019]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
-text = ""
+[node name="Title" type="Label" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox" unique_id=1697107620]
+layout_mode = 2
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
-[node name="Text" type="RichTextLabel" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
+[node name="Text" type="RichTextLabel" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox" unique_id=1704019644]
 custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
 fit_content = true
 scroll_active = false
-text = ""
 
-[node name="ReturnButton" type="Button" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox"]
+[node name="ReturnButton" type="Button" parent="CanvasLayer/WineryHUD/InfoCard/Margin/VBox" unique_id=1689798472]
 custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
 text = "Return to Vial"
 
-[node name="DoorPrompt" type="Label" parent="CanvasLayer/WineryHUD"]
+[node name="DoorPrompt" type="Label" parent="CanvasLayer/WineryHUD" unique_id=1623054762]
+layout_mode = 0
 offset_left = 24.0
 offset_top = 280.0
 offset_right = 430.0
 offset_bottom = 310.0
-text = ""
 label_settings = SubResource("5_body")
 
-[node name="WineryModal" type="PanelContainer" parent="CanvasLayer/WineryHUD"]
+[node name="WineryModal" type="PanelContainer" parent="CanvasLayer/WineryHUD" unique_id=43472355]
+visible = false
+layout_mode = 0
 offset_left = 780.0
 offset_top = 24.0
 offset_right = 1210.0
 offset_bottom = 250.0
 theme_override_styles/panel = SubResource("2_modal_panel")
-visible = false
 
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/WineryHUD/WineryModal"]
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/WineryHUD/WineryModal" unique_id=1120067653]
+layout_mode = 2
 theme_override_constants/margin_left = 2
 theme_override_constants/margin_top = 2
 theme_override_constants/margin_right = 2
 theme_override_constants/margin_bottom = 2
 
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/WineryHUD/WineryModal/Margin"]
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/WineryHUD/WineryModal/Margin" unique_id=1018133249]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox"]
-text = ""
+[node name="Title" type="Label" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox" unique_id=58627262]
+layout_mode = 2
 label_settings = SubResource("4_title")
 autowrap_mode = 3
 
-[node name="Text" type="RichTextLabel" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox"]
+[node name="Text" type="RichTextLabel" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox" unique_id=523621186]
 custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
 fit_content = true
 scroll_active = false
-text = ""
 
-[node name="CloseButton" type="Button" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox"]
+[node name="CloseButton" type="Button" parent="CanvasLayer/WineryHUD/WineryModal/Margin/VBox" unique_id=1562583866]
 custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
 text = "Close"
 
-[node name="FadeRect" type="ColorRect" parent="CanvasLayer"]
+[node name="FadeRect" type="ColorRect" parent="CanvasLayer" unique_id=1398527334]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

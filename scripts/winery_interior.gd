@@ -58,6 +58,8 @@ var _tooltip_action: Label
 var _info_panel: PanelContainer
 var _info_title: Label
 var _info_description: Label
+var _tooltip_max_height: float = 220.0
+var _info_max_height: float = 280.0
 
 
 func _ready() -> void:
@@ -525,23 +527,25 @@ func _setup_interaction_ui() -> void:
 	add_child(_interaction_ui_layer)
 
 	_tooltip_panel = PanelContainer.new()
-	_tooltip_panel.custom_minimum_size = Vector2(360.0, 112.0)
+	_tooltip_panel.custom_minimum_size = Vector2(320.0, 120.0)
 	_tooltip_panel.position = Vector2(20.0, 20.0)
 	_tooltip_panel.modulate.a = 0.0
 	_tooltip_panel.visible = false
 	_interaction_ui_layer.add_child(_tooltip_panel)
 
 	var tooltip_bg: StyleBoxFlat = StyleBoxFlat.new()
-	tooltip_bg.bg_color = Color(0.04, 0.04, 0.05, 0.86)
-	tooltip_bg.corner_radius_top_left = 10
-	tooltip_bg.corner_radius_top_right = 10
-	tooltip_bg.corner_radius_bottom_left = 10
-	tooltip_bg.corner_radius_bottom_right = 10
+	tooltip_bg.bg_color = PremiumUIStyles.PANEL_BG
+	tooltip_bg.corner_radius_top_left = 12
+	tooltip_bg.corner_radius_top_right = 12
+	tooltip_bg.corner_radius_bottom_left = 12
+	tooltip_bg.corner_radius_bottom_right = 12
 	tooltip_bg.border_width_left = 1
 	tooltip_bg.border_width_top = 1
 	tooltip_bg.border_width_right = 1
 	tooltip_bg.border_width_bottom = 1
-	tooltip_bg.border_color = Color(0.8, 0.63, 0.36, 0.5)
+	tooltip_bg.border_color = PremiumUIStyles.GOLD_BORDER
+	tooltip_bg.shadow_color = PremiumUIStyles.SHADOW
+	tooltip_bg.shadow_size = 8
 	_tooltip_panel.add_theme_stylebox_override("panel", tooltip_bg)
 
 	var tooltip_margin: MarginContainer = MarginContainer.new()
@@ -554,25 +558,25 @@ func _setup_interaction_ui() -> void:
 	var tooltip_vbox: VBoxContainer = VBoxContainer.new()
 	tooltip_margin.add_child(tooltip_vbox)
 	_tooltip_title = Label.new()
-	_tooltip_title.modulate = Color(0.96, 0.92, 0.84, 1.0)
+	_tooltip_title.modulate = PremiumUIStyles.TEXT_TITLE
 	tooltip_vbox.add_child(_tooltip_title)
 	_tooltip_description = Label.new()
 	_tooltip_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tooltip_description.modulate = Color(0.86, 0.84, 0.8, 1.0)
+	_tooltip_description.modulate = PremiumUIStyles.TEXT_BODY
 	tooltip_vbox.add_child(_tooltip_description)
 	_tooltip_action = Label.new()
-	_tooltip_action.modulate = Color(0.94, 0.76, 0.46, 1.0)
+	_tooltip_action.modulate = PremiumUIStyles.GOLD_ACCENT
 	tooltip_vbox.add_child(_tooltip_action)
 
 	_info_panel = PanelContainer.new()
-	_info_panel.custom_minimum_size = Vector2(440.0, 190.0)
+	_info_panel.custom_minimum_size = Vector2(420.0, 180.0)
 	_info_panel.position = Vector2(20.0, 150.0)
 	_info_panel.modulate.a = 0.0
 	_info_panel.visible = false
 	_interaction_ui_layer.add_child(_info_panel)
 
 	var info_bg: StyleBoxFlat = tooltip_bg.duplicate()
-	info_bg.bg_color = Color(0.035, 0.035, 0.045, 0.94)
+	info_bg.bg_color = Color(PremiumUIStyles.PANEL_BG.r, PremiumUIStyles.PANEL_BG.g, PremiumUIStyles.PANEL_BG.b, 0.87)
 	_info_panel.add_theme_stylebox_override("panel", info_bg)
 
 	var info_margin: MarginContainer = MarginContainer.new()
@@ -584,11 +588,11 @@ func _setup_interaction_ui() -> void:
 	var info_vbox: VBoxContainer = VBoxContainer.new()
 	info_margin.add_child(info_vbox)
 	_info_title = Label.new()
-	_info_title.modulate = Color(0.98, 0.93, 0.84, 1.0)
+	_info_title.modulate = PremiumUIStyles.TEXT_TITLE
 	info_vbox.add_child(_info_title)
 	_info_description = Label.new()
 	_info_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info_description.modulate = Color(0.87, 0.86, 0.82, 1.0)
+	_info_description.modulate = PremiumUIStyles.TEXT_BODY
 	info_vbox.add_child(_info_description)
 
 
@@ -599,10 +603,13 @@ func _show_tooltip(title_text: String, description_text: String, action_text: St
 	_tooltip_description.text = description_text
 	_tooltip_action.text = action_text
 	_tooltip_panel.visible = true
-	if _tooltip_panel.get_meta("anim_tween") is Tween:
+	if _tooltip_panel.has_meta("anim_tween") and _tooltip_panel.get_meta("anim_tween") is Tween:
 		(_tooltip_panel.get_meta("anim_tween") as Tween).kill()
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var target_pos: Vector2 = Vector2((viewport_size.x - _tooltip_panel.custom_minimum_size.x) * 0.5, viewport_size.y * 0.57)
+	var tooltip_width: float = clampf(360.0, 260.0, viewport_size.x - 32.0)
+	var tooltip_height: float = clampf(float(_tooltip_description.get_minimum_size().y) + 86.0, 120.0, minf(_tooltip_max_height, viewport_size.y * 0.28))
+	_tooltip_panel.size = Vector2(tooltip_width, tooltip_height)
+	var target_pos: Vector2 = Vector2((viewport_size.x - _tooltip_panel.size.x) * 0.5, clampf(viewport_size.y * 0.57, 12.0, viewport_size.y - _tooltip_panel.size.y - 12.0))
 	_tooltip_panel.position = target_pos + Vector2(0.0, 10.0)
 	_tooltip_panel.modulate.a = 0.0
 	var tween: Tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -614,7 +621,7 @@ func _show_tooltip(title_text: String, description_text: String, action_text: St
 
 func _hide_tooltip() -> void:
 	if _tooltip_panel != null:
-		if _tooltip_panel.get_meta("anim_tween") is Tween:
+		if _tooltip_panel.has_meta("anim_tween") and _tooltip_panel.get_meta("anim_tween") is Tween:
 			(_tooltip_panel.get_meta("anim_tween") as Tween).kill()
 		_tooltip_panel.modulate.a = 0.0
 		_tooltip_panel.visible = false
@@ -626,12 +633,16 @@ func _show_info_panel(data: Dictionary) -> void:
 	_info_title.text = str(data.get("title", "Detail"))
 	_info_description.text = str(data.get("description", data.get("text", "")))
 	_info_panel.visible = true
-	if _info_panel.get_meta("fade_tween") is Tween:
+	if _info_panel.has_meta("fade_tween") and _info_panel.get_meta("fade_tween") is Tween:
 		(_info_panel.get_meta("fade_tween") as Tween).kill()
 	var tween: Tween = create_tween()
 	_info_panel.set_meta("fade_tween", tween)
 	_info_panel.modulate.a = 0.0
-	var target_pos: Vector2 = Vector2(20.0, 150.0)
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var info_width: float = clampf(460.0, 300.0, viewport_size.x - 40.0)
+	var info_height: float = clampf(float(_info_description.get_minimum_size().y) + 100.0, 180.0, minf(_info_max_height, viewport_size.y * 0.5))
+	_info_panel.size = Vector2(info_width, info_height)
+	var target_pos: Vector2 = Vector2((viewport_size.x - info_width) * 0.5, clampf(viewport_size.y * 0.22, 14.0, viewport_size.y - info_height - 14.0))
 	_info_panel.position = target_pos + Vector2(0.0, 14.0)
 	tween.set_parallel(true)
 	tween.tween_property(_info_panel, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -662,9 +673,9 @@ func _setup_audio_players() -> void:
 		_completion_player.volume_db = -12.0
 
 
-func _make_audio_player(name: String, looped: bool = false) -> AudioStreamPlayer:
+func _make_audio_player(player_name: String, looped: bool = false) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
-	player.name = name
+	player.name = player_name
 	player.bus = "Master"
 	player.stream_paused = false
 	add_child(player)
@@ -721,5 +732,5 @@ func _rebuild_prop_spotlights() -> void:
 		spotlight.add_to_group("performance_optional")
 		var pos: Vector3 = _array_to_vector3((prop_data as Dictionary).get("position", [0.0, 0.0, 0.0]), Vector3.ZERO)
 		spotlight.position = pos + Vector3(0.0, 1.45, 0.15)
-		spotlight.look_at(pos + Vector3(0.0, 0.35, 0.0), Vector3.UP)
+		spotlight.look_at_from_position(spotlight.position, pos + Vector3(0.0, 0.35, 0.0), Vector3.UP)
 		_spotlight_root.add_child(spotlight)

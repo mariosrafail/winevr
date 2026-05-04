@@ -101,6 +101,7 @@ func _build_buttons() -> void:
 		button.tooltip_text = ""
 		button.custom_minimum_size = Vector2(0.0, 68.0)
 		button.focus_mode = Control.FOCUS_ALL
+		_apply_selection_button_style(button)
 		button.pressed.connect(_on_button_pressed.bind(str(entry.get("client_id", ""))))
 		button_box.add_child(button)
 
@@ -110,13 +111,18 @@ func _on_button_pressed(client_id: String) -> void:
 
 
 func _make_panel_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.0352941, 0.0392157, 0.0470588, 0.9)
-	style.border_color = Color(0.92, 0.76, 0.45, 0.22)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(20.0)
+	var style: StyleBoxFlat = PremiumUIStyles.make_panel_style(0.86)
+	style.set_content_margin_all(22.0)
 	return style
+
+
+func _apply_selection_button_style(button: Button) -> void:
+	button.add_theme_stylebox_override("normal", PremiumUIStyles.make_button_style(PremiumUIStyles.PANEL_BG_INNER, Color(PremiumUIStyles.GOLD_BORDER.r, PremiumUIStyles.GOLD_BORDER.g, PremiumUIStyles.GOLD_BORDER.b, 0.45)))
+	button.add_theme_stylebox_override("hover", PremiumUIStyles.make_button_style(Color(0.12, 0.108, 0.085, 0.96), PremiumUIStyles.GOLD_BORDER))
+	button.add_theme_stylebox_override("pressed", PremiumUIStyles.make_button_style(Color(0.16, 0.13, 0.075, 0.98), PremiumUIStyles.GOLD_ACCENT))
+	button.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
+	button.add_theme_color_override("font_hover_color", PremiumUIStyles.TEXT_TITLE)
+	button.add_theme_color_override("font_pressed_color", PremiumUIStyles.TEXT_TITLE)
 
 
 func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:

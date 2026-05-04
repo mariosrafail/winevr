@@ -21,6 +21,7 @@ var completion_card: PanelContainer
 var completion_title: Label
 var completion_text: RichTextLabel
 var restart_button: Button
+var text_scroll: ScrollContainer
 
 
 func setup(parent_canvas_layer: CanvasLayer) -> void:
@@ -34,18 +35,23 @@ func apply_state(state: int) -> void:
 
 
 func layout(viewport_size: Vector2, margin: float) -> void:
-	var width: float = clampf(minf(380.0, viewport_size.x - margin * 2.0), 180.0, maxf(180.0, viewport_size.x - margin * 2.0))
-	var height: float = clampf(minf(184.0, viewport_size.y * 0.30), 120.0, maxf(120.0, viewport_size.y - margin * 2.0))
+	var min_height: float = 190.0
+	var max_height: float = maxf(min_height, viewport_size.y * 0.5)
+	var width: float = clampf(minf(420.0, viewport_size.x - margin * 2.0), 220.0, maxf(220.0, viewport_size.x - margin * 2.0))
+	var height: float = clampf(minf(260.0, max_height), min_height, maxf(min_height, viewport_size.y - margin * 2.0))
 	var panel_position: Vector2 = Vector2((viewport_size.x - width) * 0.5, viewport_size.y - height - margin)
 	if ExperienceManager.current_state == ExperienceManager.ExperienceState.VIAL_INSPECTION and viewport_size.x >= 760.0:
 		panel_position.y = margin
 	if viewport_size.x < 760.0:
-		width = clampf(minf(360.0, viewport_size.x - margin * 2.0), 180.0, maxf(180.0, viewport_size.x - margin * 2.0))
-		height = clampf(minf(176.0, viewport_size.y * 0.28), 120.0, maxf(120.0, viewport_size.y - margin * 2.0))
+		width = clampf(minf(390.0, viewport_size.x - margin * 2.0), 220.0, maxf(220.0, viewport_size.x - margin * 2.0))
+		height = clampf(minf(max_height, viewport_size.y * 0.5), min_height, maxf(min_height, viewport_size.y - margin * 2.0))
 		panel_position = Vector2((viewport_size.x - width) * 0.5, margin)
 	panel_position.y = clampf(panel_position.y, margin, maxf(margin, viewport_size.y - height - margin))
 	panel.position = panel_position
 	panel.size = Vector2(width, height)
+	var reserved_bottom: float = 118.0
+	var text_max: float = clampf(height - reserved_bottom, 84.0, maxf(84.0, max_height - reserved_bottom))
+	text_scroll.custom_minimum_size.y = text_max
 	show_button.position = Vector2((viewport_size.x - 104.0) * 0.5, clampf(margin, 4.0, maxf(4.0, viewport_size.y - 44.0 - 4.0)))
 	show_button.size = Vector2(104.0, 44.0)
 
@@ -64,7 +70,7 @@ func _build_panel() -> void:
 	panel.name = "NarrativePanel"
 	panel.visible = false
 	panel.z_index = 40
-	panel.add_theme_stylebox_override("panel", _make_panel_style())
+	ResponsiveLayoutController.apply_premium_panel_style(panel)
 	canvas_layer.add_child(panel)
 
 	var margin: MarginContainer = MarginContainer.new()
@@ -102,12 +108,24 @@ func _build_panel() -> void:
 	target_label.label_settings = _make_label_settings(12, Color(0.92, 0.76, 0.45, 0.9))
 	box.add_child(target_label)
 
+	text_scroll = ScrollContainer.new()
+	text_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	text_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	box.add_child(text_scroll)
+
+	var content_box: VBoxContainer = VBoxContainer.new()
+	content_box.name = "ContentVBox"
+	content_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_scroll.add_child(content_box)
+
 	text_label = RichTextLabel.new()
 	text_label.fit_content = true
 	text_label.scroll_active = false
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_label.custom_minimum_size = Vector2(0.0, 66.0)
-	box.add_child(text_label)
+	text_label.custom_minimum_size = Vector2(0.0, 84.0)
+	content_box.add_child(text_label)
 
 	hint_label = Label.new()
 	hint_label.visible = false

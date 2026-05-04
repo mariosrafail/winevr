@@ -31,6 +31,10 @@ var winery_text: RichTextLabel
 var winery_modal_title: Label
 var winery_modal_text: RichTextLabel
 var _winery_modal_tween: Tween
+var _intro_scroll: ScrollContainer
+var _inspection_scroll: ScrollContainer
+var _winery_info_scroll: ScrollContainer
+var _winery_modal_scroll: ScrollContainer
 
 
 func setup(root: Node) -> void:
@@ -41,6 +45,7 @@ func setup(root: Node) -> void:
 	intro_region = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/Region") as Label
 	intro_text = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/IntroText") as RichTextLabel
 	var start_button: Button = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/StartButton") as Button
+	PremiumUIStyles.apply_gold_outline_button(start_button)
 	start_button.pressed.connect(func() -> void: start_requested.emit())
 
 	inspection_hud = root.get_node("CanvasLayer/InspectionHUD") as Control
@@ -66,13 +71,24 @@ func setup(root: Node) -> void:
 	winery_title = root.get_node("CanvasLayer/WineryHUD/InfoCard/Margin/VBox/Title") as Label
 	winery_text = root.get_node("CanvasLayer/WineryHUD/InfoCard/Margin/VBox/Text") as RichTextLabel
 	var return_button: Button = root.get_node("CanvasLayer/WineryHUD/InfoCard/Margin/VBox/ReturnButton") as Button
+	PremiumUIStyles.apply_gold_outline_button(return_button)
 	return_button.pressed.connect(func() -> void: return_to_vial_requested.emit())
 	door_prompt_label = root.get_node("CanvasLayer/WineryHUD/DoorPrompt") as Label
 	winery_modal = root.get_node("CanvasLayer/WineryHUD/WineryModal") as PanelContainer
 	winery_modal_title = root.get_node("CanvasLayer/WineryHUD/WineryModal/Margin/VBox/Title") as Label
 	winery_modal_text = root.get_node("CanvasLayer/WineryHUD/WineryModal/Margin/VBox/Text") as RichTextLabel
 	var modal_close: Button = root.get_node("CanvasLayer/WineryHUD/WineryModal/Margin/VBox/CloseButton") as Button
+	PremiumUIStyles.apply_gold_outline_button(modal_close)
 	modal_close.pressed.connect(close_winery_modal)
+	_intro_scroll = _wrap_rich_text_with_scroll(intro_text)
+	_inspection_scroll = _wrap_rich_text_with_scroll(inspection_text)
+	_winery_info_scroll = _wrap_rich_text_with_scroll(winery_text)
+	_winery_modal_scroll = _wrap_rich_text_with_scroll(winery_modal_text)
+	_configure_scroll_text(intro_text)
+	_configure_scroll_text(inspection_text)
+	_configure_scroll_text(winery_text)
+	_configure_scroll_text(winery_modal_text)
+	_apply_premium_visual_style()
 
 	winery_modal.modulate.a = 0.0
 	winery_modal.scale = Vector2(0.96, 0.96)
@@ -168,13 +184,7 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 
 
 func _apply_enter_winery_button_style() -> void:
-	enter_winery_button.add_theme_stylebox_override("normal", _make_button_style(Color(0.13, 0.105, 0.058, 1.0), Color(0.92, 0.76, 0.45, 0.48)))
-	enter_winery_button.add_theme_stylebox_override("hover", _make_button_style(Color(0.19, 0.15, 0.078, 1.0), Color(0.95, 0.8, 0.5, 0.7)))
-	enter_winery_button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.09, 0.072, 0.042, 1.0), Color(0.92, 0.76, 0.45, 0.5)))
-	enter_winery_button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.05, 0.052, 0.058, 0.92), Color(0.92, 0.76, 0.45, 0.18)))
-	enter_winery_button.add_theme_color_override("font_color", Color(0.976, 0.968, 0.941, 1.0))
-	enter_winery_button.add_theme_color_override("font_hover_color", Color(1.0, 0.91, 0.62, 1.0))
-	enter_winery_button.add_theme_color_override("font_disabled_color", Color(0.66, 0.64, 0.58, 1.0))
+	PremiumUIStyles.apply_gold_outline_button(enter_winery_button)
 
 
 func _on_enter_winery_button_pressed() -> void:
@@ -196,3 +206,97 @@ func _stop_winery_modal_tween() -> void:
 	if _winery_modal_tween != null:
 		_winery_modal_tween.kill()
 		_winery_modal_tween = null
+
+
+func apply_panel_height_policy(viewport_size: Vector2) -> void:
+	var small_min_h: float = 120.0
+	var modal_min_h: float = 180.0
+	_apply_scroll_height(intro_card, _intro_scroll, intro_text, modal_min_h, viewport_size.y * 0.5, 86.0, 110.0)
+	_apply_scroll_height(inspection_info_card, _inspection_scroll, inspection_text, modal_min_h, viewport_size.y * 0.55, 90.0, 130.0)
+	_apply_scroll_height(winery_info_card, _winery_info_scroll, winery_text, modal_min_h, viewport_size.y * 0.55, 94.0, 130.0)
+	_apply_scroll_height(winery_modal, _winery_modal_scroll, winery_modal_text, modal_min_h, viewport_size.y * 0.5, 92.0, 130.0)
+	if hotspot_panel != null:
+		hotspot_panel.custom_minimum_size.y = small_min_h
+
+
+func _configure_scroll_text(text_node: RichTextLabel) -> void:
+	text_node.fit_content = true
+	text_node.scroll_active = false
+	text_node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_node.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+
+
+func _wrap_rich_text_with_scroll(text_node: RichTextLabel) -> ScrollContainer:
+	var vbox: VBoxContainer = text_node.get_parent() as VBoxContainer
+	if vbox == null:
+		return null
+	var old_index: int = text_node.get_index()
+	vbox.remove_child(text_node)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = text_node.name + "Scroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	var content: VBoxContainer = VBoxContainer.new()
+	content.name = "ContentVBox"
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
+	content.add_child(text_node)
+	vbox.add_child(scroll)
+	vbox.move_child(scroll, old_index)
+	return scroll
+
+
+func _apply_scroll_height(panel_node: PanelContainer, scroll: ScrollContainer, text_node: RichTextLabel, min_h: float, max_h: float, reserved_bottom: float, min_scroll_height: float) -> void:
+	if scroll == null:
+		return
+	if panel_node == null:
+		return
+	var panel_height_cap: float = clampf(panel_node.size.y - reserved_bottom, min_scroll_height, max_h)
+	var content_h: float = maxf(min_h, text_node.get_content_height() + 20.0)
+	var target_h: float = clampf(content_h, min_scroll_height, panel_height_cap)
+	scroll.custom_minimum_size.y = target_h
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+
+func _apply_premium_visual_style() -> void:
+	for panel_node in [intro_card, inspection_info_card, winery_info_card, hotspot_panel, winery_modal]:
+		if panel_node is PanelContainer:
+			var card: PanelContainer = panel_node as PanelContainer
+			ResponsiveLayoutController.apply_premium_panel_style(card)
+			_attach_premium_chrome(card)
+
+	for lbl in [intro_winery_name, inspection_winery_name]:
+		lbl.modulate = PremiumUIStyles.GOLD_ACCENT
+	for lbl in [intro_wine_name, inspection_wine_name, winery_title, winery_modal_title]:
+		lbl.modulate = PremiumUIStyles.TEXT_TITLE
+	for lbl in [intro_region, inspection_region, door_prompt_label]:
+		lbl.modulate = PremiumUIStyles.TEXT_MUTED
+	for txt in [intro_text, inspection_text, winery_text, winery_modal_text]:
+		txt.add_theme_color_override("default_color", PremiumUIStyles.TEXT_BODY)
+
+
+func _attach_premium_chrome(panel_node: PanelContainer) -> void:
+	if panel_node == null:
+		return
+	var vbox: VBoxContainer = panel_node.get_node_or_null("Margin/VBox") as VBoxContainer
+	if vbox == null:
+		return
+	if vbox.get_node_or_null("TopAccent") == null:
+		var top_accent: ColorRect = ColorRect.new()
+		top_accent.name = "TopAccent"
+		top_accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top_accent.color = Color(PremiumUIStyles.GOLD_ACCENT.r, PremiumUIStyles.GOLD_ACCENT.g, PremiumUIStyles.GOLD_ACCENT.b, 0.82)
+		top_accent.custom_minimum_size = Vector2(0.0, 2.0)
+		vbox.add_child(top_accent)
+		vbox.move_child(top_accent, 0)
+	if vbox.get_node_or_null("TitleDivider") == null:
+		var divider: ColorRect = ColorRect.new()
+		divider.name = "TitleDivider"
+		divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		divider.color = Color(PremiumUIStyles.GOLD_ACCENT.r, PremiumUIStyles.GOLD_ACCENT.g, PremiumUIStyles.GOLD_ACCENT.b, 0.24)
+		divider.custom_minimum_size = Vector2(0.0, 1.0)
+		var insert_index: int = mini(3, vbox.get_child_count())
+		vbox.add_child(divider)
+		vbox.move_child(divider, insert_index)

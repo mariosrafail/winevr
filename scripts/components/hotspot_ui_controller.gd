@@ -30,6 +30,7 @@ func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label,
 	vial_preview = preview
 	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	PremiumUIStyles.apply_gold_outline_button(close_button)
 	close_button.pressed.connect(close_panel)
 	panel.modulate.a = 0.0
 	panel.scale = Vector2(0.96, 0.96)
