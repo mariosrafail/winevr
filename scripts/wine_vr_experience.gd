@@ -322,10 +322,15 @@ func _show_selected_qr_info() -> void:
 	var profile: Dictionary = AppState.selected_profile_data
 	var organization_name: String = str(profile.get("organization_name", profile.get("winery", "this winery")))
 	var qr_url: String = str(profile.get("qr_target_url", ""))
+	var qr_image: String = str(profile.get("qr_code_image", ""))
 	var body: String = "Scan this QR to learn more about %s." % organization_name
 	if not qr_url.is_empty():
 		body += "\n\n%s" % qr_url
-	await _hotspots.open_centered_annotation_panel("Winery QR", body)
+	await _hotspots.open_centered_annotation_panel("Winery QR", body, {
+		"qr_image": qr_image,
+		"min_height": 420.0,
+		"max_height_ratio": 0.82
+	})
 
 
 func _get_current_journey_profile(client_data: Dictionary) -> Dictionary:

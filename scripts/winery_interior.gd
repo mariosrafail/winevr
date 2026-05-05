@@ -61,8 +61,11 @@ var _tooltip_action: Label
 var _info_panel: PanelContainer
 var _info_title: Label
 var _info_description: Label
+var _info_close_button: Button
 var _tooltip_max_height: float = 220.0
 var _info_max_height: float = 280.0
+var _info_panel_tween: Tween
+var _info_auto_hide_token: int = 0
 
 
 func _ready() -> void:
@@ -174,6 +177,7 @@ func set_controls_enabled(enabled: bool) -> void:
 	if not enabled:
 		_exploration_mode_active = false
 		_door.set_highlight(false)
+		_hide_info_panel()
 		interaction_target_changed.emit(false, "")
 		door_prompt_changed.emit("")
 
@@ -622,6 +626,12 @@ func _setup_interaction_ui() -> void:
 	_info_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_description.modulate = PremiumUIStyles.TEXT_BODY
 	info_vbox.add_child(_info_description)
+	_info_close_button = Button.new()
+	_info_close_button.text = "Close"
+	_info_close_button.custom_minimum_size = Vector2(0.0, 42.0)
+	PremiumUIStyles.apply_gold_outline_button(_info_close_button)
+	_info_close_button.pressed.connect(_hide_info_panel)
+	info_vbox.add_child(_info_close_button)
 
 
 func _show_tooltip(title_text: String, description_text: String, action_text: String) -> void:
@@ -662,25 +672,45 @@ func _hide_tooltip() -> void:
 func _show_info_panel(data: Dictionary) -> void:
 	if _info_panel == null:
 		return
+	_info_auto_hide_token += 1
+	var hide_token: int = _info_auto_hide_token
 	_info_title.text = str(data.get("title", "Detail"))
 	_info_description.text = str(data.get("description", data.get("text", "")))
 	_info_panel.visible = true
-	if _info_panel.has_meta("fade_tween") and _info_panel.get_meta("fade_tween") is Tween:
-		(_info_panel.get_meta("fade_tween") as Tween).kill()
-	var tween: Tween = create_tween()
-	_info_panel.set_meta("fade_tween", tween)
+	_stop_info_panel_tween()
 	_info_panel.modulate.a = 0.0
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var info_width: float = clampf(460.0, 300.0, viewport_size.x - 40.0)
-	var info_height: float = clampf(float(_info_description.get_minimum_size().y) + 100.0, 180.0, minf(_info_max_height, viewport_size.y * 0.5))
+	var info_height: float = clampf(float(_info_description.get_minimum_size().y) + 154.0, 220.0, minf(_info_max_height, viewport_size.y * 0.5))
 	_info_panel.size = Vector2(info_width, info_height)
 	ResponsiveLayoutController.center_panel_safe(_info_panel, get_viewport(), clampf(viewport_size.x * 0.36, 360.0, 560.0), 0.45)
 	var target_pos: Vector2 = _info_panel.position
 	_info_panel.position = target_pos + Vector2(0.0, 14.0)
 	layout_refresh_requested.emit("panel opened")
-	tween.set_parallel(true)
-	tween.tween_property(_info_panel, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_info_panel, "position", target_pos, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_info_panel_tween = create_tween()
+	_info_panel_tween.set_parallel(true)
+	_info_panel_tween.tween_property(_info_panel, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_info_panel_tween.tween_property(_info_panel, "position", target_pos, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await get_tree().create_timer(5.0).timeout
+	if hide_token == _info_auto_hide_token:
+		_hide_info_panel()
+
+
+func _hide_info_panel() -> void:
+	if _info_panel == null or not _info_panel.visible:
+		return
+	_info_auto_hide_token += 1
+	_stop_info_panel_tween()
+	_info_panel_tween = create_tween()
+	_info_panel_tween.tween_property(_info_panel, "modulate:a", 0.0, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await _info_panel_tween.finished
+	_info_panel.visible = false
+
+
+func _stop_info_panel_tween() -> void:
+	if _info_panel_tween != null:
+		_info_panel_tween.kill()
+		_info_panel_tween = null
 
 
 func _setup_audio_players() -> void:

@@ -13,6 +13,8 @@ var text_label: RichTextLabel
 var close_button: Button
 var panel_dim: ColorRect
 var vial_preview: VialPreviewController
+var qr_container: PanelContainer
+var qr_texture_rect: TextureRect
 var active_hotspots: Array[Dictionary] = []
 var viewed_ids: Dictionary = {}
 var required_ids: Dictionary = {}
@@ -22,6 +24,7 @@ var _pulse_tween: Tween
 var _panel_tween: Tween
 var _dim_tween: Tween
 var _text_scroll: ScrollContainer
+var _annotation_max_height_ratio: float = 0.45
 
 
 func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label, text: RichTextLabel, close: Button, dim: ColorRect, preview: VialPreviewController) -> void:
@@ -177,8 +180,12 @@ func _on_hotspot_pressed(hotspot_data: Dictionary) -> void:
 func open_centered_annotation_panel(title: String, body: String, extra_data: Dictionary = {}) -> void:
 	title_label.text = title
 	text_label.text = body
+	_set_qr_preview(str(extra_data.get("qr_image", "")))
+	_annotation_max_height_ratio = float(extra_data.get("max_height_ratio", 0.45))
 	if extra_data.has("min_height"):
 		panel.custom_minimum_size.y = float(extra_data.get("min_height", 120.0))
+	else:
+		panel.custom_minimum_size.y = 0.0
 	await _show_panel()
 
 
@@ -187,9 +194,10 @@ func _show_panel() -> void:
 	panel.visible = true
 	layout_refresh_requested.emit("panel opened")
 	await get_tree().process_frame
-	ResponsiveLayoutController.center_panel_safe(panel, panel.get_viewport(), clampf(panel.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), 0.45)
+	ResponsiveLayoutController.center_panel_safe(panel, panel.get_viewport(), clampf(panel.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), _annotation_max_height_ratio)
 	if _text_scroll != null:
-		_text_scroll.custom_minimum_size.y = clampf(panel.size.y - 118.0, 80.0, maxf(80.0, panel.size.y - 96.0))
+		var qr_reserved_height: float = qr_container.custom_minimum_size.y + 10.0 if qr_container != null and qr_container.visible else 0.0
+		_text_scroll.custom_minimum_size.y = clampf(panel.size.y - 118.0 - qr_reserved_height, 64.0, maxf(64.0, panel.size.y - 96.0 - qr_reserved_height))
 	panel.pivot_offset = panel.size * 0.5
 	vial_preview.set_idle_rotation_paused(true)
 	_set_panel_dim(true)
@@ -296,3 +304,64 @@ func _wrap_text_with_scroll(rich_text: RichTextLabel) -> ScrollContainer:
 	vbox.add_child(scroll)
 	vbox.move_child(scroll, old_index)
 	return scroll
+
+
+func _set_qr_preview(path: String) -> void:
+	_ensure_qr_preview_nodes()
+	if qr_container == null or qr_texture_rect == null:
+		return
+	if path.is_empty():
+		qr_container.visible = false
+		qr_texture_rect.texture = null
+		return
+	var texture: Texture2D = _load_texture(path)
+	if texture == null:
+		qr_container.visible = false
+		qr_texture_rect.texture = null
+		return
+	qr_texture_rect.texture = texture
+	qr_container.visible = true
+
+
+func _ensure_qr_preview_nodes() -> void:
+	if qr_container != null and qr_texture_rect != null:
+		return
+	var vbox: VBoxContainer = title_label.get_parent() as VBoxContainer
+	if vbox == null:
+		return
+	qr_container = PanelContainer.new()
+	qr_container.name = "QRPreview"
+	qr_container.visible = false
+	qr_container.custom_minimum_size = Vector2(0.0, 224.0)
+	qr_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	qr_container.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	qr_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var backing: StyleBoxFlat = StyleBoxFlat.new()
+	backing.bg_color = Color.WHITE
+	backing.border_color = Color(0.0, 0.0, 0.0, 0.16)
+	backing.set_border_width_all(1)
+	backing.set_corner_radius_all(6)
+	backing.set_content_margin_all(14.0)
+	qr_container.add_theme_stylebox_override("panel", backing)
+
+	qr_texture_rect = TextureRect.new()
+	qr_texture_rect.name = "QRImage"
+	qr_texture_rect.custom_minimum_size = Vector2(0.0, 196.0)
+	qr_texture_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	qr_texture_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	qr_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	qr_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	qr_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	qr_container.add_child(qr_texture_rect)
+
+	vbox.add_child(qr_container)
+	vbox.move_child(qr_container, title_label.get_index() + 1)
+
+
+func _load_texture(path: String) -> Texture2D:
+	if path.is_empty():
+		return null
+	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
+		return null
+	var resource: Resource = load(path)
+	return resource as Texture2D
