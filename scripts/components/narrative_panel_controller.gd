@@ -23,6 +23,7 @@ var completion_title: Label
 var completion_text: RichTextLabel
 var restart_button: Button
 var text_scroll: ScrollContainer
+var vr_winery_mode: bool = false
 
 
 func setup(parent_canvas_layer: CanvasLayer) -> void:
@@ -32,7 +33,17 @@ func setup(parent_canvas_layer: CanvasLayer) -> void:
 
 
 func apply_state(state: int) -> void:
-	_update_visibility(state != ExperienceManager.ExperienceState.QR_SCAN)
+	_update_visibility(state != ExperienceManager.ExperienceState.QR_SCAN and not (vr_winery_mode and state == ExperienceManager.ExperienceState.WINERY_INTERIOR))
+
+
+func set_vr_winery_mode(active: bool) -> void:
+	vr_winery_mode = active
+	if active:
+		panel.visible = false
+		show_button.visible = false
+		completion_overlay.visible = false
+	else:
+		_update_visibility(ExperienceManager.current_state != ExperienceManager.ExperienceState.QR_SCAN)
 
 
 func layout(viewport_size: Vector2, margin: float) -> void:
@@ -253,6 +264,11 @@ func _set_collapsed(value: bool) -> void:
 
 
 func _update_visibility(can_show: bool) -> void:
+	if vr_winery_mode and ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+		panel.visible = false
+		show_button.visible = false
+		completion_overlay.visible = false
+		return
 	var has_step: bool = not NarrativeManager.get_current_step().is_empty()
 	panel.visible = has_step and can_show and not collapsed
 	show_button.visible = has_step and can_show and collapsed

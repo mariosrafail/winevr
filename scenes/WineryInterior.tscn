@@ -1,7 +1,8 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/winery_interior.gd" id="1_winery_script"]
 [ext_resource type="PackedScene" path="res://scenes/Vial.tscn" id="2_vial"]
+[ext_resource type="PackedScene" path="res://scenes/VRPlayerRig.tscn" id="3_vr_player"]
 
 [sub_resource type="Environment" id="1_env"]
 background_mode = 1
@@ -175,3 +176,6 @@ enabled = true
 
 [node name="HeldVial" parent="PlayerRig/CameraPivot/Camera3D" instance=ExtResource("2_vial")]
 transform = Transform3D(0.939693, -0.17101, -0.296198, 0.0697565, 0.93912, -0.336824, 0.334565, 0.29875, 0.8937, 0.18, -0.17, -0.58)
+
+[node name="VRPlayerRig" parent="." instance=ExtResource("3_vr_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.55)

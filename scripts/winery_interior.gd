@@ -19,6 +19,8 @@ signal interaction_target_changed(can_interact: bool, prompt_text: String)
 @export var hover_audio_path: String = ""
 @export var click_audio_path: String = ""
 @export var completion_audio_path: String = ""
+# Safe VR test switch: leave false for headset/OpenXR tests, enable to force the existing desktop path.
+@export var force_desktop_mode: bool = false
 
 @onready var player_rig: Node3D = $PlayerRig
 @onready var camera_pivot: Node3D = $PlayerRig/CameraPivot
@@ -26,11 +28,20 @@ signal interaction_target_changed(can_interact: bool, prompt_text: String)
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var interaction_ray: RayCast3D = $PlayerRig/CameraPivot/Camera3D/InteractionRay
 @onready var held_vial: Vial = $PlayerRig/CameraPivot/Camera3D/HeldVial
+@onready var vr_player_rig: XROrigin3D = get_node_or_null("VRPlayerRig") as XROrigin3D
+@onready var vr_camera: XRCamera3D = get_node_or_null("VRPlayerRig/XRCamera3D") as XRCamera3D
+@onready var vr_left_controller: XRController3D = get_node_or_null("VRPlayerRig/LeftController") as XRController3D
+@onready var vr_right_controller: XRController3D = get_node_or_null("VRPlayerRig/RightController") as XRController3D
+@onready var vr_interaction_ray: RayCast3D = get_node_or_null("VRPlayerRig/RightController/InteractionRay") as RayCast3D
+@onready var vr_pointer: MeshInstance3D = get_node_or_null("VRPlayerRig/RightController/Pointer") as MeshInstance3D
 @onready var directional_light: DirectionalLight3D = $DirectionalLight3D
 @onready var fill_light: OmniLight3D = $FillLight
 @onready var floor_mesh: MeshInstance3D = $Floor
 @onready var door_hinge: Node3D = $DoorAssembly/DoorHinge
 @onready var door_mesh: MeshInstance3D = $DoorAssembly/DoorHinge/Door/DoorMesh
+
+const VR_MANAGER_SCRIPT: Script = preload("res://scripts/vr/vr_manager.gd")
+const VIAL_SCENE: PackedScene = preload("res://scenes/Vial.tscn")
 
 var _movement: WineryMovementController
 var _door: WineryDoorController
@@ -52,6 +63,12 @@ var _click_player: AudioStreamPlayer
 var _completion_player: AudioStreamPlayer
 var _spotlight_root: Node3D
 var _exploration_mode_active: bool = false
+var _vr_manager: WineVRVRManager
+var _is_vr_active: bool = false
+var _vr_held_vial: Vial
+var _vr_trigger_was_pressed: bool = false
+var _vr_last_feedback: String = ""
+var _controls_enabled: bool = false
 
 var _interaction_ui_layer: CanvasLayer
 var _tooltip_panel: PanelContainer
@@ -70,6 +87,9 @@ var _info_auto_hide_token: int = 0
 
 func _ready() -> void:
 	interaction_ray.collide_with_areas = true
+	if vr_interaction_ray != null:
+		vr_interaction_ray.collide_with_areas = true
+	_setup_player_mode()
 	_door = WineryDoorController.new()
 	_door.setup(door_hinge, door_mesh)
 
@@ -99,6 +119,8 @@ func _ready() -> void:
 	_guided.step_completed.connect(_on_guided_step_completed)
 
 	_setup_interaction_ui()
+	if _is_vr_active and _interaction_ui_layer != null:
+		_interaction_ui_layer.visible = false
 	_setup_audio_players()
 	_setup_spotlight_root()
 	fill_light.add_to_group("optional_lights")
@@ -109,14 +131,21 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if not _controls_enabled:
+		return
+	if _is_vr_active:
+		_update_interaction_prompt()
+		return
 	if _movement != null and _movement.physics_update(delta):
 		_update_interaction_prompt()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _movement == null or not _movement.controls_enabled:
+	if _movement == null or not _controls_enabled:
 		return
 
+	# Desktop mode ends here. VR trigger input is handled by XRController3D signals below,
+	# while this path remains available for keyboard/mouse fallback and no-headset testing.
 	if event.is_action_pressed("interact") or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
 		_try_interact()
 		return
@@ -138,11 +167,9 @@ func apply_client_profile(client_data: Dictionary) -> void:
 
 	var vial_settings: Dictionary = _dict_value(client_data.get("vial_settings", {}))
 	if held_vial != null:
-		held_vial.liquid_fill_amount = float(vial_settings.get("liquid_fill_amount", held_vial.liquid_fill_amount))
-		held_vial.liquid_color = _environment.parse_color(vial_settings.get("liquid_color", held_vial.liquid_color), held_vial.liquid_color)
-		held_vial.cap_color = _environment.parse_color(vial_settings.get("cap_color", held_vial.cap_color), held_vial.cap_color)
-		held_vial.rebuild_vial()
-		held_vial.apply_qr_profile(client_data)
+		_apply_vial_profile(held_vial, vial_settings, client_data)
+	if _vr_held_vial != null:
+		_apply_vial_profile(_vr_held_vial, vial_settings, client_data)
 
 	var environment_settings: Dictionary = _dict_value(client_data.get("environment_settings", {}))
 	_environment.apply(environment_settings)
@@ -171,18 +198,35 @@ func apply_client_profile(client_data: Dictionary) -> void:
 func set_controls_enabled(enabled: bool) -> void:
 	if _movement == null:
 		return
-	_movement.set_controls_enabled(enabled)
+	_controls_enabled = enabled
+	_movement.set_controls_enabled(enabled and not _is_vr_active)
 	if _interaction_ui_layer != null:
-		_interaction_ui_layer.visible = enabled
+		_interaction_ui_layer.visible = enabled and not _is_vr_active
+	if _is_vr_active:
+		if vr_interaction_ray != null:
+			vr_interaction_ray.enabled = enabled
+		if vr_pointer != null:
+			vr_pointer.visible = enabled
 	if not enabled:
 		_exploration_mode_active = false
 		_door.set_highlight(false)
+		_set_hovered_interactable(null)
 		_hide_info_panel()
 		interaction_target_changed.emit(false, "")
 		door_prompt_changed.emit("")
 
 
 func set_camera_active(active: bool) -> void:
+	if _is_vr_active:
+		if player_rig != null:
+			player_rig.visible = false
+		if camera != null:
+			camera.current = false
+		if vr_player_rig != null:
+			vr_player_rig.visible = active
+		if vr_camera != null:
+			vr_camera.current = active
+		return
 	if camera != null:
 		camera.current = active
 
@@ -190,6 +234,9 @@ func set_camera_active(active: bool) -> void:
 func reset_view() -> void:
 	if _movement != null:
 		_movement.reset_view()
+	if _is_vr_active and vr_player_rig != null and _movement != null:
+		vr_player_rig.position = _movement.camera_start_position
+		vr_player_rig.rotation = _movement.camera_start_rotation
 
 
 func set_mobile_move_axis(axis: String, pressed: bool) -> void:
@@ -216,8 +263,216 @@ func set_exploration_mode_active(active: bool) -> void:
 
 
 func interact_current() -> void:
-	if _movement != null and _movement.controls_enabled:
+	if _controls_enabled and (_is_vr_active or (_movement != null and _movement.controls_enabled)):
 		_try_interact()
+
+
+func is_vr_active() -> bool:
+	return _is_vr_active
+
+
+func _setup_player_mode() -> void:
+	_ensure_vr_interact_input_action()
+	_vr_manager = VR_MANAGER_SCRIPT.new() as WineVRVRManager
+	_vr_manager.name = "VRManager"
+	add_child(_vr_manager)
+
+	# VR mode starts here. If OpenXR is missing, initialization returns false and the
+	# original desktop PlayerRig remains the active fallback.
+	_is_vr_active = _vr_manager.initialize(force_desktop_mode)
+	if _is_vr_active and (vr_player_rig == null or vr_camera == null or vr_interaction_ray == null):
+		push_warning("[WineVR][VR] VRPlayerRig is incomplete, falling back to desktop mode.")
+		get_viewport().use_xr = false
+		_is_vr_active = false
+
+	if _is_vr_active:
+		_activate_vr_mode()
+	else:
+		_activate_desktop_mode()
+
+
+func _activate_desktop_mode() -> void:
+	if player_rig != null:
+		player_rig.visible = true
+	if camera != null:
+		camera.current = false
+	if interaction_ray != null:
+		interaction_ray.enabled = true
+	if held_vial != null:
+		held_vial.visible = true
+	if vr_player_rig != null:
+		vr_player_rig.visible = false
+	if vr_interaction_ray != null:
+		vr_interaction_ray.enabled = false
+	if vr_pointer != null:
+		vr_pointer.visible = false
+
+
+func _activate_vr_mode() -> void:
+	if player_rig != null:
+		player_rig.visible = false
+	if camera != null:
+		camera.current = false
+	if interaction_ray != null:
+		interaction_ray.enabled = false
+	if held_vial != null:
+		held_vial.visible = false
+	if vr_player_rig != null:
+		vr_player_rig.visible = false
+	if vr_camera != null:
+		vr_camera.current = false
+	if vr_interaction_ray != null:
+		vr_interaction_ray.enabled = false
+	if vr_pointer != null:
+		vr_pointer.visible = false
+	if _interaction_ui_layer != null:
+		_interaction_ui_layer.visible = false
+	_connect_vr_controller_input()
+	_setup_vr_held_vial()
+	print("[WineVR][VR] VR mode active: using XRCamera3D and RightController/InteractionRay")
+
+
+func _connect_vr_controller_input() -> void:
+	if vr_right_controller == null:
+		return
+	var button_callable: Callable = Callable(self, "_on_vr_controller_button_pressed")
+	if not vr_right_controller.button_pressed.is_connected(button_callable):
+		vr_right_controller.button_pressed.connect(_on_vr_controller_button_pressed)
+	var float_callable: Callable = Callable(self, "_on_vr_controller_input_float_changed")
+	if not vr_right_controller.input_float_changed.is_connected(float_callable):
+		vr_right_controller.input_float_changed.connect(_on_vr_controller_input_float_changed)
+
+
+func _setup_vr_held_vial() -> void:
+	if _vr_held_vial != null:
+		return
+	var parent_node: Node3D = vr_left_controller
+	if parent_node == null:
+		parent_node = vr_camera
+	if parent_node == null:
+		return
+	_vr_held_vial = VIAL_SCENE.instantiate() as Vial
+	_vr_held_vial.name = "VRHeldVial"
+	parent_node.add_child(_vr_held_vial)
+	if parent_node == vr_left_controller:
+		_vr_held_vial.position = Vector3(0.05, -0.07, -0.18)
+		_vr_held_vial.rotation_degrees = Vector3(-12.0, -18.0, 10.0)
+	else:
+		_vr_held_vial.position = Vector3(-0.18, -0.22, -0.62)
+		_vr_held_vial.rotation_degrees = Vector3(-10.0, -14.0, 8.0)
+	_vr_held_vial.scale = Vector3.ONE * 0.82
+	_disable_shadows_recursive(_vr_held_vial)
+	if held_vial != null:
+		_copy_vial_profile(held_vial, _vr_held_vial)
+
+
+func _apply_vial_profile(vial: Vial, vial_settings: Dictionary, client_data: Dictionary) -> void:
+	if vial == null:
+		return
+	vial.liquid_fill_amount = float(vial_settings.get("liquid_fill_amount", vial.liquid_fill_amount))
+	vial.liquid_color = _environment.parse_color(vial_settings.get("liquid_color", vial.liquid_color), vial.liquid_color)
+	vial.cap_color = _environment.parse_color(vial_settings.get("cap_color", vial.cap_color), vial.cap_color)
+	vial.rebuild_vial()
+	vial.apply_qr_profile(client_data)
+
+
+func _copy_vial_profile(source: Vial, target: Vial) -> void:
+	if source == null or target == null:
+		return
+	target.liquid_fill_amount = source.liquid_fill_amount
+	target.liquid_color = source.liquid_color
+	target.cap_color = source.cap_color
+	target.rebuild_vial()
+
+
+func _disable_shadows_recursive(root: Node) -> void:
+	if root is GeometryInstance3D:
+		(root as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child in root.get_children():
+		_disable_shadows_recursive(child)
+
+
+func _ensure_vr_interact_input_action() -> void:
+	if not InputMap.has_action("interact"):
+		InputMap.add_action("interact")
+	_add_joypad_button_to_action("interact", JOY_BUTTON_A)
+	_add_joypad_button_to_action("interact", JOY_BUTTON_RIGHT_SHOULDER)
+	_add_joypad_motion_to_action("interact", JOY_AXIS_TRIGGER_RIGHT, 1.0)
+
+
+func _add_joypad_button_to_action(action_name: String, button_index: int) -> void:
+	for event in InputMap.action_get_events(action_name):
+		var joy_event: InputEventJoypadButton = event as InputEventJoypadButton
+		if joy_event != null and joy_event.button_index == button_index:
+			return
+	var new_event: InputEventJoypadButton = InputEventJoypadButton.new()
+	new_event.button_index = button_index
+	InputMap.action_add_event(action_name, new_event)
+
+
+func _add_joypad_motion_to_action(action_name: String, axis: int, axis_value: float) -> void:
+	for event in InputMap.action_get_events(action_name):
+		var motion_event: InputEventJoypadMotion = event as InputEventJoypadMotion
+		if motion_event != null and motion_event.axis == axis and is_equal_approx(motion_event.axis_value, axis_value):
+			return
+	var new_event: InputEventJoypadMotion = InputEventJoypadMotion.new()
+	new_event.axis = axis
+	new_event.axis_value = axis_value
+	InputMap.action_add_event(action_name, new_event)
+
+
+func _on_vr_controller_button_pressed(button_name: Variant) -> void:
+	if not _is_vr_active or not _controls_enabled:
+		return
+	if _is_vr_interact_button(button_name):
+		print("[WineVR][VR] Controller trigger pressed")
+		_try_interact()
+
+
+func _on_vr_controller_input_float_changed(input_name: Variant, value: float) -> void:
+	if not _is_vr_active or not _controls_enabled or not _is_vr_interact_axis(input_name):
+		return
+	var pressed: bool = value >= 0.72
+	if pressed and not _vr_trigger_was_pressed:
+		print("[WineVR][VR] Controller trigger pressed")
+		_try_interact()
+	_vr_trigger_was_pressed = pressed
+
+
+func _is_vr_interact_button(button_name: Variant) -> bool:
+	var normalized: String = String(button_name).to_lower()
+	return normalized.find("trigger") >= 0 or normalized == "ax_button" or normalized == "primary_click"
+
+
+func _is_vr_interact_axis(input_name: Variant) -> bool:
+	var normalized: String = String(input_name).to_lower()
+	return normalized.find("trigger") >= 0
+
+
+func _get_active_interaction_ray() -> RayCast3D:
+	if _is_vr_active and vr_interaction_ray != null:
+		return vr_interaction_ray
+	return interaction_ray
+
+
+func _show_interaction_feedback(data: Dictionary) -> void:
+	if _is_vr_active:
+		print("[WineVR][VR] Interacted: %s" % str(data.get("title", data.get("id", "target"))))
+		return
+	_show_info_panel(data)
+
+
+func _update_vr_feedback(prompt: String, can_interact: bool, action_text: String) -> void:
+	if not _is_vr_active:
+		return
+	var next_feedback: String = ""
+	if can_interact and not prompt.is_empty():
+		next_feedback = "%s - %s" % [prompt, action_text]
+	if next_feedback == _vr_last_feedback:
+		return
+	_vr_last_feedback = next_feedback
+	if not next_feedback.is_empty():
+		print("[WineVR][VR] %s" % next_feedback)
 
 
 func configure_guided_steps(step_ids: Array) -> void:
@@ -238,6 +493,15 @@ func show_current_guided_target() -> void:
 	if _guided == null or not _guided.is_active():
 		return
 	var target_id: String = _guided.get_current_interactable_id()
+	if _is_vr_active:
+		print("[WineVR][VR] Guided target: %s" % target_id)
+		if _props != null and _props.pulse_prop(target_id, self):
+			return
+		if _zones != null and _zones.pulse_zone(target_id, self):
+			return
+		if _door_target_matches(target_id):
+			_door.set_highlight(true)
+		return
 	if _interactable_by_id.has(target_id):
 		smooth_look_at(_interactable_by_id[target_id] as Node3D)
 		return
@@ -328,19 +592,20 @@ func _try_interact() -> void:
 		door_interacted.emit(_current_hovered_interactable.to_dict())
 		if _guided != null:
 			_guided.try_complete_step(interactable_id)
-		_show_info_panel(_current_hovered_interactable.to_dict())
+		_show_interaction_feedback(_current_hovered_interactable.to_dict())
 		return
 
-	if not interaction_ray.is_colliding():
+	var active_ray: RayCast3D = _get_active_interaction_ray()
+	if active_ray == null or not active_ray.is_colliding():
 		return
 
-	var collider: Object = interaction_ray.get_collider()
+	var collider: Object = active_ray.get_collider()
 	if collider is Node and (collider as Node).is_in_group("winery_door"):
 		var door_data: Dictionary = _zones.door_interactable.duplicate(true)
 		if _can_interact_payload(door_data):
 			_door.toggle(self)
 			door_interacted.emit(door_data)
-			_show_info_panel(door_data)
+			_show_interaction_feedback(door_data)
 			_complete_guided_from_payload(door_data)
 			_play_click_audio()
 		return
@@ -348,7 +613,7 @@ func _try_interact() -> void:
 	var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
 	if not zone_data.is_empty() and _can_interact_payload(zone_data):
 		door_interacted.emit(zone_data)
-		_show_info_panel(zone_data)
+		_show_interaction_feedback(zone_data)
 		_complete_guided_from_payload(zone_data)
 		_play_click_audio()
 		return
@@ -363,52 +628,53 @@ func _try_interact() -> void:
 		}
 		if _can_interact_payload(payload):
 			door_interacted.emit(payload)
-			_show_info_panel(payload)
+			_show_interaction_feedback(payload)
 			_complete_guided_from_payload(payload)
 			_play_click_audio()
 
 
 func _update_interaction_prompt() -> void:
-	if interaction_ray == null:
+	var active_ray: RayCast3D = _get_active_interaction_ray()
+	if active_ray == null:
 		return
 	var looking_at_door: bool = false
 	var prompt: String = ""
 	var hovered: Interactable = null
 	var crosshair_can_interact: bool = false
-	var crosshair_prompt: String = "Click to interact"
-	interaction_ray.force_raycast_update()
-	if interaction_ray.is_colliding():
-		var collider: Object = interaction_ray.get_collider()
+	var crosshair_prompt: String = "Trigger to interact" if _is_vr_active else "Click to interact"
+	active_ray.force_raycast_update()
+	if active_ray.is_colliding():
+		var collider: Object = active_ray.get_collider()
 		hovered = _find_interactable_node(collider)
 		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
 		if hovered != null:
 			prompt = "Interact"
 			crosshair_can_interact = _guided == null or _guided.can_interact(hovered.id)
-			crosshair_prompt = "Click to interact"
-			if not _exploration_mode_active:
+			crosshair_prompt = "Trigger to interact" if _is_vr_active else "Click to interact"
+			if not _exploration_mode_active and not _is_vr_active:
 				_show_tooltip(hovered.title, hovered.description, _tooltip_action_text(hovered.id))
 		elif looking_at_door:
 			prompt = "Open the cellar door"
 			var door_data: Dictionary = _zones.door_interactable.duplicate(true)
 			crosshair_can_interact = _can_interact_payload(door_data)
-			crosshair_prompt = "Click to open"
-			if not _exploration_mode_active:
+			crosshair_prompt = "Trigger to open" if _is_vr_active else "Click to open"
+			if not _exploration_mode_active and not _is_vr_active:
 				_show_tooltip("Cellar Door", str(_zones.door_interactable.get("text", "")), _tooltip_action_text(str(_zones.door_interactable.get("id", ""))))
 		else:
 			var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
 			if not zone_data.is_empty():
 				prompt = "View " + str(zone_data.get("title", "this detail"))
 				crosshair_can_interact = _can_interact_payload(zone_data)
-				crosshair_prompt = "Click to inspect"
-				if not _exploration_mode_active:
+				crosshair_prompt = "Trigger to inspect" if _is_vr_active else "Click to inspect"
+				if not _exploration_mode_active and not _is_vr_active:
 					_show_tooltip(str(zone_data.get("title", "Detail")), str(zone_data.get("text", "")), _tooltip_action_text(str(zone_data.get("id", ""))))
 			else:
 				var prop_data: Dictionary = _props.get_prop_data_from_collider(collider)
 				if not prop_data.is_empty():
 					prompt = "Inspect " + str(prop_data.get("id", "this cellar detail")).replace("_", " ")
 					crosshair_can_interact = _guided == null or _guided.can_interact(str(prop_data.get("id", "")))
-					crosshair_prompt = "Click to inspect"
-					if not _exploration_mode_active:
+					crosshair_prompt = "Trigger to inspect" if _is_vr_active else "Click to inspect"
+					if not _exploration_mode_active and not _is_vr_active:
 						_show_tooltip(str(prop_data.get("id", "Prop")).replace("_", " ").capitalize(), "Configured winery detail.", _tooltip_action_text(str(prop_data.get("id", ""))))
 				else:
 					_hide_tooltip()
@@ -422,6 +688,7 @@ func _update_interaction_prompt() -> void:
 		_door.set_highlight(looking_at_door)
 	door_prompt_changed.emit(prompt)
 	interaction_target_changed.emit(crosshair_can_interact, crosshair_prompt)
+	_update_vr_feedback(prompt, crosshair_can_interact, crosshair_prompt)
 
 
 func _set_hovered_interactable(next_hovered: Interactable) -> void:
@@ -502,12 +769,17 @@ func _apply_camera_start(raw_camera_start: Variant) -> void:
 		return
 	if typeof(raw_camera_start) != TYPE_DICTIONARY:
 		_movement.set_camera_start(Vector3(0.0, 0.0, 1.55), Vector3.ZERO)
+		if vr_player_rig != null:
+			vr_player_rig.position = Vector3(0.0, 0.0, 1.55)
+			vr_player_rig.rotation = Vector3.ZERO
 		return
 	var camera_start: Dictionary = raw_camera_start as Dictionary
-	_movement.set_camera_start(
-		_array_to_vector3(camera_start.get("position", [0.0, 0.0, 1.55]), Vector3(0.0, 0.0, 1.55)),
-		_array_to_rotation(camera_start.get("rotation", [0.0, 0.0, 0.0]))
-	)
+	var start_position: Vector3 = _array_to_vector3(camera_start.get("position", [0.0, 0.0, 1.55]), Vector3(0.0, 0.0, 1.55))
+	var start_rotation: Vector3 = _array_to_rotation(camera_start.get("rotation", [0.0, 0.0, 0.0]))
+	_movement.set_camera_start(start_position, start_rotation)
+	if vr_player_rig != null:
+		vr_player_rig.position = start_position
+		vr_player_rig.rotation = start_rotation
 
 
 func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:

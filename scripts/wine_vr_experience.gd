@@ -259,9 +259,12 @@ func _apply_client_profile(client_data: Dictionary) -> void:
 
 
 func _apply_state(state: int) -> void:
+	var vr_winery_active: bool = winery_interior.is_vr_active() and state == ExperienceManager.ExperienceState.WINERY_INTERIOR
 	_qr_screen.set_visible(state == ExperienceManager.ExperienceState.QR_SCAN)
 	_hud.apply_state(state)
 	_narrative_panel.apply_state(state)
+	_hud.set_vr_winery_mode(vr_winery_active)
+	_narrative_panel.set_vr_winery_mode(vr_winery_active)
 	canvas_layer.visible = not _ui_hidden_for_capture
 
 	vial_preview.visible = state != ExperienceManager.ExperienceState.WINERY_INTERIOR
@@ -271,9 +274,11 @@ func _apply_state(state: int) -> void:
 	vial_preview.set_interaction_enabled(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	winery_interior.set_controls_enabled(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
 	_mobile_controls.set_zoom_visible(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
-	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
+	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not vr_winery_active)
+	if _crosshair != null and vr_winery_active:
+		_crosshair.set_active(false)
 	if _exploration_mode != null:
-		_exploration_mode.set_available(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
+		_exploration_mode.set_available(state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not vr_winery_active)
 	if _journey != null:
 		_journey.set_visible_for_state(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_relayout_all_ui(get_viewport().get_visible_rect().size)
@@ -356,7 +361,8 @@ func _on_winery_interacted(interactable_data: Dictionary = {}) -> void:
 		NarrativeManager.complete_target(interactable_type, interactable_id)
 		if interactable_data.has("target_type") and interactable_data.has("target_id"):
 			NarrativeManager.complete_target(str(interactable_data.get("target_type", "")), str(interactable_data.get("target_id", "")))
-	_hud.show_interactable_modal(interactable_data)
+	if not winery_interior.is_vr_active():
+		_hud.show_interactable_modal(interactable_data)
 
 
 func _on_narrative_changed(current_step: Dictionary, _current_index: int, _total_steps: int) -> void:

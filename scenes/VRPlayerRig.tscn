@@ -1,0 +1,45 @@
+[gd_scene load_steps=4 format=3 uid="uid://dbhy0u1gn8j2r"]
+
+[sub_resource type="StandardMaterial3D" id="1_pointer_mat"]
+shading_mode = 0
+albedo_color = Color(0.839216, 0.694118, 0.368627, 0.82)
+
+[sub_resource type="BoxMesh" id="2_pointer_mesh"]
+size = Vector3(0.012, 0.012, 1.8)
+
+[sub_resource type="SphereMesh" id="3_pointer_tip_mesh"]
+radius = 0.035
+height = 0.07
+radial_segments = 12
+rings = 6
+
+[node name="VRPlayerRig" type="XROrigin3D"]
+visible = false
+
+[node name="XRCamera3D" type="XRCamera3D" parent="."]
+near = 0.05
+
+[node name="LeftController" type="XRController3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.24, 1.18, -0.34)
+tracker = &"left_hand"
+
+[node name="RightController" type="XRController3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.24, 1.18, -0.34)
+tracker = &"right_hand"
+
+[node name="InteractionRay" type="RayCast3D" parent="RightController"]
+target_position = Vector3(0, 0, -3.2)
+enabled = true
+collide_with_areas = true
+
+[node name="Pointer" type="MeshInstance3D" parent="RightController"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.9)
+cast_shadow = 0
+mesh = SubResource("2_pointer_mesh")
+surface_material_override/0 = SubResource("1_pointer_mat")
+
+[node name="PointerTip" type="MeshInstance3D" parent="RightController/Pointer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.9)
+cast_shadow = 0
+mesh = SubResource("3_pointer_tip_mesh")
+surface_material_override/0 = SubResource("1_pointer_mat")

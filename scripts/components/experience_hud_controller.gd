@@ -36,6 +36,7 @@ var _intro_scroll: ScrollContainer
 var _inspection_scroll: ScrollContainer
 var _winery_info_scroll: ScrollContainer
 var _winery_modal_scroll: ScrollContainer
+var _vr_winery_mode: bool = false
 
 
 func setup(root: Node) -> void:
@@ -123,11 +124,21 @@ func apply_client_profile(client_data: Dictionary) -> void:
 func apply_state(state: int) -> void:
 	intro_screen.visible = state == ExperienceManager.ExperienceState.INTRO
 	inspection_hud.visible = state == ExperienceManager.ExperienceState.VIAL_INSPECTION
-	winery_hud.visible = state == ExperienceManager.ExperienceState.WINERY_INTERIOR
+	winery_hud.visible = state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not _vr_winery_mode
 	inspection_hint.visible = state == ExperienceManager.ExperienceState.VIAL_INSPECTION
 	if state != ExperienceManager.ExperienceState.WINERY_INTERIOR:
 		close_winery_modal()
 		door_prompt_label.text = ""
+
+
+func set_vr_winery_mode(active: bool) -> void:
+	_vr_winery_mode = active
+	if active:
+		winery_hud.visible = false
+		close_winery_modal()
+		door_prompt_label.text = ""
+	else:
+		winery_hud.visible = ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR
 
 
 func set_enter_winery_enabled(enabled: bool) -> void:
