@@ -221,6 +221,33 @@ Capture helpers:
 
 Export notes live in `exports/README.md`. Intended targets are Android, Web, and Windows desktop demo. Generated builds should not be committed.
 
+## Web Demo Hosting
+
+The static landing page in the repository root loads the Godot Web export from `web5/WineVR.html`. The export files use relative paths, so keep the full `web5/` folder structure unchanged.
+
+Local test:
+
+```powershell
+python -m http.server 8000
+```
+
+Open:
+
+```text
+http://localhost:8000/
+```
+
+Use a local server for testing. Do not open `index.html` or `web5/WineVR.html` directly from the filesystem, because browser security rules can block the Godot export files.
+
+Netlify settings:
+
+```text
+Build command:
+Publish directory: .
+```
+
+The `netlify.toml` file defines the required headers for Godot Web assets, including `application/wasm` for `.wasm`, `application/octet-stream` for `.pck`, `application/javascript` for `.js`, no-cache for HTML, and immutable caching for export binaries/scripts.
+
 ## Current Limitations
 
 - QR scanning is simulated.

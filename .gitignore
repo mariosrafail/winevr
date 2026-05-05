@@ -9,3 +9,5 @@
 *.aab
 *.wasm
 *.pck
+!/web5/*.wasm
+!/web5/*.pck
