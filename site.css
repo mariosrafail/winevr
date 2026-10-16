@@ -109,7 +109,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: default;
   text-decoration: none;
   transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
 }

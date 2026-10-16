@@ -10,6 +10,9 @@ signal guided_step_started(step_index: int, interactable_id: String)
 signal guided_step_completed(step_index: int, interactable_id: String)
 signal layout_refresh_requested(reason: String)
 signal interaction_target_changed(can_interact: bool, prompt_text: String)
+signal vr_vial_hotspot_viewed(hotspot_data: Dictionary)
+signal desktop_info_panel_opened
+signal desktop_info_panel_closed
 
 @export var move_speed: float = 2.4
 @export var look_sensitivity: float = 0.005
@@ -21,6 +24,11 @@ signal interaction_target_changed(can_interact: bool, prompt_text: String)
 @export var completion_audio_path: String = ""
 # Safe VR test switch: leave false for headset/OpenXR tests, enable to force the existing desktop path.
 @export var force_desktop_mode: bool = false
+@export var vr_teleport_max_distance: float = 5.2
+@export var debug_preview_vr_hand: bool = false
+@export var debug_force_show_vr_hand: bool = false
+@export var debug_vr_hand_distance: float = 0.65
+@export var debug_vr_hand_scale: float = 0.9
 
 @onready var player_rig: Node3D = $PlayerRig
 @onready var camera_pivot: Node3D = $PlayerRig/CameraPivot
@@ -41,7 +49,16 @@ signal interaction_target_changed(can_interact: bool, prompt_text: String)
 @onready var door_mesh: MeshInstance3D = $DoorAssembly/DoorHinge/Door/DoorMesh
 
 const VR_MANAGER_SCRIPT: Script = preload("res://scripts/vr/vr_manager.gd")
+const VR_TELEPORT_CONTROLLER_SCRIPT: Script = preload("res://scripts/vr/vr_teleport_controller.gd")
+const VR_GUIDED_TASTING_CONTROLLER_SCRIPT: Script = preload("res://scripts/vr/vr_guided_tasting_controller.gd")
+const VR_VIAL_HOTSPOT_CONTROLLER_SCRIPT: Script = preload("res://scripts/vr/vr_vial_hotspot_controller.gd")
 const VIAL_SCENE: PackedScene = preload("res://scenes/Vial.tscn")
+const VR_HAND_VIAL_HOLDER_SCENE: PackedScene = preload("res://scenes/vr/VRHandVialHolder.tscn")
+const VR_INFO_PANEL_SCENE_PATH: String = "res://scenes/vr/VRInfoPanel.tscn"
+const GRAPE_MUSEUM_SCENE: PackedScene = preload("res://scenes/GrapeMuseum.tscn")
+const KEYBOARD_INTERACTION_COOLDOWN_MSEC: int = 250
+const VR_TELEPORT_BOUNDS_MIN: Vector2 = Vector2(-3.2, -3.2)
+const VR_TELEPORT_BOUNDS_MAX: Vector2 = Vector2(3.2, 3.2)
 
 var _movement: WineryMovementController
 var _door: WineryDoorController
@@ -65,10 +82,16 @@ var _spotlight_root: Node3D
 var _exploration_mode_active: bool = false
 var _vr_manager: WineVRVRManager
 var _is_vr_active: bool = false
-var _vr_held_vial: Vial
+var _vr_hand_vial_holder: Node3D
 var _vr_trigger_was_pressed: bool = false
+var _vr_teleport_system: Node
+var _vr_guided_tasting: Node
+var _vr_vial_hotspots: Node
+var _vr_info_panel: Node3D
 var _vr_last_feedback: String = ""
 var _controls_enabled: bool = false
+var _active_client_data: Dictionary = {}
+var _grape_museum: GrapeMuseum
 
 var _interaction_ui_layer: CanvasLayer
 var _tooltip_panel: PanelContainer
@@ -83,6 +106,13 @@ var _tooltip_max_height: float = 220.0
 var _info_max_height: float = 280.0
 var _info_panel_tween: Tween
 var _info_auto_hide_token: int = 0
+var _desktop_modal_active_id: String = ""
+var _interact_feedback: Control
+var _interact_feedback_label: Label
+var _interact_feedback_tween: Tween
+var _interact_feedback_target_id: String = ""
+var _interact_feedback_visible: bool = false
+var _last_keyboard_interaction_msec: int = -KEYBOARD_INTERACTION_COOLDOWN_MSEC
 
 
 func _ready() -> void:
@@ -123,17 +153,62 @@ func _ready() -> void:
 		_interaction_ui_layer.visible = false
 	_setup_audio_players()
 	_setup_spotlight_root()
+	_setup_grape_museum()
 	fill_light.add_to_group("optional_lights")
 	fill_light.add_to_group("performance_optional")
 	_register_scene_interactables()
 	apply_client_profile(ClientProfileLoader.get_active_client_data())
+	_refresh_vr_hand_vial_holder("ready")
 	_update_interaction_prompt()
+
+
+func _setup_grape_museum() -> void:
+	_grape_museum = GRAPE_MUSEUM_SCENE.instantiate() as GrapeMuseum
+	add_child(_grape_museum)
+	_grape_museum.setup_interaction(self)
+	_apply_museum_presentation()
+
+
+func _apply_museum_presentation() -> void:
+	if _grape_museum == null:
+		return
+	_grape_museum.configure_environment(world_environment.environment)
+	directional_light.visible = false
+	fill_light.visible = false
+	held_vial.visible = false
+	for ob in [floor_mesh, $BackWall, $FrontWall, $LeftWall, $RightWall, $BarrelA, $BarrelB, $BarrelC, $BarrelD, $ColumnLeft, $ColumnRight, $DoorAssembly]:
+		(ob as Node3D).visible = false
+	for legacy_root in [_props.root, _props.interaction_root, _props.highlight_root, _visual_details.root, _zones.root, _spotlight_root]:
+		if legacy_root != null:
+			legacy_root.visible = false
+			_disable_museum_legacy_collisions(legacy_root)
+
+
+func _disable_museum_legacy_collisions(root: Node) -> void:
+	if root is CollisionObject3D:
+		(root as CollisionObject3D).collision_layer = 0
+	for child in root.get_children():
+		_disable_museum_legacy_collisions(child)
+
+
+func _count_mesh_instances(node: Node) -> int:
+	var total: int = 1 if node is MeshInstance3D else 0
+	for child in node.get_children():
+		total += _count_mesh_instances(child)
+	return total
 
 
 func _physics_process(delta: float) -> void:
 	if not _controls_enabled:
+		_set_vr_teleport_enabled(false)
+		return
+	if not _desktop_modal_active_id.is_empty() or _is_desktop_info_panel_open():
 		return
 	if _is_vr_active:
+		_update_interaction_prompt()
+		_set_vr_teleport_enabled(true)
+		return
+	if _grape_museum != null and _grape_museum.is_inspecting():
 		_update_interaction_prompt()
 		return
 	if _movement != null and _movement.physics_update(delta):
@@ -143,17 +218,35 @@ func _physics_process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _movement == null or not _controls_enabled:
 		return
-
-	# Desktop mode ends here. VR trigger input is handled by XRController3D signals below,
-	# while this path remains available for keyboard/mouse fallback and no-headset testing.
-	if event.is_action_pressed("interact") or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
-		_try_interact()
+	if _is_desktop_info_panel_open():
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+			_hide_info_panel()
 		return
-	if event is InputEventScreenTouch and event.pressed:
-		_try_interact()
+	if not _desktop_modal_active_id.is_empty():
+		return
+	if event is InputEventKey and event.pressed and not event.echo and OS.is_debug_build() and not _has_text_input_focus():
+		if event.keycode == KEY_H:
+			debug_preview_vr_hand = not debug_preview_vr_hand
+			print("[WineVR][VRHand] debug_preview_vr_hand=%s" % str(debug_preview_vr_hand))
+			_refresh_vr_hand_vial_holder("debug_preview_toggle")
+			return
+		if event.keycode == KEY_J:
+			debug_force_show_vr_hand = not debug_force_show_vr_hand
+			print("[WineVR][VRHand] debug_force_show_vr_hand=%s" % str(debug_force_show_vr_hand))
+			_refresh_vr_hand_vial_holder("debug_force_toggle")
+			return
+		if event.keycode == KEY_K:
+			_debug_print_vr_hand_status("manual")
+			return
+
+	# Desktop inspection is keyboard-driven. VR trigger input is handled by XRController3D signals below.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+		_try_keyboard_interact()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		show_current_guided_target()
+		return
+	if _grape_museum != null and _grape_museum.is_inspecting():
 		return
 	if _movement.handle_input(event):
 		_update_interaction_prompt()
@@ -162,14 +255,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func apply_client_profile(client_data: Dictionary) -> void:
 	if client_data.is_empty():
 		return
+	_active_client_data = client_data.duplicate(true)
 	if _environment == null or _props == null or _zones == null:
 		return
 
 	var vial_settings: Dictionary = _dict_value(client_data.get("vial_settings", {}))
 	if held_vial != null:
 		_apply_vial_profile(held_vial, vial_settings, client_data)
-	if _vr_held_vial != null:
-		_apply_vial_profile(_vr_held_vial, vial_settings, client_data)
+	_apply_vr_hand_vial_profile(client_data)
 
 	var environment_settings: Dictionary = _dict_value(client_data.get("environment_settings", {}))
 	_environment.apply(environment_settings)
@@ -193,27 +286,42 @@ func apply_client_profile(client_data: Dictionary) -> void:
 		configure_guided_steps(guided_ids as Array)
 	else:
 		configure_guided_steps([])
+	_configure_vr_guided_tasting()
+	_configure_vr_vial_hotspots()
+	_refresh_vr_hand_vial_holder("profile changed")
+	_apply_museum_presentation()
 
 
 func set_controls_enabled(enabled: bool) -> void:
 	if _movement == null:
 		return
 	_controls_enabled = enabled
+	if _grape_museum != null:
+		_grape_museum.controls_enabled = enabled
 	_movement.set_controls_enabled(enabled and not _is_vr_active)
 	if _interaction_ui_layer != null:
 		_interaction_ui_layer.visible = enabled and not _is_vr_active
+		if not _interaction_ui_layer.visible:
+			_hide_interact_text_feedback()
 	if _is_vr_active:
 		if vr_interaction_ray != null:
 			vr_interaction_ray.enabled = enabled
 		if vr_pointer != null:
 			vr_pointer.visible = enabled
+		_set_vr_teleport_enabled(enabled)
+		_set_vr_guided_tasting_enabled(enabled)
+		_set_vr_vial_hotspots_enabled(enabled)
+		if not enabled:
+			_hide_vr_info_panel()
 	if not enabled:
 		_exploration_mode_active = false
 		_door.set_highlight(false)
 		_set_hovered_interactable(null)
 		_hide_info_panel()
+		_hide_interact_text_feedback()
 		interaction_target_changed.emit(false, "")
-		door_prompt_changed.emit("")
+	_refresh_vr_hand_vial_holder("controls enabled")
+	door_prompt_changed.emit("")
 
 
 func set_camera_active(active: bool) -> void:
@@ -267,19 +375,35 @@ func interact_current() -> void:
 		_try_interact()
 
 
+func close_grape_inspection() -> bool:
+	return _grape_museum != null and _grape_museum.close_inspection()
+
+
 func is_vr_active() -> bool:
 	return _is_vr_active
 
 
 func _setup_player_mode() -> void:
 	_ensure_vr_interact_input_action()
-	_vr_manager = VR_MANAGER_SCRIPT.new() as WineVRVRManager
-	_vr_manager.name = "VRManager"
-	add_child(_vr_manager)
+	_ensure_vr_manager()
+	_activate_desktop_mode()
 
-	# VR mode starts here. If OpenXR is missing, initialization returns false and the
-	# original desktop PlayerRig remains the active fallback.
-	_is_vr_active = _vr_manager.initialize(force_desktop_mode)
+
+func can_request_immersive_mode() -> bool:
+	_ensure_vr_manager()
+	return _vr_manager != null and _vr_manager.may_have_supported_interface(force_desktop_mode)
+
+
+func request_immersive_mode() -> bool:
+	if _is_vr_active:
+		return true
+	_ensure_vr_manager()
+	if _vr_manager == null:
+		return false
+
+	# Immersive mode must be requested from a user action, so startup stays on
+	# the desktop rig until this method is called by the intro/QR UI.
+	_is_vr_active = await _vr_manager.initialize(force_desktop_mode)
 	if _is_vr_active and (vr_player_rig == null or vr_camera == null or vr_interaction_ray == null):
 		push_warning("[WineVR][VR] VRPlayerRig is incomplete, falling back to desktop mode.")
 		get_viewport().use_xr = false
@@ -289,9 +413,19 @@ func _setup_player_mode() -> void:
 		_activate_vr_mode()
 	else:
 		_activate_desktop_mode()
+	return _is_vr_active
+
+
+func _ensure_vr_manager() -> void:
+	if _vr_manager != null:
+		return
+	_vr_manager = VR_MANAGER_SCRIPT.new() as WineVRVRManager
+	_vr_manager.name = "VRManager"
+	add_child(_vr_manager)
 
 
 func _activate_desktop_mode() -> void:
+	get_viewport().use_xr = false
 	if player_rig != null:
 		player_rig.visible = true
 	if camera != null:
@@ -306,6 +440,11 @@ func _activate_desktop_mode() -> void:
 		vr_interaction_ray.enabled = false
 	if vr_pointer != null:
 		vr_pointer.visible = false
+	_refresh_vr_hand_vial_holder("desktop mode")
+	_set_vr_teleport_enabled(false)
+	_set_vr_guided_tasting_enabled(false)
+	_set_vr_vial_hotspots_enabled(false)
+	_hide_vr_info_panel()
 
 
 func _activate_vr_mode() -> void:
@@ -328,42 +467,462 @@ func _activate_vr_mode() -> void:
 	if _interaction_ui_layer != null:
 		_interaction_ui_layer.visible = false
 	_connect_vr_controller_input()
-	_setup_vr_held_vial()
+	_ensure_vr_teleport_system()
+	_set_vr_teleport_enabled(_controls_enabled)
+	_ensure_vr_guided_tasting()
+	_configure_vr_guided_tasting()
+	_set_vr_guided_tasting_enabled(_controls_enabled)
+	_setup_vr_info_panel()
+	_refresh_vr_hand_vial_holder("vr mode")
+	_ensure_vr_vial_hotspots()
+	_configure_vr_vial_hotspots()
+	_set_vr_vial_hotspots_enabled(_controls_enabled)
 	print("[WineVR][VR] VR mode active: using XRCamera3D and RightController/InteractionRay")
 
 
 func _connect_vr_controller_input() -> void:
-	if vr_right_controller == null:
-		return
-	var button_callable: Callable = Callable(self, "_on_vr_controller_button_pressed")
-	if not vr_right_controller.button_pressed.is_connected(button_callable):
-		vr_right_controller.button_pressed.connect(_on_vr_controller_button_pressed)
-	var float_callable: Callable = Callable(self, "_on_vr_controller_input_float_changed")
-	if not vr_right_controller.input_float_changed.is_connected(float_callable):
-		vr_right_controller.input_float_changed.connect(_on_vr_controller_input_float_changed)
+	if vr_right_controller != null:
+		var button_callable: Callable = Callable(self, "_on_vr_controller_button_pressed")
+		if not vr_right_controller.button_pressed.is_connected(button_callable):
+			vr_right_controller.button_pressed.connect(_on_vr_controller_button_pressed)
+		var float_callable: Callable = Callable(self, "_on_vr_controller_input_float_changed")
+		if not vr_right_controller.input_float_changed.is_connected(float_callable):
+			vr_right_controller.input_float_changed.connect(_on_vr_controller_input_float_changed)
 
 
-func _setup_vr_held_vial() -> void:
-	if _vr_held_vial != null:
+func _ensure_vr_teleport_system() -> void:
+	if _vr_teleport_system != null:
 		return
-	var parent_node: Node3D = vr_left_controller
-	if parent_node == null:
-		parent_node = vr_camera
-	if parent_node == null:
+	if vr_player_rig == null or vr_camera == null:
 		return
-	_vr_held_vial = VIAL_SCENE.instantiate() as Vial
-	_vr_held_vial.name = "VRHeldVial"
-	parent_node.add_child(_vr_held_vial)
-	if parent_node == vr_left_controller:
-		_vr_held_vial.position = Vector3(0.05, -0.07, -0.18)
-		_vr_held_vial.rotation_degrees = Vector3(-12.0, -18.0, 10.0)
+	_vr_teleport_system = VR_TELEPORT_CONTROLLER_SCRIPT.new() as Node
+	if _vr_teleport_system == null:
+		return
+	_vr_teleport_system.name = "VRTeleportController"
+	add_child(_vr_teleport_system)
+	_vr_teleport_system.set("max_distance", vr_teleport_max_distance)
+	_vr_teleport_system.call("configure_bounds", VR_TELEPORT_BOUNDS_MIN, VR_TELEPORT_BOUNDS_MAX)
+	_vr_teleport_system.call("setup", vr_player_rig, vr_camera, vr_left_controller, vr_right_controller)
+	_vr_teleport_system.call("set_enabled", false)
+
+
+func _set_vr_teleport_enabled(enabled: bool) -> void:
+	if _vr_teleport_system == null and enabled:
+		_ensure_vr_teleport_system()
+	if _vr_teleport_system != null:
+		_vr_teleport_system.call("set_enabled", enabled and _is_vr_active)
+
+
+func _ensure_vr_guided_tasting() -> void:
+	if _vr_guided_tasting != null:
+		return
+	if vr_camera == null:
+		return
+	_vr_guided_tasting = VR_GUIDED_TASTING_CONTROLLER_SCRIPT.new() as Node
+	if _vr_guided_tasting == null:
+		return
+	_vr_guided_tasting.name = "VRGuidedTastingController"
+	add_child(_vr_guided_tasting)
+	_vr_guided_tasting.call(
+		"setup",
+		vr_camera,
+		Callable(self, "_highlight_vr_guided_target"),
+		Callable(self, "clear_narrative_highlight"),
+		Callable(self, "_vr_guided_target_exists")
+	)
+
+
+func _configure_vr_guided_tasting() -> void:
+	if _vr_guided_tasting == null:
+		return
+	_vr_guided_tasting.call("configure_from_profile", _active_client_data)
+
+
+func _set_vr_guided_tasting_enabled(enabled: bool) -> void:
+	if _vr_guided_tasting == null and enabled:
+		_ensure_vr_guided_tasting()
+		_configure_vr_guided_tasting()
+	if _vr_guided_tasting != null:
+		_vr_guided_tasting.call("set_enabled", enabled and _is_vr_active)
+
+
+func _ensure_vr_vial_hotspots() -> void:
+	if _vr_vial_hotspots == null:
+		if vr_camera == null or vr_interaction_ray == null:
+			return
+		_vr_vial_hotspots = VR_VIAL_HOTSPOT_CONTROLLER_SCRIPT.new() as Node
+		if _vr_vial_hotspots == null:
+			return
+		_vr_vial_hotspots.name = "VRVialHotspotController"
+		_get_vr_vial_hotspot_anchor().add_child(_vr_vial_hotspots)
+		_vr_vial_hotspots.call(
+			"setup",
+			vr_camera,
+			vr_interaction_ray,
+			Callable(self, "_show_vr_info_panel"),
+			Callable(self, "_on_vr_vial_hotspot_activated")
+		)
+	_attach_vr_vial_hotspots_to_anchor()
+
+
+func _configure_vr_vial_hotspots() -> void:
+	if _vr_vial_hotspots == null:
+		return
+	_vr_vial_hotspots.call("configure_from_profile", _active_client_data)
+
+
+func _set_vr_vial_hotspots_enabled(enabled: bool) -> void:
+	if _vr_vial_hotspots == null and enabled:
+		_ensure_vr_vial_hotspots()
+		_configure_vr_vial_hotspots()
+	if _vr_vial_hotspots != null:
+		_vr_vial_hotspots.call("set_enabled", enabled and _is_vr_active)
+
+
+func _try_activate_vr_vial_hotspot() -> bool:
+	if not _is_vr_active or _vr_vial_hotspots == null:
+		return false
+	return bool(_vr_vial_hotspots.call("try_activate_hovered"))
+
+
+func _vr_vial_hotspot_hovered() -> bool:
+	if not _is_vr_active or _vr_vial_hotspots == null:
+		return false
+	return bool(_vr_vial_hotspots.call("has_hovered_label"))
+
+
+func _on_vr_vial_hotspot_activated(hotspot_data: Dictionary) -> void:
+	vr_vial_hotspot_viewed.emit(hotspot_data)
+
+
+func _get_vr_vial_hotspot_anchor() -> Node3D:
+	if _vr_hand_vial_holder != null:
+		return _vr_hand_vial_holder
+	if vr_left_controller != null:
+		return vr_left_controller
+	if vr_camera != null:
+		return vr_camera
+	return self
+
+
+func _attach_vr_vial_hotspots_to_anchor() -> void:
+	if _vr_vial_hotspots == null:
+		return
+	var hotspot_node: Node3D = _vr_vial_hotspots as Node3D
+	if hotspot_node == null:
+		return
+	var anchor: Node3D = _get_vr_vial_hotspot_anchor()
+	if hotspot_node.get_parent() != anchor:
+		hotspot_node.reparent(anchor, false)
+	hotspot_node.position = Vector3.ZERO
+	hotspot_node.rotation = Vector3.ZERO
+	hotspot_node.scale = Vector3.ONE
+
+
+func _refresh_vr_hand_vial_holder(reason: String) -> void:
+	var should_show: bool = _should_show_vr_hand_holder()
+	if not should_show and _vr_hand_vial_holder == null:
+		_debug_print_vr_hand_status(reason)
+		return
+	_ensure_vr_hand_vial_holder()
+	_attach_vr_hand_holder_to_correct_parent()
+	_apply_profile_to_vr_hand_holder()
+	_show_vr_hand_holder(should_show)
+	_debug_print_vr_hand_status(reason)
+
+
+func _should_show_vr_hand_holder() -> bool:
+	if _grape_museum != null:
+		return false
+	if debug_force_show_vr_hand:
+		return true
+	if _is_vr_active:
+		return _controls_enabled
+	return debug_preview_vr_hand
+
+
+func _ensure_vr_hand_vial_holder() -> void:
+	if _vr_hand_vial_holder != null:
+		_debug_print_vr_hand_status("ensure existing")
+		return
+	_vr_hand_vial_holder = VR_HAND_VIAL_HOLDER_SCENE.instantiate() as Node3D
+	if _vr_hand_vial_holder == null:
+		push_warning("[WineVR][VRHand] Failed to instantiate VRHandVialHolder.tscn")
+		_debug_print_vr_hand_status("create failed")
+		return
+	_vr_hand_vial_holder.name = "VRHandVialHolder"
+	add_child(_vr_hand_vial_holder)
+	if _vr_hand_vial_holder.has_method("setup"):
+		_vr_hand_vial_holder.call("setup", VIAL_SCENE)
+	if _vr_hand_vial_holder.has_method("ensure_visible_glove_meshes"):
+		_vr_hand_vial_holder.call("ensure_visible_glove_meshes")
+	if _count_vr_hand_child_meshes() == 0:
+		_create_vr_hand_fallback_debug_meshes()
+	_disable_shadows_recursive(_vr_hand_vial_holder)
+	_debug_print_vr_hand_status("created")
+
+
+func _attach_vr_hand_holder_to_correct_parent() -> void:
+	if _vr_hand_vial_holder == null:
+		_ensure_vr_hand_vial_holder()
+	if _vr_hand_vial_holder == null:
+		return
+
+	var parent_node: Node3D = null
+	var local_position: Vector3 = Vector3.ZERO
+	var local_rotation_degrees: Vector3 = Vector3.ZERO
+	var local_scale: Vector3 = Vector3.ONE
+
+	if _is_vr_active and vr_left_controller != null:
+		parent_node = vr_left_controller
+		local_position = Vector3(0.02, -0.08, -0.18)
+		local_rotation_degrees = Vector3(-12.0, -18.0, 8.0)
+		local_scale = Vector3.ONE * 0.85
+	elif (debug_preview_vr_hand or debug_force_show_vr_hand) and camera != null:
+		parent_node = camera
+		local_position = Vector3(-0.28, -0.18, -0.65)
+		local_rotation_degrees = Vector3(-10.0, -20.0, 8.0)
+		local_scale = Vector3.ONE * 0.9
 	else:
-		_vr_held_vial.position = Vector3(-0.18, -0.22, -0.62)
-		_vr_held_vial.rotation_degrees = Vector3(-10.0, -14.0, 8.0)
-	_vr_held_vial.scale = Vector3.ONE * 0.82
-	_disable_shadows_recursive(_vr_held_vial)
-	if held_vial != null:
-		_copy_vial_profile(held_vial, _vr_held_vial)
+		parent_node = self
+		push_warning("[WineVR][VRHand] No active VR controller or desktop preview parent; attaching holder to WineryInterior root.")
+		if camera != null:
+			local_position = to_local(camera.global_transform.origin + (-camera.global_transform.basis.z * maxf(0.25, debug_vr_hand_distance)) + Vector3(-0.28, -0.18, 0.0))
+			local_rotation_degrees = camera.global_rotation_degrees + Vector3(-10.0, -20.0, 8.0)
+		else:
+			local_position = Vector3(0.0, 1.2, -0.8)
+			local_rotation_degrees = Vector3(-10.0, -20.0, 8.0)
+		local_scale = Vector3.ONE * debug_vr_hand_scale
+
+	if _vr_hand_vial_holder.get_parent() != parent_node:
+		_vr_hand_vial_holder.reparent(parent_node, false)
+	_vr_hand_vial_holder.position = local_position
+	_vr_hand_vial_holder.rotation_degrees = local_rotation_degrees
+	_vr_hand_vial_holder.scale = local_scale
+	_attach_vr_vial_hotspots_to_anchor()
+	_debug_print_vr_hand_status("attached")
+
+
+func _show_vr_hand_holder(enabled: bool) -> void:
+	if _vr_hand_vial_holder == null:
+		return
+	_vr_hand_vial_holder.visible = enabled
+	_vr_hand_vial_holder.set_process(enabled)
+	if enabled:
+		_set_visible_recursive(_vr_hand_vial_holder, true)
+		_disable_shadows_recursive(_vr_hand_vial_holder)
+		if not _is_vr_active and debug_preview_vr_hand and _vr_hand_vial_holder.get_parent() == camera:
+			print("[WineVR][VRHand] desktop preview visible")
+		if _is_vr_active and _vr_hand_vial_holder.get_parent() == vr_left_controller:
+			print("[WineVR][VRHand] VR left hand visible")
+		print("[WineVR][VRHand] shown")
+	else:
+		print("[WineVR][VRHand] hidden")
+	_debug_print_vr_hand_status("shown" if enabled else "hidden")
+
+
+func _apply_profile_to_vr_hand_holder() -> void:
+	if _vr_hand_vial_holder == null:
+		return
+	if held_vial != null and _vr_hand_vial_holder.has_method("apply_vial_profile"):
+		_vr_hand_vial_holder.call("apply_vial_profile", held_vial)
+	elif held_vial != null:
+		var vial_node: Vial = _find_vial_child(_vr_hand_vial_holder)
+		if vial_node != null:
+			vial_node.liquid_fill_amount = held_vial.liquid_fill_amount
+			vial_node.liquid_color = held_vial.liquid_color
+			vial_node.cap_color = held_vial.cap_color
+			if vial_node.has_method("rebuild_vial"):
+				vial_node.call("rebuild_vial")
+			if not _active_client_data.is_empty() and vial_node.has_method("apply_qr_profile"):
+				vial_node.call("apply_qr_profile", _active_client_data)
+	if not _active_client_data.is_empty() and _vr_hand_vial_holder.has_method("apply_client_profile"):
+		_vr_hand_vial_holder.call("apply_client_profile", _active_client_data)
+	_debug_print_vr_hand_status("profile applied")
+
+
+func _debug_print_vr_hand_status(reason: String) -> void:
+	var exists: bool = _vr_hand_vial_holder != null
+	print("[WineVR][VRHand] reason=%s" % reason)
+	print("[WineVR][VRHand] exists=%s" % str(exists))
+	if not exists:
+		print("[WineVR][VRHand] parent=none")
+		print("[WineVR][VRHand] global_position=%s" % str(Vector3.ZERO))
+		print("[WineVR][VRHand] local_position=%s" % str(Vector3.ZERO))
+		print("[WineVR][VRHand] scale=%s" % str(Vector3.ZERO))
+		print("[WineVR][VRHand] visible=false")
+		print("[WineVR][VRHand] child_mesh_count=0")
+		print("[WineVR][VRHand] vial_found=false")
+		return
+	var parent: Node = _vr_hand_vial_holder.get_parent()
+	print("[WineVR][VRHand] parent=%s" % (str(parent.get_path()) if parent != null and parent.is_inside_tree() else "none"))
+	print("[WineVR][VRHand] global_position=%s" % str(_vr_hand_vial_holder.global_position))
+	print("[WineVR][VRHand] local_position=%s" % str(_vr_hand_vial_holder.position))
+	print("[WineVR][VRHand] scale=%s" % str(_vr_hand_vial_holder.scale))
+	print("[WineVR][VRHand] visible=%s" % str(_vr_hand_vial_holder.visible))
+	print("[WineVR][VRHand] child_mesh_count=%d" % _count_vr_hand_child_meshes())
+	print("[WineVR][VRHand] vial_found=%s" % str(_find_vial_child(_vr_hand_vial_holder) != null))
+
+
+func _setup_vr_hand_vial_holder() -> void:
+	_refresh_vr_hand_vial_holder("legacy setup")
+
+
+func _apply_vr_hand_vial_profile(client_data: Dictionary = {}) -> void:
+	if not client_data.is_empty():
+		_active_client_data = client_data.duplicate(true)
+	_apply_profile_to_vr_hand_holder()
+
+
+func _show_vr_hand_vial_holder() -> void:
+	_show_vr_hand_holder(true)
+
+
+func _hide_vr_hand_vial_holder() -> void:
+	_show_vr_hand_holder(false)
+
+
+func _count_vr_hand_child_meshes() -> int:
+	if _vr_hand_vial_holder == null:
+		return 0
+	if _vr_hand_vial_holder.has_method("count_visible_mesh_instance_nodes"):
+		return int(_vr_hand_vial_holder.call("count_visible_mesh_instance_nodes"))
+	return _count_visible_mesh_instance_nodes(_vr_hand_vial_holder)
+
+
+func _count_visible_mesh_instance_nodes(root: Node) -> int:
+	if root == null:
+		return 0
+	var count: int = 0
+	if root is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = root as MeshInstance3D
+		if mesh_instance.visible and mesh_instance.mesh != null:
+			count += 1
+	for child in root.get_children():
+		count += _count_visible_mesh_instance_nodes(child)
+	return count
+
+
+func _find_vial_child(root: Node) -> Vial:
+	if root == null:
+		return null
+	if root is Vial:
+		return root as Vial
+	for child in root.get_children():
+		var vial_child: Vial = _find_vial_child(child)
+		if vial_child != null:
+			return vial_child
+	return null
+
+
+func _set_visible_recursive(root: Node, visible_enabled: bool) -> void:
+	if root is CanvasItem:
+		(root as CanvasItem).visible = visible_enabled
+	if root is Node3D:
+		(root as Node3D).visible = visible_enabled
+	if root is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = root as MeshInstance3D
+		mesh_instance.visible = visible_enabled
+		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child in root.get_children():
+		_set_visible_recursive(child, visible_enabled)
+
+
+func _create_vr_hand_fallback_debug_meshes() -> void:
+	if _vr_hand_vial_holder == null:
+		return
+	if _vr_hand_vial_holder.has_method("ensure_visible_glove_meshes"):
+		_vr_hand_vial_holder.call("ensure_visible_glove_meshes")
+		if _count_vr_hand_child_meshes() > 0:
+			return
+	if _vr_hand_vial_holder.get_node_or_null("FallbackGlove") != null:
+		return
+	var fallback_root: Node3D = Node3D.new()
+	fallback_root.name = "FallbackGlove"
+	_vr_hand_vial_holder.add_child(fallback_root)
+
+	var glove_material: StandardMaterial3D = _make_vr_hand_debug_material(Color(0.075, 0.029, 0.045, 1.0), 0.8)
+	var gold_material: StandardMaterial3D = _make_vr_hand_debug_material(Color(0.84, 0.69, 0.37, 1.0), 0.44)
+
+	var palm_mesh: BoxMesh = BoxMesh.new()
+	palm_mesh.size = Vector3(0.095, 0.055, 0.07)
+	var palm: MeshInstance3D = _make_vr_hand_debug_mesh("Palm", palm_mesh, glove_material)
+	palm.position = Vector3(-0.01, 0.072, -0.061)
+	palm.rotation_degrees = Vector3(6.0, -8.0, -4.0)
+	fallback_root.add_child(palm)
+
+	var finger_names: Array = ["FingerIndex", "FingerMiddle", "FingerRing"]
+	var finger_positions: Array = [
+		Vector3(-0.033, 0.105, -0.029),
+		Vector3(-0.003, 0.111, -0.036),
+		Vector3(0.027, 0.101, -0.031)
+	]
+	var finger_rotations: Array = [
+		Vector3(15.0, -18.0, -8.0),
+		Vector3(11.0, -8.0, 0.0),
+		Vector3(13.0, 4.0, 9.0)
+	]
+	for i in range(finger_names.size()):
+		var finger_mesh: CylinderMesh = CylinderMesh.new()
+		finger_mesh.top_radius = 0.0105
+		finger_mesh.bottom_radius = 0.013
+		finger_mesh.height = 0.155
+		finger_mesh.radial_segments = 10
+		var finger: MeshInstance3D = _make_vr_hand_debug_mesh(str(finger_names[i]), finger_mesh, glove_material)
+		finger.position = finger_positions[i]
+		finger.rotation_degrees = finger_rotations[i]
+		fallback_root.add_child(finger)
+
+	var thumb_mesh: CylinderMesh = CylinderMesh.new()
+	thumb_mesh.top_radius = 0.012
+	thumb_mesh.bottom_radius = 0.015
+	thumb_mesh.height = 0.112
+	thumb_mesh.radial_segments = 10
+	var thumb: MeshInstance3D = _make_vr_hand_debug_mesh("Thumb", thumb_mesh, glove_material)
+	thumb.position = Vector3(-0.053, 0.074, -0.023)
+	thumb.rotation_degrees = Vector3(68.0, -18.0, -48.0)
+	fallback_root.add_child(thumb)
+
+	var cuff_mesh: BoxMesh = BoxMesh.new()
+	cuff_mesh.size = Vector3(0.112, 0.036, 0.078)
+	var wrist_cuff: MeshInstance3D = _make_vr_hand_debug_mesh("WristCuff", cuff_mesh, glove_material)
+	wrist_cuff.position = Vector3(-0.012, 0.012, -0.063)
+	wrist_cuff.rotation_degrees = Vector3(4.0, -8.0, 0.0)
+	fallback_root.add_child(wrist_cuff)
+
+	var trim_mesh: BoxMesh = BoxMesh.new()
+	trim_mesh.size = Vector3(0.104, 0.007, 0.084)
+	var trim: MeshInstance3D = _make_vr_hand_debug_mesh("CuffGoldTrim", trim_mesh, gold_material)
+	trim.position = Vector3(-0.012, 0.033, -0.063)
+	trim.rotation_degrees = Vector3(4.0, -8.0, 0.0)
+	fallback_root.add_child(trim)
+
+	var anchor_mesh: CylinderMesh = CylinderMesh.new()
+	anchor_mesh.top_radius = 0.031
+	anchor_mesh.bottom_radius = 0.031
+	anchor_mesh.height = 0.006
+	anchor_mesh.radial_segments = 18
+	var anchor_guide: MeshInstance3D = _make_vr_hand_debug_mesh("VialAnchorGuide", anchor_mesh, gold_material)
+	anchor_guide.position = Vector3(0.0, 0.082, -0.027)
+	anchor_guide.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+	fallback_root.add_child(anchor_guide)
+	print("[WineVR][VRHand] visible glove mesh created")
+
+
+func _make_vr_hand_debug_mesh(mesh_name: String, mesh: Mesh, material: StandardMaterial3D) -> MeshInstance3D:
+	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+	mesh_instance.name = mesh_name
+	mesh_instance.mesh = mesh
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_instance.set_surface_override_material(0, material)
+	return mesh_instance
+
+
+func _make_vr_hand_debug_material(color: Color, roughness: float) -> StandardMaterial3D:
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = roughness
+	return material
 
 
 func _apply_vial_profile(vial: Vial, vial_settings: Dictionary, client_data: Dictionary) -> void:
@@ -374,15 +933,6 @@ func _apply_vial_profile(vial: Vial, vial_settings: Dictionary, client_data: Dic
 	vial.cap_color = _environment.parse_color(vial_settings.get("cap_color", vial.cap_color), vial.cap_color)
 	vial.rebuild_vial()
 	vial.apply_qr_profile(client_data)
-
-
-func _copy_vial_profile(source: Vial, target: Vial) -> void:
-	if source == null or target == null:
-		return
-	target.liquid_fill_amount = source.liquid_fill_amount
-	target.liquid_color = source.liquid_color
-	target.cap_color = source.cap_color
-	target.rebuild_vial()
 
 
 func _disable_shadows_recursive(root: Node) -> void:
@@ -458,8 +1008,55 @@ func _get_active_interaction_ray() -> RayCast3D:
 func _show_interaction_feedback(data: Dictionary) -> void:
 	if _is_vr_active:
 		print("[WineVR][VR] Interacted: %s" % str(data.get("title", data.get("id", "target"))))
+		_notify_vr_guided_interaction(data)
+		_show_vr_info_panel(data)
 		return
+	_hide_tooltip()
 	_show_info_panel(data)
+	_hide_interact_text_feedback()
+	print("[WineVR][InteractUI] action performed=%s" % str(data.get("id", "target")))
+
+
+func _notify_vr_guided_interaction(data: Dictionary) -> void:
+	if _vr_guided_tasting != null:
+		_vr_guided_tasting.call("notify_interaction", data)
+
+
+func _setup_vr_info_panel() -> void:
+	if _vr_info_panel != null:
+		return
+	if vr_camera == null:
+		push_warning("[WineVR][VR] VRInfoPanel unavailable")
+		return
+	var panel_scene: PackedScene = ResourceLoader.load(VR_INFO_PANEL_SCENE_PATH) as PackedScene
+	if panel_scene == null:
+		push_warning("[WineVR][VR] VRInfoPanel unavailable")
+		return
+	_vr_info_panel = panel_scene.instantiate() as Node3D
+	if _vr_info_panel == null:
+		push_warning("[WineVR][VR] VRInfoPanel unavailable")
+		return
+	add_child(_vr_info_panel)
+	_vr_info_panel.call("set_follow_camera", vr_camera)
+
+
+func _show_vr_info_panel(data: Dictionary) -> void:
+	if not _is_vr_active:
+		return
+	var title: String = str(data.get("title", data.get("id", "Detail")))
+	var body: String = str(data.get("description", data.get("text", "")))
+	_setup_vr_info_panel()
+	if _vr_info_panel == null:
+		push_warning("[WineVR][VR] VRInfoPanel unavailable")
+		print("%s: %s" % [title, body])
+		return
+	print("[WineVR][VR] Showing VR info panel: %s" % title)
+	_vr_info_panel.call("show_info", title, body)
+
+
+func _hide_vr_info_panel() -> void:
+	if _vr_info_panel != null:
+		_vr_info_panel.call("hide_panel")
 
 
 func _update_vr_feedback(prompt: String, can_interact: bool, action_text: String) -> void:
@@ -572,6 +1169,31 @@ func pulse_narrative_target(target_type: String, target_id: String) -> bool:
 			return false
 
 
+func _highlight_vr_guided_target(target_type: String, target_id: String) -> bool:
+	if target_type == "interactable" and _interactable_by_id.has(target_id):
+		var interactable: Interactable = _interactable_by_id[target_id] as Interactable
+		if interactable != null:
+			interactable.set_hovered(true)
+			return true
+	return pulse_narrative_target(target_type, target_id)
+
+
+func _vr_guided_target_exists(target_type: String, target_id: String) -> bool:
+	if target_id.is_empty():
+		return false
+	match target_type:
+		"door":
+			return _door_target_matches(target_id)
+		"zone":
+			return _zones != null and _zones.zone_data_by_id.has(target_id)
+		"prop":
+			return _props != null and _props.prop_data_by_id.has(target_id)
+		"interactable", "generic", "glass", "bottle", "plaque":
+			return _interactable_by_id.has(target_id)
+		_:
+			return false
+
+
 func clear_narrative_highlight() -> void:
 	if _zones != null:
 		_zones.clear_highlight()
@@ -582,12 +1204,22 @@ func clear_narrative_highlight() -> void:
 
 
 func _try_interact() -> void:
+	if close_grape_inspection():
+		return
+	if _try_activate_vr_vial_hotspot():
+		_play_click_audio()
+		return
+
 	if _current_hovered_interactable != null:
 		var interactable_id: String = _current_hovered_interactable.id
-		if _guided != null and not _guided.can_interact(interactable_id):
+		if not _can_interact_interactable(_current_hovered_interactable):
 			return
 		_play_click_audio()
 		_current_hovered_interactable.interact()
+		if _current_hovered_interactable.has_meta("museum_exhibit") or _current_hovered_interactable.has_meta("museum_action"):
+			interactable_clicked.emit(_current_hovered_interactable)
+			_hide_tooltip()
+			return
 		interactable_clicked.emit(_current_hovered_interactable)
 		door_interacted.emit(_current_hovered_interactable.to_dict())
 		if _guided != null:
@@ -633,49 +1265,79 @@ func _try_interact() -> void:
 			_play_click_audio()
 
 
+func _try_keyboard_interact() -> void:
+	if _is_vr_active or _is_desktop_info_panel_open():
+		return
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec - _last_keyboard_interaction_msec < KEYBOARD_INTERACTION_COOLDOWN_MSEC:
+		return
+	_last_keyboard_interaction_msec = now_msec
+	_try_interact()
+
+
 func _update_interaction_prompt() -> void:
+	if _grape_museum != null and _grape_museum.is_inspecting():
+		_set_hovered_interactable(null)
+		door_prompt_changed.emit("")
+		interaction_target_changed.emit(false, "")
+		return
 	var active_ray: RayCast3D = _get_active_interaction_ray()
 	if active_ray == null:
+		_hide_interact_text_feedback()
+		_set_hovered_interactable(null)
+		if _door != null:
+			_door.set_highlight(false)
+		door_prompt_changed.emit("")
+		interaction_target_changed.emit(false, "")
+		_update_vr_feedback("", false, "")
 		return
 	var looking_at_door: bool = false
 	var prompt: String = ""
 	var hovered: Interactable = null
 	var crosshair_can_interact: bool = false
-	var crosshair_prompt: String = "Trigger to interact" if _is_vr_active else "Click to interact"
+	var crosshair_prompt: String = ""
 	active_ray.force_raycast_update()
 	if active_ray.is_colliding():
 		var collider: Object = active_ray.get_collider()
+		if _is_vr_active and _vr_vial_hotspots != null and bool(_vr_vial_hotspots.call("is_vial_hotspot_collider", collider)):
+			_set_hovered_interactable(null)
+			if _door != null:
+				_door.set_highlight(false)
+			door_prompt_changed.emit("Inspect tasting note")
+			interaction_target_changed.emit(true, "Trigger to inspect")
+			_update_vr_feedback("Inspect tasting note", true, "Trigger to inspect")
+			return
 		hovered = _find_interactable_node(collider)
 		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
 		if hovered != null:
 			prompt = "Interact"
-			crosshair_can_interact = _guided == null or _guided.can_interact(hovered.id)
-			crosshair_prompt = "Trigger to interact" if _is_vr_active else "Click to interact"
-			if not _exploration_mode_active and not _is_vr_active:
-				_show_tooltip(hovered.title, hovered.description, _tooltip_action_text(hovered.id))
+			crosshair_can_interact = _can_interact_interactable(hovered)
+			crosshair_prompt = "Trigger to interact" if _is_vr_active else "Press E to inspect"
+			if not _is_vr_active:
+				_hide_tooltip()
 		elif looking_at_door:
 			prompt = "Open the cellar door"
 			var door_data: Dictionary = _zones.door_interactable.duplicate(true)
 			crosshair_can_interact = _can_interact_payload(door_data)
-			crosshair_prompt = "Trigger to open" if _is_vr_active else "Click to open"
-			if not _exploration_mode_active and not _is_vr_active:
-				_show_tooltip("Cellar Door", str(_zones.door_interactable.get("text", "")), _tooltip_action_text(str(_zones.door_interactable.get("id", ""))))
+			crosshair_prompt = "Trigger to open" if _is_vr_active else "Press E to inspect"
+			if not _is_vr_active:
+				_hide_tooltip()
 		else:
 			var zone_data: Dictionary = _zones.get_zone_data_from_collider(collider)
 			if not zone_data.is_empty():
 				prompt = "View " + str(zone_data.get("title", "this detail"))
 				crosshair_can_interact = _can_interact_payload(zone_data)
-				crosshair_prompt = "Trigger to inspect" if _is_vr_active else "Click to inspect"
-				if not _exploration_mode_active and not _is_vr_active:
-					_show_tooltip(str(zone_data.get("title", "Detail")), str(zone_data.get("text", "")), _tooltip_action_text(str(zone_data.get("id", ""))))
+				crosshair_prompt = "Trigger to inspect" if _is_vr_active else "Press E to inspect"
+				if not _is_vr_active:
+					_hide_tooltip()
 			else:
 				var prop_data: Dictionary = _props.get_prop_data_from_collider(collider)
 				if not prop_data.is_empty():
 					prompt = "Inspect " + str(prop_data.get("id", "this cellar detail")).replace("_", " ")
 					crosshair_can_interact = _guided == null or _guided.can_interact(str(prop_data.get("id", "")))
-					crosshair_prompt = "Trigger to inspect" if _is_vr_active else "Click to inspect"
-					if not _exploration_mode_active and not _is_vr_active:
-						_show_tooltip(str(prop_data.get("id", "Prop")).replace("_", " ").capitalize(), "Configured winery detail.", _tooltip_action_text(str(prop_data.get("id", ""))))
+					crosshair_prompt = "Trigger to inspect" if _is_vr_active else "Press E to inspect"
+					if not _is_vr_active:
+						_hide_tooltip()
 				else:
 					_hide_tooltip()
 	else:
@@ -687,7 +1349,8 @@ func _update_interaction_prompt() -> void:
 	if _door != null:
 		_door.set_highlight(looking_at_door)
 	door_prompt_changed.emit(prompt)
-	interaction_target_changed.emit(crosshair_can_interact, crosshair_prompt)
+	interaction_target_changed.emit(crosshair_can_interact, crosshair_prompt if crosshair_can_interact else "")
+	_hide_interact_text_feedback()
 	_update_vr_feedback(prompt, crosshair_can_interact, crosshair_prompt)
 
 
@@ -723,6 +1386,16 @@ func _register_scene_interactables() -> void:
 		if interactable.id.is_empty():
 			interactable.id = interactable.name.to_lower().replace(" ", "_")
 		_interactable_by_id[interactable.id] = interactable
+
+
+func _can_interact_interactable(interactable: Interactable) -> bool:
+	if interactable == null:
+		return false
+	if interactable.bypass_guided_lock:
+		return true
+	if _guided == null:
+		return true
+	return _guided.can_interact(interactable.id)
 
 
 func _can_interact_payload(data: Dictionary) -> bool:
@@ -838,6 +1511,7 @@ func _setup_interaction_ui() -> void:
 	_interaction_ui_layer = CanvasLayer.new()
 	_interaction_ui_layer.name = "InteractionUI"
 	add_child(_interaction_ui_layer)
+	_ensure_interact_text_feedback()
 
 	_tooltip_panel = PanelContainer.new()
 	_tooltip_panel.custom_minimum_size = Vector2(320.0, 120.0)
@@ -906,8 +1580,118 @@ func _setup_interaction_ui() -> void:
 	info_vbox.add_child(_info_close_button)
 
 
+func set_desktop_modal_context(active_modal_id: String) -> void:
+	_desktop_modal_active_id = active_modal_id
+	if _grape_museum != null:
+		_grape_museum.controls_enabled = _controls_enabled and active_modal_id.is_empty()
+	if not _desktop_modal_active_id.is_empty():
+		_hide_tooltip()
+		_hide_interact_text_feedback()
+
+
+func get_tooltip_panel() -> PanelContainer:
+	return _tooltip_panel
+
+
+func get_info_panel() -> PanelContainer:
+	return _info_panel
+
+
+func close_desktop_info_panel() -> void:
+	_hide_info_panel()
+
+
+func close_tooltip_panel() -> void:
+	_hide_tooltip()
+
+
+func _is_desktop_info_panel_open() -> bool:
+	return _info_panel != null and _info_panel.visible
+
+
+func _ensure_interact_text_feedback() -> void:
+	if _interact_feedback != null or _interaction_ui_layer == null:
+		return
+	_interact_feedback = VBoxContainer.new()
+	_interact_feedback.name = "InteractTextFeedback"
+	_interact_feedback.visible = false
+	_interact_feedback.modulate.a = 0.0
+	_interact_feedback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_interact_feedback.z_index = 120
+	_interact_feedback.set_anchors_preset(Control.PRESET_CENTER, false)
+	_interact_feedback.offset_left = -74.0
+	_interact_feedback.offset_right = 74.0
+	_interact_feedback.offset_top = -44.0
+	_interact_feedback.offset_bottom = 42.0
+	(_interact_feedback as VBoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
+	(_interact_feedback as VBoxContainer).add_theme_constant_override("separation", 0)
+	_interaction_ui_layer.add_child(_interact_feedback)
+
+	_interact_feedback_label = Label.new()
+	_interact_feedback_label.name = "InteractLabel"
+	_interact_feedback_label.text = "Interact"
+	_interact_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_interact_feedback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_interact_feedback_label.add_theme_font_size_override("font_size", 14)
+	_interact_feedback_label.add_theme_color_override("font_color", PremiumUIStyles.GOLD_ACCENT)
+	_interact_feedback_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+	_interact_feedback_label.add_theme_constant_override("shadow_offset_x", 1)
+	_interact_feedback_label.add_theme_constant_override("shadow_offset_y", 1)
+	_interact_feedback.add_child(_interact_feedback_label)
+
+
+func _show_interact_text_feedback(_data: Dictionary) -> void:
+	_hide_interact_text_feedback()
+
+
+func _hide_interact_text_feedback() -> void:
+	if _interact_feedback == null:
+		return
+	if not _interact_feedback_visible and not _interact_feedback.visible:
+		return
+	if _interact_feedback_tween != null:
+		_interact_feedback_tween.kill()
+	_interact_feedback_visible = false
+	_interact_feedback_target_id = ""
+	_interact_feedback_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_interact_feedback_tween.tween_property(_interact_feedback, "modulate:a", 0.0, 0.12)
+	_interact_feedback_tween.finished.connect(func() -> void:
+		if _interact_feedback != null and not _interact_feedback_visible:
+			_interact_feedback.visible = false
+	)
+	print("[WineVR][InteractUI] hidden")
+
+
+func _can_show_desktop_interact_feedback() -> bool:
+	if _is_vr_active or not _controls_enabled:
+		return false
+	if _interaction_ui_layer == null or not _interaction_ui_layer.visible:
+		return false
+	if not _desktop_modal_active_id.is_empty():
+		return false
+	return not _has_text_input_focus()
+
+
+func _interact_feedback_label_for_data(data: Dictionary) -> String:
+	var data_type: String = str(data.get("type", "")).to_lower()
+	if data_type == "door" or str(data.get("id", "")).to_lower().find("door") >= 0:
+		return "Open"
+	if data_type == "prop" or data_type == "zone":
+		return "Inspect"
+	return "Interact"
+
+
+func _has_text_input_focus() -> bool:
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	return focus_owner is LineEdit or focus_owner is TextEdit
+
+
 func _show_tooltip(title_text: String, description_text: String, action_text: String) -> void:
 	if _tooltip_panel == null:
+		return
+	if not _desktop_modal_active_id.is_empty():
+		print("[WineVR][UI] Suppressed tooltip because modal active: %s" % _desktop_modal_active_id)
+		_hide_tooltip()
 		return
 	var was_visible: bool = _tooltip_panel.visible
 	_tooltip_title.text = title_text
@@ -945,10 +1729,10 @@ func _show_info_panel(data: Dictionary) -> void:
 	if _info_panel == null:
 		return
 	_info_auto_hide_token += 1
-	var hide_token: int = _info_auto_hide_token
 	_info_title.text = str(data.get("title", "Detail"))
 	_info_description.text = str(data.get("description", data.get("text", "")))
 	_info_panel.visible = true
+	desktop_info_panel_opened.emit()
 	_stop_info_panel_tween()
 	_info_panel.modulate.a = 0.0
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -963,9 +1747,6 @@ func _show_info_panel(data: Dictionary) -> void:
 	_info_panel_tween.set_parallel(true)
 	_info_panel_tween.tween_property(_info_panel, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_info_panel_tween.tween_property(_info_panel, "position", target_pos, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	await get_tree().create_timer(5.0).timeout
-	if hide_token == _info_auto_hide_token:
-		_hide_info_panel()
 
 
 func _hide_info_panel() -> void:
@@ -977,6 +1758,7 @@ func _hide_info_panel() -> void:
 	_info_panel_tween.tween_property(_info_panel, "modulate:a", 0.0, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await _info_panel_tween.finished
 	_info_panel.visible = false
+	desktop_info_panel_closed.emit()
 
 
 func _stop_info_panel_tween() -> void:
@@ -1073,6 +1855,12 @@ func _rebuild_prop_spotlights() -> void:
 
 
 func refresh_interaction_ui_layout(viewport_size: Vector2) -> void:
+	if _interact_feedback != null:
+		_interact_feedback.set_anchors_preset(Control.PRESET_CENTER, false)
+		_interact_feedback.offset_left = -74.0
+		_interact_feedback.offset_right = 74.0
+		_interact_feedback.offset_top = -44.0
+		_interact_feedback.offset_bottom = 42.0
 	if _tooltip_panel != null and _tooltip_panel.visible:
 		var tooltip_width: float = clampf(_tooltip_panel.size.x, 260.0, viewport_size.x - 32.0)
 		var tooltip_height: float = clampf(_tooltip_panel.size.y, 120.0, minf(_tooltip_max_height, viewport_size.y * 0.28))

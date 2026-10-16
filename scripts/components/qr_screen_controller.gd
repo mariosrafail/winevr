@@ -2,10 +2,13 @@ extends Node
 class_name QRScreenController
 
 signal client_selected(client_id: String)
+signal immersive_mode_requested
 
 var screen: Control
 var card: PanelContainer
 var error_label: Label
+var immersive_mode_button: Button
+var immersive_message_label: Label
 var button_box: VBoxContainer
 var registry_entries: Array[Dictionary] = []
 var canvas_layer: CanvasLayer
@@ -52,6 +55,22 @@ func setup(parent_canvas_layer: CanvasLayer, entries: Array[Dictionary]) -> void
 	subtitle.label_settings = _make_label_settings(15, PremiumUIStyles.TEXT_MUTED)
 	box.add_child(subtitle)
 
+	immersive_mode_button = Button.new()
+	immersive_mode_button.text = _immersive_button_label()
+	immersive_mode_button.tooltip_text = _immersive_button_label()
+	immersive_mode_button.custom_minimum_size = Vector2(0.0, 52.0)
+	immersive_mode_button.focus_mode = Control.FOCUS_ALL
+	immersive_mode_button.visible = false
+	PremiumUIStyles.apply_gold_outline_button(immersive_mode_button)
+	immersive_mode_button.pressed.connect(func() -> void: immersive_mode_requested.emit())
+	box.add_child(immersive_mode_button)
+
+	immersive_message_label = Label.new()
+	immersive_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	immersive_message_label.visible = false
+	immersive_message_label.label_settings = _make_label_settings(14, PremiumUIStyles.TEXT_MUTED)
+	box.add_child(immersive_message_label)
+
 	button_box = VBoxContainer.new()
 	button_box.add_theme_constant_override("separation", 8)
 	box.add_child(button_box)
@@ -69,6 +88,35 @@ func set_visible(is_visible: bool) -> void:
 
 func set_error(message: String) -> void:
 	error_label.text = message
+
+
+func set_immersive_mode_available(available: bool) -> void:
+	if immersive_mode_button != null:
+		immersive_mode_button.visible = available
+	if not available:
+		set_immersive_mode_message("")
+
+
+func set_immersive_mode_busy(busy: bool) -> void:
+	if immersive_mode_button == null:
+		return
+	immersive_mode_button.disabled = busy
+	immersive_mode_button.text = "Entering VR..." if busy and OS.has_feature("web") else ("Entering Immersive Mode..." if busy else _immersive_button_label())
+
+
+func set_immersive_mode_active(active: bool) -> void:
+	if immersive_mode_button == null:
+		return
+	immersive_mode_button.disabled = active
+	immersive_mode_button.text = "VR Active" if active and OS.has_feature("web") else ("Immersive Mode Active" if active else _immersive_button_label())
+
+
+func set_immersive_mode_message(message: String, is_error: bool = false) -> void:
+	if immersive_message_label == null:
+		return
+	immersive_message_label.text = message
+	immersive_message_label.visible = not message.is_empty()
+	immersive_message_label.label_settings = _make_label_settings(14, Color(1.0, 0.55, 0.46, 1.0) if is_error else PremiumUIStyles.TEXT_MUTED)
 
 
 func select_debug_index(index: int) -> void:
@@ -126,3 +174,7 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 	settings.font_size = font_size
 	settings.font_color = font_color
 	return settings
+
+
+func _immersive_button_label() -> String:
+	return "Enter VR (Headset)" if OS.has_feature("web") else "Enter Immersive Mode"

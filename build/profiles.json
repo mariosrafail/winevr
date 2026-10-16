@@ -1,182 +1,122 @@
 [
-  {
-    "id": "assyrtiko_demo",
-    "name": "Assyrtiko Demo",
-    "winery": "Aegean Cellars",
-    "region": "Santorini, Greece",
-    "grape_variety": "Assyrtiko",
-    "wine_type": "White",
-    "vintage": "2023",
-    "description": "A saline, mineral-driven island white with bright citrus and tension.",
-    "tasting_notes": [
-      "Lemon zest",
-      "Wet stone",
-      "Sea breeze",
-      "Green apple"
-    ],
-    "aroma_notes": [
-      "Citrus blossom",
-      "Lime peel",
-      "White peach"
-    ],
-    "pairing_suggestions": [
-      "Grilled octopus",
-      "Oysters",
-      "Goat cheese"
-    ],
-    "story": "Born from volcanic soils and Aegean winds, this Assyrtiko reflects maritime freshness and precision.",
-    "color_hex": "#EDE5B8",
-    "unlocked_by_default": true,
-    "scene_theme": "island_modern",
-    "hotspots": [
-      {
-        "id": "assyrtiko_origin",
-        "title": "Volcanic Origin",
-        "description": "Volcanic soils shape the crisp mineral backbone.",
-        "target_node_name": "VialBody",
-        "order": 1,
-        "completion_required": true
-      },
-      {
-        "id": "assyrtiko_aroma",
-        "title": "Aroma Lift",
-        "description": "Citrus blossom and sea-spray freshness define the nose.",
-        "target_node_name": "VialNeck",
-        "order": 2,
-        "completion_required": true
-      },
-      {
-        "id": "assyrtiko_pairing",
-        "title": "Pairing Focus",
-        "description": "Ideal with seafood and saline-forward dishes.",
-        "target_node_name": "VialLabel",
-        "order": 3,
-        "completion_required": true
-      }
-    ],
-    "organization_id": "demo_winery",
-    "organization_name": "Demo Winery",
-    "qr_code_image": "res://assets/qr/demo_winery_qr.png",
-    "qr_target_url": "https://example.com/demo-winery"
-  },
-  {
-    "id": "agiorgitiko_demo",
-    "name": "Agiorgitiko Demo",
-    "winery": "Nemea Heritage",
-    "region": "Nemea, Greece",
-    "grape_variety": "Agiorgitiko",
-    "wine_type": "Red",
-    "vintage": "2022",
-    "description": "A velvet-textured red with ripe red fruit and warm spice.",
-    "tasting_notes": [
-      "Cherry",
-      "Plum",
-      "Sweet spice",
-      "Soft tannin"
-    ],
-    "aroma_notes": [
-      "Rose petal",
-      "Red berries",
-      "Cocoa"
-    ],
-    "pairing_suggestions": [
-      "Lamb kebab",
-      "Tomato braises",
-      "Aged graviera"
-    ],
-    "story": "A modern expression of Nemea's classic red grape, crafted for depth and elegance.",
-    "color_hex": "#7A1E2B",
-    "unlocked_by_default": true,
-    "scene_theme": "classic_cellar",
-    "hotspots": [
-      {
-        "id": "agiorgitiko_color",
-        "title": "Color Density",
-        "description": "Observe the ruby core and garnet hints near the rim.",
-        "target_node_name": "VialBody",
-        "order": 1,
-        "completion_required": true
-      },
-      {
-        "id": "agiorgitiko_texture",
-        "title": "Texture",
-        "description": "Supple tannins and broad mid-palate define the style.",
-        "target_node_name": "VialBase",
-        "order": 2,
-        "completion_required": true
-      },
-      {
-        "id": "agiorgitiko_story",
-        "title": "Estate Story",
-        "description": "A balance of tradition and precision winemaking.",
-        "target_node_name": "VialLabel",
-        "order": 3,
-        "completion_required": false
-      }
-    ],
-    "organization_id": "santorini_estate",
-    "organization_name": "Santorini Estate",
-    "qr_code_image": "res://assets/qr/santorini_estate_qr.png",
-    "qr_target_url": "https://example.com/santorini-estate"
-  },
-  {
-    "id": "xinomavro_demo",
-    "name": "Xinomavro Demo",
-    "winery": "Naoussa Ridge",
-    "region": "Naoussa, Greece",
-    "grape_variety": "Xinomavro",
-    "wine_type": "Red",
-    "vintage": "2021",
-    "description": "Structured and aromatic, with savory complexity and age-worthy grip.",
-    "tasting_notes": [
-      "Dried tomato",
-      "Sour cherry",
-      "Olive",
-      "Firm tannin"
-    ],
-    "aroma_notes": [
-      "Sun-dried herbs",
-      "Black tea",
-      "Forest floor"
-    ],
-    "pairing_suggestions": [
-      "Braised beef",
-      "Mushroom risotto",
-      "Hard cheeses"
-    ],
-    "story": "High-altitude vineyards and careful elevage shape this powerful northern red.",
-    "color_hex": "#5C1723",
-    "unlocked_by_default": true,
-    "scene_theme": "reserve_winery",
-    "hotspots": [
-      {
-        "id": "xinomavro_structure",
-        "title": "Structure",
-        "description": "Notice the linear tension and persistent finish.",
-        "target_node_name": "VialBody",
-        "order": 1,
-        "completion_required": true
-      },
-      {
-        "id": "xinomavro_aroma",
-        "title": "Savory Aromatics",
-        "description": "Herbal and earthy notes bring complexity.",
-        "target_node_name": "VialNeck",
-        "order": 2,
-        "completion_required": true
-      },
-      {
-        "id": "xinomavro_pairing",
-        "title": "Food Pairing",
-        "description": "Ideal for rich, slow-cooked dishes.",
-        "target_node_name": "VialLabel",
-        "order": 3,
-        "completion_required": true
-      }
-    ],
-    "organization_id": "naousa_cellar",
-    "organization_name": "Naousa Cellar",
-    "qr_code_image": "res://assets/qr/naousa_cellar_qr.png",
-    "qr_target_url": "https://example.com/naousa-cellar"
-  }
+	{
+		"aroma_notes": [
+			"Citrus blossom",
+			"Sea breeze"
+		],
+		"color_hex": "#EDE5B8",
+		"description": "A saline and mineral island white with bright citrus.",
+		"grape_variety": "Assyrtiko",
+		"hotspots": [
+			{
+				"completion_required": true,
+				"description": "Volcanic soils shape this wine.",
+				"id": "assyrtiko_origin",
+				"order": 1,
+				"target_node_name": "VialBody",
+				"title": "Volcanic Origin"
+			}
+		],
+		"id": "assyrtiko_demo",
+		"name": "Assyrtiko Demo",
+		"organization_id": "demo_winery",
+		"organization_name": "Demo Winery",
+		"pairing_suggestions": [
+			"Seafood",
+			"Goat cheese"
+		],
+		"qr_code_image": "res://assets/qr/demo_winery_qr.png",
+		"qr_target_url": "https://example.com/demo-winery",
+		"region": "Santorini, Greece",
+		"scene_theme": "island_modern",
+		"story": "A crisp Mediterranean profile driven by volcanic soils.",
+		"tasting_notes": [
+			"Lemon zest",
+			"Wet stone"
+		],
+		"unlocked_by_default": true,
+		"vintage": "2023",
+		"wine_type": "White",
+		"winery": "Aegean Cellars"
+	},
+	{
+		"aroma_notes": [
+			"Rose",
+			"Cocoa"
+		],
+		"color_hex": "#7A1E2B",
+		"description": "A velvety red with cherry and spice.",
+		"grape_variety": "Agiorgitiko",
+		"hotspots": [
+			{
+				"completion_required": true,
+				"description": "Observe the ruby density.",
+				"id": "agiorgitiko_color",
+				"order": 1,
+				"target_node_name": "VialBody",
+				"title": "Color"
+			}
+		],
+		"id": "agiorgitiko_demo",
+		"name": "Agiorgitiko Demo",
+		"organization_id": "santorini_estate",
+		"organization_name": "Santorini Estate",
+		"pairing_suggestions": [
+			"Lamb",
+			"Aged cheese"
+		],
+		"qr_code_image": "res://assets/qr/santorini_estate_qr.png",
+		"qr_target_url": "https://example.com/santorini-estate",
+		"region": "Nemea, Greece",
+		"scene_theme": "classic_cellar",
+		"story": "Classic Nemea red with modern precision.",
+		"tasting_notes": [
+			"Cherry",
+			"Plum"
+		],
+		"unlocked_by_default": true,
+		"vintage": "2022",
+		"wine_type": "Red",
+		"winery": "Nemea Heritage"
+	},
+	{
+		"aroma_notes": [
+			"Herbs",
+			"Black tea"
+		],
+		"color_hex": "#5C1723",
+		"description": "Structured, aromatic, and age-worthy.",
+		"grape_variety": "Xinomavro",
+		"hotspots": [
+			{
+				"completion_required": true,
+				"description": "Notice the firm tannic frame.",
+				"id": "xinomavro_structure",
+				"order": 1,
+				"target_node_name": "VialBody",
+				"title": "Structure"
+			}
+		],
+		"id": "xinomavro_demo",
+		"name": "Xinomavro Demo",
+		"organization_id": "naousa_cellar",
+		"organization_name": "Naousa Cellar",
+		"pairing_suggestions": [
+			"Braised beef",
+			"Mushrooms"
+		],
+		"qr_code_image": "res://assets/qr/naousa_cellar_qr.png",
+		"qr_target_url": "https://example.com/naousa-cellar",
+		"region": "Naoussa, Greece",
+		"scene_theme": "reserve_winery",
+		"story": "Northern red with savory complexity.",
+		"tasting_notes": [
+			"Sour cherry",
+			"Olive"
+		],
+		"unlocked_by_default": true,
+		"vintage": "2021",
+		"wine_type": "Red",
+		"winery": "Naoussa Ridge"
+	}
 ]

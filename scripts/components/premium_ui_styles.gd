@@ -50,6 +50,7 @@ static func make_button_style(background: Color, border: Color = GOLD_BORDER, sh
 static func apply_gold_outline_button(button: Button) -> void:
 	if button == null:
 		return
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	button.add_theme_stylebox_override("normal", make_button_style(Color(PANEL_BG.r, PANEL_BG.g, PANEL_BG.b, 0.7), Color(GOLD_BORDER.r, GOLD_BORDER.g, GOLD_BORDER.b, 0.55)))
 	button.add_theme_stylebox_override("hover", make_button_style(PANEL_BG_HOVER, GOLD_ACCENT, 0.16))
 	button.add_theme_stylebox_override("pressed", make_button_style(Color(0.16, 0.13, 0.075, 0.98), GOLD_ACCENT, 0.08))
@@ -66,6 +67,7 @@ static func apply_gold_outline_button(button: Button) -> void:
 static func apply_profile_card_button(button: Button) -> void:
 	if button == null:
 		return
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	button.add_theme_stylebox_override("normal", make_button_style(PANEL_BG_INNER, Color(GOLD_BORDER.r, GOLD_BORDER.g, GOLD_BORDER.b, 0.42), 0.02))
 	button.add_theme_stylebox_override("hover", make_button_style(PANEL_BG_HOVER, Color(GOLD_ACCENT.r, GOLD_ACCENT.g, GOLD_ACCENT.b, 0.86), 0.14))
 	button.add_theme_stylebox_override("pressed", make_button_style(Color(0.16, 0.13, 0.075, 0.98), GOLD_ACCENT, 0.1))
@@ -80,6 +82,7 @@ static func apply_profile_card_button(button: Button) -> void:
 static func apply_dropdown_style(dropdown: OptionButton) -> void:
 	if dropdown == null:
 		return
+	dropdown.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	apply_gold_outline_button(dropdown)
 	dropdown.add_theme_color_override("font_color", TEXT_BODY)
 	dropdown.add_theme_color_override("font_hover_color", TEXT_TITLE)

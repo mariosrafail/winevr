@@ -48,7 +48,12 @@ func physics_update(delta: float) -> bool:
 	var forward: Vector3 = -basis.z
 	var right: Vector3 = basis.x
 	var movement: Vector3 = (right * input_vector.x + forward * input_vector.z) * move_speed * delta
-	player_rig.global_position += Vector3(movement.x, 0.0, movement.z)
+	if player_rig is CharacterBody3D:
+		var body: CharacterBody3D = player_rig as CharacterBody3D
+		body.velocity = Vector3(movement.x, 0.0, movement.z) / maxf(delta, 0.0001)
+		body.move_and_slide()
+	else:
+		player_rig.global_position += Vector3(movement.x, 0.0, movement.z)
 	player_rig.position.x = clampf(player_rig.position.x, -2.6, 2.6)
 	player_rig.position.z = clampf(player_rig.position.z, -2.8, 2.2)
 	return true

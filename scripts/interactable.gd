@@ -12,6 +12,7 @@ signal interacted(interactable: Interactable)
 @export var glow_on_hover: bool = false
 @export var glow_color: Color = Color(0.95, 0.72, 0.34, 1.0)
 @export var glow_energy: float = 0.7
+@export var bypass_guided_lock: bool = false
 
 var _is_hovered: bool = false
 var _base_scale: Vector3 = Vector3.ONE

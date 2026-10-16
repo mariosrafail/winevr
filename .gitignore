@@ -1,6 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+/work/
 
 # Generated export outputs
 /exports/*
@@ -11,3 +12,5 @@
 *.pck
 !/web5/*.wasm
 !/web5/*.pck
+!/vr/*.wasm
+!/vr/*.pck

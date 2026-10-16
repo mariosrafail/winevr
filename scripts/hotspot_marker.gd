@@ -34,7 +34,7 @@ func _ready() -> void:
 	flat = true
 	focus_mode = Control.FOCUS_ALL
 	custom_minimum_size = Vector2(48.0, 48.0)
-	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	mouse_default_cursor_shape = Control.CURSOR_ARROW
 
 	_title_label = Label.new()
 	_title_label.visible = false

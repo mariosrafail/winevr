@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://c7ubt8ywwyq8h"]
+
+[ext_resource type="Script" path="res://scripts/vr/vr_vial_hotspot_label.gd" id="1_label"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_label"]
+size = Vector3(0.24, 0.075, 0.035)
+
+[sub_resource type="QuadMesh" id="QuadMesh_background"]
+size = Vector2(0.24, 0.075)
+
+[sub_resource type="SphereMesh" id="SphereMesh_dot"]
+radius = 0.011
+height = 0.022
+radial_segments = 12
+rings = 6
+
+[sub_resource type="LabelSettings" id="LabelSettings_text"]
+font_size = 30
+
+[node name="VRVialHotspotLabel" type="Area3D"]
+script = ExtResource("1_label")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_label")
+
+[node name="Background" type="MeshInstance3D" parent="."]
+mesh = SubResource("QuadMesh_background")
+cast_shadow = 0
+
+[node name="Text" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.015, -0.002, 0.002)
+pixel_size = 0.00145
+billboard = 0
+no_depth_test = true
+fixed_size = true
+text = "Detail"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+width = 120.0
+label_settings = SubResource("LabelSettings_text")
+
+[node name="GoldDot" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.1, 0, 0, 0, 1, -0.098, 0, 0.004)
+mesh = SubResource("SphereMesh_dot")
+cast_shadow = 0

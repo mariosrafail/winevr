@@ -1,0 +1,38 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="CylinderMesh" id="1_ring_mesh"]
+top_radius = 0.34
+bottom_radius = 0.34
+height = 0.012
+radial_segments = 48
+rings = 1
+
+[sub_resource type="CylinderMesh" id="2_dot_mesh"]
+top_radius = 0.075
+bottom_radius = 0.075
+height = 0.018
+radial_segments = 32
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="3_ring_mat"]
+shading_mode = 0
+transparency = 1
+albedo_color = Color(0.839216, 0.694118, 0.368627, 0.38)
+
+[sub_resource type="StandardMaterial3D" id="4_dot_mat"]
+shading_mode = 0
+transparency = 1
+albedo_color = Color(0.839216, 0.694118, 0.368627, 0.88)
+
+[node name="VRTeleportMarker" type="Node3D"]
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("1_ring_mesh")
+surface_material_override/0 = SubResource("3_ring_mat")
+
+[node name="CenterDot" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.006, 0)
+cast_shadow = 0
+mesh = SubResource("2_dot_mesh")
+surface_material_override/0 = SubResource("4_dot_mat")

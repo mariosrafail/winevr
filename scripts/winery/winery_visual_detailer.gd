@@ -35,10 +35,12 @@ func apply(environment_settings: Dictionary) -> void:
 	accent_material.emission = accent_color
 	accent_material.emission_energy_multiplier = 0.18
 
-	if quality != "low":
+	var has_vineyard_environment: bool = root != null and root.get_parent() != null and root.get_parent().has_node("VineyardLandscape")
+	if not has_vineyard_environment and quality != "low":
 		_build_floor_pattern(floor_pattern, quality)
-	_build_wall_pattern(wall_pattern, quality)
-	_build_trim()
+	if not has_vineyard_environment:
+		_build_wall_pattern(wall_pattern, quality)
+		_build_trim()
 
 
 func clear() -> void:

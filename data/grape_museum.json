@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "values_are_illustrative": true,
+  "scale_note": "Ενδεικτικό προφίλ · Σχετική κλίμακα 0–100. Δεν αποτελεί εργαστηριακή ανάλυση ή πραγματική περιεκτικότητα επί τοις εκατό.",
+  "metrics": [
+    {"id": "total_acidity", "label": "Ολική οξύτητα", "color": "#DBBF78"},
+    {"id": "sugars", "label": "Σάκχαρα", "color": "#D8A867"},
+    {"id": "color_intensity", "label": "Ένταση χρώματος", "color": "#BC82A7"},
+    {"id": "phenolic_potential", "label": "Πολυφαινολικό δυναμικό", "color": "#91AF98"}
+  ],
+  "varieties": [
+    {
+      "id": "liatiko",
+      "name": "Λιάτικο",
+      "latin_name": "LIATIKO",
+      "number": "01",
+      "model": "res://assets/models/grape_museum/liatiko_bunch.glb",
+      "description": "Παρατήρησε τη μορφή του τσαμπιού, τις αποχρώσεις της φλούδας και την κηρώδη επίστρωση. Πλησίασε ή περπάτησε γύρω από το έκθεμα για να δεις τις λεπτομέρειες.",
+      "metrics": {"total_acidity": 52, "sugars": 82, "color_intensity": 38, "phenolic_potential": 58}
+    },
+    {
+      "id": "kotsifali",
+      "name": "Κοτσιφάλι",
+      "latin_name": "KOTSIFALI",
+      "number": "02",
+      "model": "res://assets/models/grape_museum/kotsifali_bunch.glb",
+      "description": "Παρατήρησε τις ελαφρώς οβάλ ρώγες, τα κοτσανάκια και τις ερυθροϊώδεις αποχρώσεις κάτω από την κηρώδη επίστρωση. Οι μπάρες παρουσιάζουν ενδεικτικό συγκριτικό προφίλ.",
+      "metrics": {"total_acidity": 46, "sugars": 76, "color_intensity": 64, "phenolic_potential": 68}
+    }
+  ]
+}

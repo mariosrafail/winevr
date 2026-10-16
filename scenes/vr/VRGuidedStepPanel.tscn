@@ -1,0 +1,89 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="QuadMesh" id="1_background_mesh"]
+size = Vector2(0.92, 0.34)
+
+[sub_resource type="BoxMesh" id="2_border_horizontal_mesh"]
+size = Vector3(0.92, 0.01, 0.01)
+
+[sub_resource type="StandardMaterial3D" id="3_panel_mat"]
+shading_mode = 0
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.035, 0.032, 0.028, 0.82)
+
+[sub_resource type="StandardMaterial3D" id="4_gold_mat"]
+shading_mode = 0
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.839216, 0.694118, 0.368627, 0.76)
+
+[sub_resource type="BoxMesh" id="5_border_vertical_mesh"]
+size = Vector3(0.01, 0.34, 0.01)
+
+[node name="VRGuidedStepPanel" type="Node3D"]
+
+[node name="Background" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("1_background_mesh")
+surface_material_override/0 = SubResource("3_panel_mat")
+
+[node name="TopBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17, 0.004)
+cast_shadow = 0
+mesh = SubResource("2_border_horizontal_mesh")
+surface_material_override/0 = SubResource("4_gold_mat")
+
+[node name="BottomBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.17, 0.004)
+cast_shadow = 0
+mesh = SubResource("2_border_horizontal_mesh")
+surface_material_override/0 = SubResource("4_gold_mat")
+
+[node name="LeftBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.46, 0, 0.004)
+cast_shadow = 0
+mesh = SubResource("5_border_vertical_mesh")
+surface_material_override/0 = SubResource("4_gold_mat")
+
+[node name="RightBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.46, 0, 0.004)
+cast_shadow = 0
+mesh = SubResource("5_border_vertical_mesh")
+surface_material_override/0 = SubResource("4_gold_mat")
+
+[node name="StepLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.39, 0.105, 0.012)
+text = "Step"
+font_size = 25
+pixel_size = 0.002
+modulate = Color(0.976471, 0.968627, 0.941176, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.72)
+horizontal_alignment = 0
+vertical_alignment = 0
+no_depth_test = true
+
+[node name="InstructionLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.39, 0.02, 0.012)
+text = "Instruction"
+font_size = 21
+pixel_size = 0.002
+modulate = Color(0.851, 0.82, 0.753, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.72)
+horizontal_alignment = 0
+vertical_alignment = 0
+no_depth_test = true
+
+[node name="ProgressLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.39, -0.115, 0.012)
+text = "1 / 1"
+font_size = 18
+pixel_size = 0.002
+modulate = Color(0.839216, 0.694118, 0.368627, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.72)
+horizontal_alignment = 0
+vertical_alignment = 0
+no_depth_test = true

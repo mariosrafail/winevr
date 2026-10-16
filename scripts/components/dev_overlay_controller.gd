@@ -10,7 +10,7 @@ var current_state: String = ""
 var current_step: String = ""
 var active_target: String = ""
 var viewport_mode: String = "native"
-var input_hint: String = "Mouse/touch. Dev: R reset, Esc QR, F3 overlay, F7 demo, F8/F9 UI, F10 view."
+var input_hint: String = "Mouse/touch. Dev: R reset, Esc menu, F3 overlay, F7 demo, F8/F9 UI, F10 view."
 
 
 func setup(parent_canvas_layer: CanvasLayer) -> void:

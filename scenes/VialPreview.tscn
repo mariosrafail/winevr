@@ -2,11 +2,16 @@
 
 [ext_resource type="PackedScene" path="res://scenes/Vial.tscn" id="1_vial"]
 [ext_resource type="Script" uid="uid://bc7ijigvwe3ic" path="res://scripts/vial_preview_controller.gd" id="2_preview_controller"]
-[ext_resource type="Texture2D" uid="uid://c6v0hq1xev7mu" path="res://assets/hdri/studio_small_09_1k.hdr" id="3_hdri"]
+[ext_resource type="PackedScene" path="res://scenes/VineyardLandscape.tscn" id="4_landscape"]
 
-[sub_resource type="PanoramaSkyMaterial" id="1_sky_mat"]
-panorama = ExtResource("3_hdri")
-energy_multiplier = 0.9
+[sub_resource type="ProceduralSkyMaterial" id="1_sky_mat"]
+sky_top_color = Color(0.34, 0.43, 0.52, 1)
+sky_horizon_color = Color(1, 0.68, 0.31, 1)
+ground_bottom_color = Color(0.10, 0.085, 0.055, 1)
+ground_horizon_color = Color(0.55, 0.31, 0.13, 1)
+sun_angle_max = 10.0
+sun_curve = 0.09
+energy_multiplier = 1.05
 
 [sub_resource type="Sky" id="2_sky"]
 sky_material = SubResource("1_sky_mat")
@@ -28,8 +33,8 @@ glow_intensity = 0.07
 glow_bloom = 0.08
 glow_blend_mode = 0
 adjustment_enabled = true
-adjustment_brightness = 1.02
-adjustment_contrast = 1.04
+adjustment_brightness = 1.0
+adjustment_contrast = 1.06
 
 [sub_resource type="PlaneMesh" id="4_floor_mesh"]
 size = Vector2(2.8, 2.8)
@@ -95,9 +100,15 @@ mesh = SubResource("4_floor_mesh")
 surface_material_override/0 = SubResource("5_floor_mat")
 
 [node name="Backdrop" type="MeshInstance3D" parent="." unique_id=724182073]
+visible = false
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.9, -1.15)
 mesh = SubResource("6_backdrop_mesh")
 surface_material_override/0 = SubResource("7_backdrop_mat")
+
+[node name="VineyardLandscape" parent="." instance=ExtResource("4_landscape")]
+position = Vector3(-0.16, -0.30, -0.82)
+rotation_degrees = Vector3(0, 0, 0)
+scale = Vector3(0.055, 0.055, 0.055)
 
 [node name="Vial" parent="." unique_id=1178547218 instance=ExtResource("1_vial")]
 liquid_fill_amount = 0.45

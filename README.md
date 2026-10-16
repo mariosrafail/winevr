@@ -4,6 +4,13 @@ WineVR is a modular Godot 4.6 interactive wine demo. It simulates a QR-driven ta
 
 ## Current Flow
 
+The main menu now includes **Αίθουσα σταφυλιών**, a desktop museum room with the
+authored Liatiko and Kotsifali bunches hanging from physics joints. E brings a bunch
+close and reveals its profile bars; hold left mouse to grasp/drag with the glove,
+right mouse to rotate, wheel to zoom, and E/Esc to return. Options releases the cursor
+and offers a Fullscreen button (also F11). See [grape museum notes](docs/grape_museum.md)
+for controls, editable illustrative data, asset baking and validation.
+
 1. Select a wine profile from the QR simulation screen.
 2. Review the intro card.
 3. Inspect the vial and open required hotspots.

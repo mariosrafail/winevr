@@ -1,0 +1,92 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/vr/vr_info_panel.gd" id="1_vr_info_panel"]
+
+[sub_resource type="QuadMesh" id="1_background_mesh"]
+size = Vector2(1.08, 0.62)
+
+[sub_resource type="BoxMesh" id="2_border_horizontal_mesh"]
+size = Vector3(1.08, 0.012, 0.012)
+
+[sub_resource type="BoxMesh" id="3_border_vertical_mesh"]
+size = Vector3(0.012, 0.62, 0.012)
+
+[sub_resource type="StandardMaterial3D" id="4_placeholder_panel_mat"]
+shading_mode = 0
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.035, 0.032, 0.028, 0.86)
+
+[sub_resource type="StandardMaterial3D" id="5_placeholder_gold_mat"]
+shading_mode = 0
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.839216, 0.694118, 0.368627, 0.72)
+
+[node name="VRInfoPanel" type="Node3D"]
+script = ExtResource("1_vr_info_panel")
+
+[node name="Background" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("1_background_mesh")
+surface_material_override/0 = SubResource("4_placeholder_panel_mat")
+
+[node name="TopBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.31, 0.004)
+cast_shadow = 0
+mesh = SubResource("2_border_horizontal_mesh")
+surface_material_override/0 = SubResource("5_placeholder_gold_mat")
+
+[node name="BottomBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.31, 0.004)
+cast_shadow = 0
+mesh = SubResource("2_border_horizontal_mesh")
+surface_material_override/0 = SubResource("5_placeholder_gold_mat")
+
+[node name="LeftBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.54, 0, 0.004)
+cast_shadow = 0
+mesh = SubResource("3_border_vertical_mesh")
+surface_material_override/0 = SubResource("5_placeholder_gold_mat")
+
+[node name="RightBorder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.54, 0, 0.004)
+cast_shadow = 0
+mesh = SubResource("3_border_vertical_mesh")
+surface_material_override/0 = SubResource("5_placeholder_gold_mat")
+
+[node name="Title" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.47, 0.235, 0.012)
+text = "Winery Detail"
+font_size = 42
+pixel_size = 0.0022
+modulate = Color(0.976471, 0.968627, 0.941176, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.72)
+horizontal_alignment = 0
+vertical_alignment = 0
+no_depth_test = true
+
+[node name="Body" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.47, 0.12, 0.012)
+text = "Details"
+font_size = 27
+pixel_size = 0.0022
+modulate = Color(0.851, 0.82, 0.753, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.72)
+horizontal_alignment = 0
+vertical_alignment = 0
+no_depth_test = true
+
+[node name="Hint" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.47, -0.25, 0.012)
+text = "Look away or continue exploring"
+font_size = 20
+pixel_size = 0.0022
+modulate = Color(0.67, 0.62, 0.52, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 0.72)
+horizontal_alignment = 0
+vertical_alignment = 0
+no_depth_test = true

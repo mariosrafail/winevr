@@ -6,15 +6,21 @@ signal fallback_accept_requested()
 signal fallback_ignore_requested()
 signal display_settings_applied(old_window_size: Vector2i, new_window_size: Vector2i, viewport_size: Vector2)
 signal layout_refresh_requested(reason: String)
+signal options_opened
+signal options_closed
+signal controls_requested
 
 const CONFIG_PATH: String = "user://graphics_settings.cfg"
 
 var root: CanvasLayer
+var overlay_root: Control
+var overlay_dimmer: ColorRect
 var panel: PanelContainer
 var quality_dropdown: OptionButton
 var fps_toggle: CheckBox
 var resolution_dropdown: OptionButton
 var fullscreen_toggle: CheckBox
+var fullscreen_button: Button
 var vsync_dropdown: OptionButton
 var apply_button: Button
 var prompt_bar: PanelContainer
@@ -38,25 +44,53 @@ func setup(canvas_layer: CanvasLayer) -> void:
 
 
 func toggle() -> void:
-	if panel.visible:
+	if is_open():
 		close()
 	else:
 		open()
 
 
 func open() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if overlay_root != null:
+		overlay_root.visible = true
+		overlay_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.visible = true
+	_animate_overlay(true)
+	options_opened.emit()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	layout_refresh_requested.emit("panel opened")
 	await get_tree().process_frame
 	_apply_centered_panel_layout()
 
 
 func close() -> void:
+	if panel == null or not panel.visible:
+		return
+	if overlay_root != null:
+		overlay_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_animate_overlay(false)
 	panel.visible = false
+	options_closed.emit()
 
 
 func is_open() -> bool:
 	return panel != null and panel.visible
+
+
+func _process(_delta: float) -> void:
+	if is_open():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func toggle_fullscreen() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var mode: DisplayServer.WindowMode = DisplayServer.window_get_mode()
+	fullscreen_toggle.button_pressed = mode != DisplayServer.WINDOW_MODE_FULLSCREEN and mode != DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	await _apply_display_settings()
+	if is_open():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func get_panel_rect() -> Rect2:
@@ -66,6 +100,10 @@ func get_panel_rect() -> Rect2:
 
 
 func layout(viewport_size: Vector2) -> void:
+	if overlay_root != null:
+		overlay_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if overlay_dimmer != null:
+		overlay_dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_last_viewport_size = viewport_size
 	if menu_button != null:
 		var safe_margin: float = 20.0 if viewport_size.x >= 760.0 else 16.0
@@ -115,12 +153,27 @@ func hide_fallback_prompt() -> void:
 
 
 func _build_options_panel() -> void:
+	overlay_root = Control.new()
+	overlay_root.name = "OptionsOverlay"
+	overlay_root.visible = false
+	overlay_root.z_index = 128
+	overlay_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(overlay_root)
+
+	overlay_dimmer = ColorRect.new()
+	overlay_dimmer.name = "OptionsDimmer"
+	overlay_dimmer.color = Color(0.012, 0.01, 0.009, 0.72)
+	overlay_dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay_dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay_root.add_child(overlay_dimmer)
+
 	panel = PanelContainer.new()
 	panel.name = "OptionsPanel"
 	panel.visible = false
-	panel.z_index = 98
+	panel.z_index = 129
 	panel.add_theme_stylebox_override("panel", _make_panel_style())
-	root.add_child(panel)
+	overlay_root.add_child(panel)
 
 	menu_button = Button.new()
 	menu_button.name = "OptionsMenuButton"
@@ -156,6 +209,13 @@ func _build_options_panel() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.modulate = PremiumUIStyles.TEXT_TITLE
 	header.add_child(title)
+	fullscreen_button = Button.new()
+	fullscreen_button.name = "FullscreenButton"
+	fullscreen_button.text = "Fullscreen (F11)"
+	fullscreen_button.custom_minimum_size = Vector2(180, 42)
+	PremiumUIStyles.apply_gold_outline_button(fullscreen_button)
+	fullscreen_button.pressed.connect(toggle_fullscreen)
+	header.add_child(fullscreen_button)
 
 	options_content = BoxContainer.new()
 	options_content.name = "OptionsContent"
@@ -215,11 +275,19 @@ func _build_options_panel() -> void:
 	_add_section_title(right_column, "Controls")
 
 	var explore_hint: Label = Label.new()
-	explore_hint.text = "Explore Mode: Tab or E\nExit Explore Mode: ESC"
+	explore_hint.text = "Inspect: E\nExplore Mode: Tab\nEsc opens the Main Menu"
 	explore_hint.modulate = PremiumUIStyles.TEXT_BODY
 	explore_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explore_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_column.add_child(explore_hint)
+
+	var controls_button: Button = Button.new()
+	controls_button.text = "View Controls"
+	controls_button.custom_minimum_size = Vector2(0.0, 42.0)
+	controls_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	PremiumUIStyles.apply_gold_outline_button(controls_button)
+	controls_button.pressed.connect(func() -> void: controls_requested.emit())
+	right_column.add_child(controls_button)
 
 	_add_section_title(right_column, "Performance")
 
@@ -229,7 +297,7 @@ func _build_options_panel() -> void:
 	right_column.add_child(fps_toggle)
 
 	var hint: Label = Label.new()
-	hint.text = "ESC closes this panel when Explore Mode is off."
+	hint.text = "Esc returns to the Main Menu."
 	hint.modulate = PremiumUIStyles.TEXT_MUTED
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -380,6 +448,8 @@ func _apply_display_settings() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var new_window_size: Vector2i = DisplayServer.window_get_size()
+	if fullscreen_button != null:
+		fullscreen_button.text = "Windowed (F11)" if fullscreen_toggle.button_pressed else "Fullscreen (F11)"
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	print("Window size after apply:", new_window_size)
 	print("Viewport visible size:", viewport_size)
@@ -443,13 +513,14 @@ func _apply_centered_panel_layout(viewport_size: Vector2 = Vector2.ZERO) -> Rect
 	var max_width: float = maxf(320.0, actual_viewport_size.x - margin * 2.0)
 	var max_height: float = maxf(320.0, actual_viewport_size.y - margin * 2.0)
 	var preferred_width: float = clampf(actual_viewport_size.x * 0.5, 420.0, 900.0)
-	var ratio_height_cap: float = maxf(260.0, actual_viewport_size.y * 0.85)
+	var ratio_height_cap: float = minf(actual_viewport_size.y * 0.86, max_height)
 	var preferred_height: float = clampf(actual_viewport_size.y * 0.7, minf(400.0, ratio_height_cap), ratio_height_cap)
 	var target_size: Vector2 = Vector2(minf(preferred_width, max_width), minf(preferred_height, max_height))
 	panel.custom_minimum_size = Vector2(minf(420.0, target_size.x), minf(360.0, target_size.y))
 	panel.size = target_size
 	_configure_options_content_layout(actual_viewport_size, target_size)
-	var rect: Rect2 = ResponsiveLayoutController.center_panel_safe(panel, get_viewport(), target_size.x, 0.85)
+	panel.position = (actual_viewport_size - target_size) * 0.5
+	var rect: Rect2 = Rect2(panel.position, target_size)
 	print("[WineVR][Options] viewport=%s panel_size=%s scroll_enabled=%s" % [
 		str(actual_viewport_size),
 		str(rect.size),
@@ -459,7 +530,9 @@ func _apply_centered_panel_layout(viewport_size: Vector2 = Vector2.ZERO) -> Rect
 
 
 func _configure_options_content_layout(viewport_size: Vector2, panel_size: Vector2) -> void:
-	var use_scroll: bool = viewport_size.y < 650.0
+	# Keep the content in a scroll container so its minimum height never pushes the
+	# Apply/Close row and fullscreen control outside the window.
+	var use_scroll: bool = true
 	_set_options_scroll_enabled(use_scroll)
 	if options_content != null:
 		var use_single_column: bool = viewport_size.x < 980.0 or panel_size.x < 680.0
@@ -496,6 +569,26 @@ func _set_options_scroll_enabled(enabled: bool) -> void:
 		scroll_parent.add_child(options_content)
 		scroll_parent.move_child(options_content, insert_index)
 		options_scroll.visible = false
+
+
+func _animate_overlay(opening: bool) -> void:
+	if overlay_root == null:
+		return
+	if overlay_root.has_meta("options_overlay_tween") and overlay_root.get_meta("options_overlay_tween") is Tween:
+		(overlay_root.get_meta("options_overlay_tween") as Tween).kill()
+	var tween: Tween = overlay_root.create_tween()
+	overlay_root.set_meta("options_overlay_tween", tween)
+	if opening:
+		overlay_root.modulate.a = 0.0
+		tween.tween_property(overlay_root, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	else:
+		overlay_root.modulate.a = 1.0
+		tween.tween_property(overlay_root, "modulate:a", 0.0, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tween.finished.connect(func() -> void:
+			if overlay_root != null and not panel.visible:
+				overlay_root.visible = false
+				overlay_root.modulate.a = 1.0
+		)
 
 
 func _add_section_title(parent: VBoxContainer, text: String) -> void:

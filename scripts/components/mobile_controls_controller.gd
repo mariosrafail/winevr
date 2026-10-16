@@ -22,8 +22,9 @@ func set_zoom_visible(is_visible: bool) -> void:
 
 
 func set_winery_controls_visible(is_visible: bool) -> void:
-	mobile_controls.visible = is_visible
-	_hide_move_pad()
+	var show_touch_controls: bool = is_visible and _should_show_touch_movement()
+	mobile_controls.visible = show_touch_controls
+	_set_move_pad_visible(show_touch_controls)
 
 
 func layout(viewport_size: Vector2, margin: float) -> void:
@@ -34,10 +35,9 @@ func layout(viewport_size: Vector2, margin: float) -> void:
 
 	var move_pad: Control = mobile_controls.get_node_or_null("MovePad") as Control
 	if move_pad != null:
-		move_pad.visible = false
-		move_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		move_pad.position = Vector2(margin, viewport_size.y - 132.0)
-		move_pad.size = Vector2.ZERO
+		move_pad.size = Vector2(196.0, 110.0)
+		_set_move_pad_visible(mobile_controls.visible and _should_show_touch_movement())
 
 	if look_pad == null:
 		return
@@ -118,17 +118,25 @@ func _on_look_pad_input(event: InputEvent) -> void:
 
 
 func _hide_move_pad() -> void:
+	_set_move_pad_visible(false)
+
+
+func _set_move_pad_visible(is_visible: bool) -> void:
 	if mobile_controls == null:
 		return
 	var move_pad: Control = mobile_controls.get_node_or_null("MovePad") as Control
 	if move_pad == null:
 		return
-	move_pad.visible = false
+	move_pad.visible = is_visible
 	move_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in move_pad.get_children():
 		if child is Control:
 			var control: Control = child as Control
-			control.visible = false
-			control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			control.visible = is_visible
+			control.mouse_filter = Control.MOUSE_FILTER_STOP if is_visible else Control.MOUSE_FILTER_IGNORE
 		if child is BaseButton:
-			(child as BaseButton).disabled = true
+			(child as BaseButton).disabled = not is_visible
+
+
+func _should_show_touch_movement() -> bool:
+	return DisplayServer.is_touchscreen_available()

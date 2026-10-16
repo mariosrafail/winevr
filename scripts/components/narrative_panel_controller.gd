@@ -4,6 +4,8 @@ class_name NarrativePanelController
 signal show_target_requested(current_step: Dictionary)
 signal restart_requested
 signal layout_refresh_requested(reason: String)
+signal narrative_modal_opened(id: String)
+signal narrative_modal_closed(id: String)
 
 var panel: PanelContainer
 var title_label: Label
@@ -51,13 +53,11 @@ func layout(viewport_size: Vector2, margin: float) -> void:
 	var max_height: float = maxf(min_height, viewport_size.y * 0.5)
 	var width: float = clampf(minf(420.0, viewport_size.x - margin * 2.0), 220.0, maxf(220.0, viewport_size.x - margin * 2.0))
 	var height: float = clampf(minf(260.0, max_height), min_height, maxf(min_height, viewport_size.y - margin * 2.0))
-	var panel_position: Vector2 = Vector2((viewport_size.x - width) * 0.5, viewport_size.y - height - margin)
-	if ExperienceManager.current_state == ExperienceManager.ExperienceState.VIAL_INSPECTION and viewport_size.x >= 760.0:
-		panel_position.y = margin
+	var panel_position: Vector2 = (viewport_size - Vector2(width, height)) * 0.5
 	if viewport_size.x < 760.0:
 		width = clampf(minf(390.0, viewport_size.x - margin * 2.0), 220.0, maxf(220.0, viewport_size.x - margin * 2.0))
 		height = clampf(minf(max_height, viewport_size.y * 0.5), min_height, maxf(min_height, viewport_size.y - margin * 2.0))
-		panel_position = Vector2((viewport_size.x - width) * 0.5, margin)
+		panel_position = (viewport_size - Vector2(width, height)) * 0.5
 	panel_position.y = clampf(panel_position.y, margin, maxf(margin, viewport_size.y - height - margin))
 	panel.position = panel_position
 	panel.size = Vector2(width, height)
@@ -309,13 +309,17 @@ func _show_completion_modal() -> void:
 	panel.visible = false
 	show_button.visible = false
 	completion_overlay.visible = true
+	narrative_modal_opened.emit("narrative_completion")
 	layout_refresh_requested.emit("panel opened")
 	_raise_to_front()
 
 
 func _hide_completion_modal() -> void:
 	if completion_overlay != null:
+		var was_visible: bool = completion_overlay.visible
 		completion_overlay.visible = false
+		if was_visible:
+			narrative_modal_closed.emit("narrative_completion")
 
 
 func _raise_to_front() -> void:

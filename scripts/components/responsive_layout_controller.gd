@@ -35,7 +35,8 @@ func layout(viewport_size: Vector2) -> void:
 	var intro_width: float = clampf(430.0, 320.0, viewport_size.x - safe_margin * 2.0)
 	var left_panel_width: float = clampf(340.0, 300.0, viewport_size.x - safe_margin * 2.0)
 	var modal_width: float = clampf(470.0, 420.0, viewport_size.x - safe_margin * 2.0)
-	var intro_height: float = clampf(340.0, 180.0, viewport_size.y * 0.62)
+	var intro_preferred_height: float = 430.0 if hud.intro_immersive_button != null and hud.intro_immersive_button.visible else 340.0
+	var intro_height: float = clampf(intro_preferred_height, 180.0, viewport_size.y * 0.62)
 	var left_panel_height: float = clampf(300.0, 200.0, viewport_size.y * 0.55)
 	var hotspot_height: float = clampf(200.0, 120.0, viewport_size.y * 0.45)
 	var modal_height: float = clampf(280.0, 180.0, viewport_size.y * 0.5)
@@ -98,7 +99,7 @@ static func apply_safe_panel_layout(panel: Control, viewport_size: Vector2, pref
 	# Small windows: use near full screen with safety margins.
 	if (viewport_size.x <= 980.0 or viewport_size.y <= 680.0) and anchor_mode == "center":
 		width = max_w
-		height = clampf(viewport_size.y * 0.9, minf(SAFE_MIN_HEIGHT, viewport_size.y - margin * 2.0), maxf(minf(SAFE_MIN_HEIGHT, viewport_size.y - margin * 2.0), viewport_size.y - margin * 2.0))
+		height = clampf(viewport_size.y * 0.82, minf(SAFE_MIN_HEIGHT, viewport_size.y - margin * 2.0), maxf(minf(SAFE_MIN_HEIGHT, viewport_size.y - margin * 2.0), viewport_size.y - margin * 2.0))
 
 	var pos := Vector2.ZERO
 	match anchor_mode:
@@ -126,7 +127,7 @@ static func center_panel_safe(panel: Control, viewport: Viewport, preferred_widt
 	var viewport_size: Vector2 = viewport.get_visible_rect().size
 	var margin: float = 24.0
 	var max_w: float = maxf(120.0, viewport_size.x - margin * 2.0)
-	var max_h: float = maxf(120.0, viewport_size.y * max_height_ratio)
+	var max_h: float = maxf(120.0, viewport_size.y * minf(max_height_ratio, 0.82))
 	var min_w: float = minf(360.0, max_w)
 	var target_w: float = clampf(preferred_width, min_w, 900.0)
 	var width: float = minf(target_w, max_w)

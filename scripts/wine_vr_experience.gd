@@ -12,6 +12,10 @@ const DEMO_VIEWPORT_PRESETS: Array[Dictionary] = [
 	{"name": "mobile portrait", "size": Vector2i(390, 844)},
 	{"name": "tablet landscape", "size": Vector2i(1024, 768)}
 ]
+const IMMERSIVE_UNAVAILABLE_MESSAGE: String = "Immersive mode is not available on this device. You can continue in desktop mode."
+const UI_MODAL_PRIORITY_MANAGER_SCRIPT: Script = preload("res://scripts/ui/ui_modal_priority_manager.gd")
+const CONTROLS_OVERLAY_CONTROLLER_SCRIPT: Script = preload("res://scripts/ui/controls_overlay_controller.gd")
+const MAIN_MENU_OVERLAY_CONTROLLER_SCRIPT: Script = preload("res://scripts/ui/main_menu_overlay_controller.gd")
 
 var _transition_in_progress: bool = false
 var _profile_loading: bool = false
@@ -21,6 +25,8 @@ var _native_window_size: Vector2i = Vector2i.ZERO
 var _last_window_size: Vector2i = Vector2i.ZERO
 var _demo_mode: bool = false
 var _ui_hidden_for_capture: bool = false
+var _immersive_mode_loading: bool = false
+var _browser_free_explore_mode: bool = false
 
 var _qr_screen: QRScreenController
 var _loading_overlay: LoadingOverlayController
@@ -36,11 +42,18 @@ var _graphics_panel: GraphicsSettingsPanelController
 var _crosshair: CrosshairController
 var _exploration_mode: ExplorationModeController
 var _journey: TastingJourneyController
+var _ui_modal_priority: Node
+var _controls_overlay: ControlsOverlayController
+var _main_menu: MainMenuOverlayController
+var _return_to_main_menu_after_submenu: bool = false
+var _opening_menu_submenu: bool = false
 
 
 func _ready() -> void:
 	_ensure_exploration_input_actions()
 	_build_components()
+	_graphics_manager.preset_applied.connect(func(_preset: String) -> void: winery_interior.call("_apply_museum_presentation"))
+	_setup_ui_modal_priority()
 	canvas_layer.move_child(fade_rect, canvas_layer.get_child_count() - 1)
 	if _graphics_panel != null:
 		await _graphics_panel.apply_saved_display_settings()
@@ -49,16 +62,23 @@ func _ready() -> void:
 	ExperienceManager.state_changed.connect(_on_state_changed)
 	winery_interior.door_prompt_changed.connect(Callable(_hud, "set_door_prompt"))
 	winery_interior.door_interacted.connect(_on_winery_interacted)
+	winery_interior.vr_vial_hotspot_viewed.connect(_on_hotspot_viewed)
+	winery_interior.desktop_info_panel_opened.connect(func() -> void: _open_ui_modal("winery_info_panel"))
+	winery_interior.desktop_info_panel_closed.connect(func() -> void: _close_ui_modal("winery_info_panel"))
 	winery_interior.layout_refresh_requested.connect(refresh_all_ui_layouts)
 
 	_apply_client_profile(ClientProfileLoader.get_active_client_data())
 	_narrative_panel.refresh()
+	_sync_immersive_mode_controls()
 	_apply_state(ExperienceManager.current_state)
 	_last_window_size = DisplayServer.window_get_size()
 	panel_dim.modulate.a = 0.0
 	await refresh_all_ui_layouts("startup")
 	await refresh_all_ui_layouts("startup")
+	_show_main_menu()
 	_print_runtime_health_status()
+	if "--grape-museum" in OS.get_cmdline_user_args():
+		_on_grape_museum_requested()
 
 
 func _notification(what: int) -> void:
@@ -78,23 +98,31 @@ func _notification(what: int) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
+		_graphics_panel.toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and not _ui_modal_has_active_modal() and winery_interior.close_grape_inspection():
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and not _has_text_input_focus():
+		_handle_escape_menu_flow()
+		get_viewport().set_input_as_handled()
+		return
+	if _ui_modal_has_active_modal():
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F1 and not _has_text_input_focus():
+		_return_to_main_menu_after_submenu = false
+		_toggle_controls_overlay_from_f1()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if _exploration_mode != null and _exploration_mode.handle_input(event):
 			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_R:
 			_reset_current_experience()
-			return
-		if event.keycode == KEY_ESCAPE:
-			if _graphics_panel != null and _graphics_panel.is_open():
-				_graphics_panel.close()
-				return
-			if _journey != null and _journey.close_open_modal():
-				return
-			if _graphics_panel != null and ExperienceManager.current_state != ExperienceManager.ExperienceState.QR_SCAN:
-				_graphics_panel.open()
-				return
-			_return_to_qr_scan_debug()
 			return
 		if event.keycode == KEY_F7:
 			_set_demo_mode(not _demo_mode)
@@ -135,6 +163,7 @@ func _build_components() -> void:
 	add_child(_qr_screen)
 	_qr_screen.setup(canvas_layer, selection_entries)
 	_qr_screen.client_selected.connect(_select_qr_client)
+	_qr_screen.immersive_mode_requested.connect(_on_immersive_mode_requested)
 
 	_loading_overlay = LoadingOverlayController.new()
 	add_child(_loading_overlay)
@@ -146,7 +175,11 @@ func _build_components() -> void:
 	_hud.start_requested.connect(Callable(ExperienceManager, "start_experience"))
 	_hud.enter_winery_requested.connect(_on_enter_winery_pressed)
 	_hud.return_to_vial_requested.connect(_on_return_to_vial_pressed)
+	_hud.immersive_mode_requested.connect(_on_immersive_mode_requested)
+	_hud.explore_winery_requested.connect(_on_browser_explore_winery_requested)
 	_hud.layout_refresh_requested.connect(refresh_all_ui_layouts)
+	_hud.winery_modal_opened.connect(_on_winery_modal_opened)
+	_hud.winery_modal_closed.connect(_on_winery_modal_closed)
 
 	_hotspots = HotspotUIController.new()
 	add_child(_hotspots)
@@ -162,6 +195,8 @@ func _build_components() -> void:
 	_hotspots.hotspot_viewed.connect(_on_hotspot_viewed)
 	_hotspots.enter_winery_state_changed.connect(Callable(_hud, "set_enter_winery_enabled"))
 	_hotspots.layout_refresh_requested.connect(refresh_all_ui_layouts)
+	_hotspots.annotation_opened.connect(_on_hotspot_annotation_opened)
+	_hotspots.annotation_closed.connect(_on_hotspot_annotation_closed)
 
 	_mobile_controls = MobileControlsController.new()
 	add_child(_mobile_controls)
@@ -173,6 +208,8 @@ func _build_components() -> void:
 	_narrative_panel.show_target_requested.connect(_on_show_narrative_target_requested)
 	_narrative_panel.restart_requested.connect(_reset_current_experience)
 	_narrative_panel.layout_refresh_requested.connect(refresh_all_ui_layouts)
+	_narrative_panel.narrative_modal_opened.connect(_on_narrative_modal_opened)
+	_narrative_panel.narrative_modal_closed.connect(_on_narrative_modal_closed)
 	NarrativeManager.narrative_changed.connect(_on_narrative_changed)
 
 	_onboarding = OnboardingOverlayController.new()
@@ -205,6 +242,9 @@ func _build_components() -> void:
 	_graphics_panel.fallback_ignore_requested.connect(_on_performance_fallback_ignored)
 	_graphics_panel.display_settings_applied.connect(_on_display_settings_applied)
 	_graphics_panel.layout_refresh_requested.connect(refresh_all_ui_layouts)
+	_graphics_panel.options_opened.connect(_on_options_opened)
+	_graphics_panel.options_closed.connect(_on_options_closed)
+	_graphics_panel.controls_requested.connect(_on_controls_requested_from_options)
 
 	_crosshair = CrosshairController.new()
 	_crosshair.setup(canvas_layer)
@@ -222,6 +262,325 @@ func _build_components() -> void:
 	_journey.choose_another_requested.connect(_choose_another_tasting)
 	_journey.show_qr_requested.connect(_show_selected_qr_info)
 	_journey.layout_refresh_requested.connect(refresh_all_ui_layouts)
+	_journey.journey_modal_opened.connect(_on_journey_modal_opened)
+	_journey.journey_modal_closed.connect(_on_journey_modal_closed)
+
+	_controls_overlay = CONTROLS_OVERLAY_CONTROLLER_SCRIPT.new() as ControlsOverlayController
+	add_child(_controls_overlay)
+	_controls_overlay.setup(canvas_layer)
+	_controls_overlay.start_requested.connect(_on_controls_start_pressed)
+	_controls_overlay.skip_requested.connect(_on_controls_skip_pressed)
+	_controls_overlay.controls_opened.connect(func() -> void: _open_ui_modal("controls"))
+	_controls_overlay.controls_closed.connect(_on_controls_closed)
+
+	_main_menu = MAIN_MENU_OVERLAY_CONTROLLER_SCRIPT.new() as MainMenuOverlayController
+	add_child(_main_menu)
+	_main_menu.setup(canvas_layer)
+	_main_menu.resume_requested.connect(_on_main_menu_resume_requested)
+	_main_menu.options_requested.connect(_on_main_menu_options_requested)
+	_main_menu.museum_requested.connect(_on_grape_museum_requested)
+	_main_menu.controls_requested.connect(_on_main_menu_controls_requested)
+	_main_menu.quit_requested.connect(_on_main_menu_quit_requested)
+	_main_menu.menu_opened.connect(func() -> void: _open_ui_modal("main_menu"))
+	_main_menu.menu_closed.connect(func() -> void: _close_ui_modal("main_menu"))
+
+
+func _setup_ui_modal_priority() -> void:
+	_ui_modal_priority = UI_MODAL_PRIORITY_MANAGER_SCRIPT.new() as Node
+	_ui_modal_priority.name = "UIModalPriorityManager"
+	add_child(_ui_modal_priority)
+	_ui_modal_priority.connect("modal_opened", Callable(self, "_sync_winery_modal_context"))
+	_ui_modal_priority.connect("modal_closed", func(_id: String) -> void: _sync_winery_modal_context(str(_ui_modal_priority.call("get_active_modal_id"))))
+	_ui_modal_priority.connect("modal_focus_applied", func(_id: String) -> void: _sync_winery_modal_context(str(_ui_modal_priority.call("get_active_modal_id"))))
+
+	if _main_menu != null:
+		_ui_modal_priority.call("register_panel", "main_menu", _main_menu.root, 130, Callable(_main_menu, "hide_menu"))
+	if _controls_overlay != null:
+		_ui_modal_priority.call("register_panel", "controls", _controls_overlay.root, 120, Callable(_controls_overlay, "hide_controls"))
+	_ui_modal_priority.call("register_panel", "options", _graphics_panel.overlay_root, 115, Callable(_graphics_panel, "close"))
+	_ui_modal_priority.call("register_panel", "hotspot_modal", _hotspots.panel, 90, Callable(_hotspots, "close_panel"))
+	_ui_modal_priority.call("register_panel", "winery_modal", _hud.winery_modal, 90, Callable(_hud, "close_winery_modal"))
+	_ui_modal_priority.call("register_panel", "journey_completion", _journey.completion_panel, 90, Callable(_journey, "close_completion_panel"))
+	_ui_modal_priority.call("register_panel", "journey_card", _journey.tasting_card_panel, 85, Callable(_journey, "close_tasting_card"))
+	_ui_modal_priority.call("register_panel", "narrative_completion", _narrative_panel.completion_overlay, 85, Callable(_narrative_panel, "_hide_completion_modal"))
+	_ui_modal_priority.call("register_panel", "narrative_panel", _narrative_panel.panel, 70)
+	_ui_modal_priority.call("register_panel", "narrative_button", _narrative_panel.show_button, 70)
+	_ui_modal_priority.call("register_panel", "winery_tooltip", winery_interior.get_tooltip_panel(), 60, Callable(winery_interior, "close_tooltip_panel"))
+	_ui_modal_priority.call("register_panel", "winery_info_panel", winery_interior.get_info_panel(), 60, Callable(winery_interior, "close_desktop_info_panel"))
+	_ui_modal_priority.call("register_panel", "inspection_info_card", _hud.inspection_info_card, 40)
+	_ui_modal_priority.call("register_panel", "winery_info_card", _hud.winery_info_card, 40)
+	_ui_modal_priority.call("register_panel", "journey_progress", _journey.progress_panel, 30)
+	_ui_modal_priority.call("register_panel", "journey_card_button", _journey.tasting_card_button, 30)
+	_ui_modal_priority.call("register_panel", "explore_button", _exploration_mode.explore_button, 30)
+	_ui_modal_priority.call("register_panel", "options_menu", _graphics_panel.menu_button, 30)
+	_sync_winery_modal_context("")
+
+
+func _on_options_opened() -> void:
+	_open_ui_modal("options")
+
+
+func _on_options_closed() -> void:
+	_close_ui_modal("options")
+	_return_to_menu_after_submenu_if_needed()
+
+
+func _on_winery_modal_opened() -> void:
+	_open_ui_modal("winery_modal")
+
+
+func _on_winery_modal_closed() -> void:
+	_close_ui_modal("winery_modal")
+
+
+func _on_hotspot_annotation_opened() -> void:
+	_open_ui_modal("hotspot_modal")
+
+
+func _on_hotspot_annotation_closed() -> void:
+	_close_ui_modal("hotspot_modal")
+
+
+func _on_journey_modal_opened(id: String) -> void:
+	_open_ui_modal(id)
+
+
+func _on_journey_modal_closed(id: String) -> void:
+	_close_ui_modal(id)
+
+
+func _on_narrative_modal_opened(id: String) -> void:
+	_open_ui_modal(id)
+
+
+func _on_narrative_modal_closed(id: String) -> void:
+	_close_ui_modal(id)
+
+
+func _open_ui_modal(id: String) -> void:
+	if _ui_modal_priority == null or winery_interior.is_vr_active():
+		return
+	_release_explore_mode_for_modal(id)
+	_ui_modal_priority.call("open_modal", id)
+	_sync_winery_modal_context(str(_ui_modal_priority.call("get_active_modal_id")))
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _close_ui_modal(id: String) -> void:
+	if _ui_modal_priority == null:
+		return
+	_ui_modal_priority.call("close_modal", id)
+	_sync_winery_modal_context(str(_ui_modal_priority.call("get_active_modal_id")))
+	_keep_closing_overlay_noninteractive(id)
+	_restore_mouse_capture_after_modal_if_needed()
+
+
+func _sync_winery_modal_context(_id: String = "") -> void:
+	if winery_interior == null:
+		return
+	var active_id: String = str(_ui_modal_priority.call("get_active_modal_id")) if _ui_modal_priority != null else ""
+	winery_interior.set_desktop_modal_context(active_id)
+	if not active_id.is_empty():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if _crosshair != null:
+		_crosshair.set_blocked_by_modal(not active_id.is_empty())
+	if _hud != null and _hud.door_prompt_label != null:
+		_hud.door_prompt_label.visible = active_id.is_empty() and ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR
+
+
+func _release_explore_mode_for_modal(id: String) -> void:
+	var keep_explore_mode: bool = ["main_menu", "options", "controls", "winery_info_panel"].has(id)
+	if _exploration_mode != null and _exploration_mode.active and not keep_explore_mode:
+		_exploration_mode.exit_mode()
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _restore_mouse_capture_after_modal_if_needed() -> void:
+	if winery_interior != null and winery_interior.get("_grape_museum") != null and (winery_interior.get("_grape_museum") as GrapeMuseum).is_inspecting():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		return
+	if _graphics_panel != null and _graphics_panel.is_open():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		return
+	if _ui_modal_priority != null and bool(_ui_modal_priority.call("has_active_modal")):
+		return
+	if _exploration_mode != null and _exploration_mode.active and ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _keep_closing_overlay_noninteractive(id: String) -> void:
+	match id:
+		"main_menu":
+			if _main_menu != null and _main_menu.root != null and _main_menu.root.visible and not (_ui_modal_priority != null and str(_ui_modal_priority.call("get_active_modal_id")) == "main_menu"):
+				_set_control_tree_mouse_filter(_main_menu.root, Control.MOUSE_FILTER_IGNORE)
+		"options":
+			if _graphics_panel != null and _graphics_panel.overlay_root != null and _graphics_panel.overlay_root.visible and not _graphics_panel.is_open():
+				_set_control_tree_mouse_filter(_graphics_panel.overlay_root, Control.MOUSE_FILTER_IGNORE)
+
+
+func _set_control_tree_mouse_filter(node: Node, mouse_filter: int) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = mouse_filter
+	for child in node.get_children():
+		_set_control_tree_mouse_filter(child, mouse_filter)
+
+
+func _ui_modal_has_active_modal() -> bool:
+	return _ui_modal_priority != null and bool(_ui_modal_priority.call("has_active_modal"))
+
+
+func _close_active_ui_modal() -> void:
+	if _ui_modal_priority == null:
+		return
+	var active_id: String = str(_ui_modal_priority.call("get_active_modal_id"))
+	match active_id:
+		"main_menu":
+			_on_main_menu_resume_requested()
+		"controls":
+			_controls_overlay.hide_controls()
+		"options":
+			_graphics_panel.close()
+		"hotspot_modal":
+			_hotspots.close_panel()
+		"winery_modal":
+			_hud.close_winery_modal()
+		"winery_info_panel":
+			winery_interior.close_desktop_info_panel()
+		"journey_card":
+			_journey.close_tasting_card()
+		"journey_completion":
+			_journey.close_completion_panel()
+		"narrative_completion":
+			_narrative_panel.call("_hide_completion_modal")
+
+
+func _on_controls_requested_from_options() -> void:
+	_opening_menu_submenu = true
+	if _graphics_panel != null and _graphics_panel.is_open():
+		_graphics_panel.close()
+	_opening_menu_submenu = false
+	_show_controls_overlay(true)
+
+
+func _on_controls_start_pressed() -> void:
+	_close_ui_modal("controls")
+	if ExperienceManager.current_state == ExperienceManager.ExperienceState.INTRO:
+		ExperienceManager.start_experience()
+
+
+func _on_controls_skip_pressed() -> void:
+	_close_ui_modal("controls")
+
+
+func _on_controls_closed() -> void:
+	_close_ui_modal("controls")
+	_return_to_menu_after_submenu_if_needed()
+
+
+func _show_main_menu() -> void:
+	if _main_menu == null:
+		return
+	if winery_interior != null and winery_interior.is_vr_active():
+		return
+	_return_to_main_menu_after_submenu = false
+	_main_menu.show_menu()
+
+
+func _handle_escape_menu_flow() -> void:
+	if _ui_modal_priority != null and bool(_ui_modal_priority.call("has_active_modal")):
+		var active_id: String = str(_ui_modal_priority.call("get_active_modal_id"))
+		match active_id:
+			"main_menu":
+				_on_main_menu_resume_requested()
+			"options":
+				_return_to_main_menu_after_submenu = true
+				_graphics_panel.close()
+			"controls":
+				_return_to_main_menu_after_submenu = true
+				_controls_overlay.hide_controls()
+			_:
+				_close_active_ui_modal()
+		return
+	_show_main_menu()
+
+
+func _on_main_menu_resume_requested() -> void:
+	_return_to_main_menu_after_submenu = false
+	if _main_menu != null:
+		_main_menu.hide_menu()
+	_restore_mouse_capture_after_modal_if_needed()
+
+
+func _on_grape_museum_requested() -> void:
+	if _transition_in_progress:
+		return
+	_return_to_main_menu_after_submenu = false
+	_main_menu.hide_menu()
+	_enter_free_explore_mode()
+
+
+func _on_main_menu_options_requested() -> void:
+	if _graphics_panel == null:
+		return
+	_return_to_main_menu_after_submenu = true
+	_opening_menu_submenu = true
+	if _main_menu != null and _main_menu.is_open():
+		_main_menu.hide_menu()
+	_graphics_panel.open()
+	_opening_menu_submenu = false
+
+
+func _on_main_menu_controls_requested() -> void:
+	_return_to_main_menu_after_submenu = true
+	_opening_menu_submenu = true
+	if _main_menu != null and _main_menu.is_open():
+		_main_menu.hide_menu()
+	_show_controls_overlay(true)
+	_opening_menu_submenu = false
+
+
+func _on_main_menu_quit_requested() -> void:
+	if OS.has_feature("web"):
+		if _main_menu != null:
+			_main_menu.show_message("Quit is not available in browser mode.")
+		return
+	get_tree().quit()
+
+
+func _return_to_menu_after_submenu_if_needed() -> void:
+	if _opening_menu_submenu:
+		return
+	if not _return_to_main_menu_after_submenu:
+		return
+	_return_to_main_menu_after_submenu = false
+	_show_main_menu()
+
+
+func _toggle_controls_overlay_from_f1() -> void:
+	print("[WineVR][Controls] F1 toggled")
+	if _controls_overlay == null:
+		return
+	if _controls_overlay.is_open():
+		_controls_overlay.hide_controls()
+	else:
+		_return_to_main_menu_after_submenu = false
+		_show_controls_overlay(true)
+
+
+func _show_controls_overlay(force: bool = false) -> void:
+	if _controls_overlay == null:
+		return
+	if winery_interior != null and winery_interior.is_vr_active():
+		return
+	if not force and _controls_overlay.has_seen_this_session():
+		return
+	_controls_overlay.configure(_should_show_vr_controls_section(), OS.is_debug_build())
+	_controls_overlay.show_controls()
+
+
+func _show_controls_overlay_after_selection() -> void:
+	return
 
 
 func _on_client_profile_changed(_client_id: String, client_data: Dictionary) -> void:
@@ -260,10 +619,13 @@ func _apply_client_profile(client_data: Dictionary) -> void:
 
 func _apply_state(state: int) -> void:
 	var vr_winery_active: bool = winery_interior.is_vr_active() and state == ExperienceManager.ExperienceState.WINERY_INTERIOR
+	_sync_immersive_mode_controls()
 	_qr_screen.set_visible(state == ExperienceManager.ExperienceState.QR_SCAN)
 	_hud.apply_state(state)
 	_narrative_panel.apply_state(state)
 	_hud.set_vr_winery_mode(vr_winery_active)
+	if _browser_free_explore_mode:
+		_hud.winery_info_card.visible = false
 	_narrative_panel.set_vr_winery_mode(vr_winery_active)
 	canvas_layer.visible = not _ui_hidden_for_capture
 
@@ -275,8 +637,8 @@ func _apply_state(state: int) -> void:
 	winery_interior.set_controls_enabled(state == ExperienceManager.ExperienceState.WINERY_INTERIOR)
 	_mobile_controls.set_zoom_visible(state == ExperienceManager.ExperienceState.VIAL_INSPECTION)
 	_mobile_controls.set_winery_controls_visible(state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not vr_winery_active)
-	if _crosshair != null and vr_winery_active:
-		_crosshair.set_active(false)
+	if _crosshair != null:
+		_crosshair.set_active(state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not vr_winery_active)
 	if _exploration_mode != null:
 		_exploration_mode.set_available(state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not vr_winery_active)
 	if _journey != null:
@@ -361,8 +723,8 @@ func _on_winery_interacted(interactable_data: Dictionary = {}) -> void:
 		NarrativeManager.complete_target(interactable_type, interactable_id)
 		if interactable_data.has("target_type") and interactable_data.has("target_id"):
 			NarrativeManager.complete_target(str(interactable_data.get("target_type", "")), str(interactable_data.get("target_id", "")))
-	if not winery_interior.is_vr_active():
-		_hud.show_interactable_modal(interactable_data)
+	# Normal winery interactions now use lightweight in-scene feedback. Keep the HUD
+	# winery modal available for future explicit "More info" actions.
 
 
 func _on_narrative_changed(current_step: Dictionary, _current_index: int, _total_steps: int) -> void:
@@ -430,7 +792,50 @@ func _on_enter_winery_pressed() -> void:
 
 func _on_return_to_vial_pressed() -> void:
 	if not _transition_in_progress:
+		if _browser_free_explore_mode:
+			_browser_free_explore_mode = false
+			NarrativeManager.load_from_client_data(ClientProfileLoader.get_active_client_data())
 		_return_to_vial_with_fade()
+
+
+func _on_immersive_mode_requested() -> void:
+	if _immersive_mode_loading:
+		return
+	_immersive_mode_loading = true
+	_set_immersive_mode_busy(true)
+	_set_immersive_mode_message("")
+
+	var initialized: bool = await winery_interior.request_immersive_mode()
+	_immersive_mode_loading = false
+	if initialized:
+		_set_immersive_mode_active(true)
+		_set_immersive_mode_message("")
+		_apply_state(ExperienceManager.current_state)
+		await refresh_all_ui_layouts("immersive mode initialized")
+	else:
+		_set_immersive_mode_busy(false)
+		_set_immersive_mode_active(false)
+		_set_immersive_mode_message(IMMERSIVE_UNAVAILABLE_MESSAGE, true)
+		await refresh_all_ui_layouts("immersive mode unavailable")
+
+
+func _on_browser_explore_winery_requested() -> void:
+	if not OS.has_feature("web"):
+		return
+	_enter_free_explore_mode()
+
+
+func _enter_free_explore_mode() -> void:
+	if _transition_in_progress:
+		return
+	_browser_free_explore_mode = true
+	_hotspots.close_panel()
+	_hud.close_winery_modal()
+	_narrative_panel.clear_hint()
+	NarrativeManager.load_from_client_data({})
+	if _journey != null:
+		_journey.set_visible_for_state(false)
+	ExperienceManager.enter_winery()
 
 
 func _enter_winery_with_fade() -> void:
@@ -444,11 +849,15 @@ func _enter_winery_with_fade() -> void:
 	await refresh_all_ui_layouts("winery scene loaded")
 	await _fade_to(0.0)
 	_transition_in_progress = false
+	if _browser_free_explore_mode and not winery_interior.is_vr_active() and _exploration_mode != null:
+		_exploration_mode.enter_mode()
 
 
 func _return_to_vial_with_fade() -> void:
 	_transition_in_progress = true
 	winery_interior.set_controls_enabled(false)
+	if _crosshair != null:
+		_crosshair.set_active(false)
 	await _fade_to(1.0)
 	ExperienceManager.return_to_vial()
 	vial_preview.reset_view()
@@ -465,6 +874,7 @@ func _fade_to(target_alpha: float) -> void:
 func _select_qr_client(client_id: String) -> void:
 	if _profile_loading:
 		return
+	_browser_free_explore_mode = false
 
 	_profile_loading = true
 	_qr_screen.set_error("")
@@ -474,6 +884,7 @@ func _select_qr_client(client_id: String) -> void:
 	_hotspots.reset_viewed()
 	_hotspots.close_panel()
 	_hud.close_winery_modal()
+	var profile_loaded_for_controls: bool = false
 	var selected_wine_profile: Dictionary = WineDatabase.get_profile_by_id(client_id)
 	if not selected_wine_profile.is_empty():
 		AppState.set_selected_profile(client_id, selected_wine_profile)
@@ -484,6 +895,7 @@ func _select_qr_client(client_id: String) -> void:
 			ExperienceManager.enter_intro()
 			_onboarding.show_once()
 			await refresh_all_ui_layouts("tasting selected")
+			profile_loaded_for_controls = true
 		else:
 			_qr_screen.set_error("This tasting profile is not available right now.")
 			ExperienceManager.show_qr_scan()
@@ -497,15 +909,21 @@ func _select_qr_client(client_id: String) -> void:
 		ExperienceManager.enter_intro()
 		_onboarding.show_once()
 		await refresh_all_ui_layouts("tasting selected")
+		profile_loaded_for_controls = true
 	else:
 		_qr_screen.set_error("This tasting profile is not available right now.")
 		ExperienceManager.show_qr_scan()
 
 	_loading_overlay.hide_loading()
 	_profile_loading = false
+	if profile_loaded_for_controls:
+		_show_controls_overlay_after_selection()
 
 
 func _reset_current_experience() -> void:
+	if _browser_free_explore_mode:
+		_browser_free_explore_mode = false
+		NarrativeManager.load_from_client_data(ClientProfileLoader.get_active_client_data())
 	_hotspots.reset_viewed()
 	_hotspots.close_panel()
 	_hud.close_winery_modal()
@@ -580,6 +998,51 @@ func _set_ui_hidden_for_capture(hidden: bool) -> void:
 		print("[WineVR][Demo] ui_hidden=%s" % _ui_hidden_for_capture)
 
 
+func _sync_immersive_mode_controls() -> void:
+	if winery_interior == null or _qr_screen == null or _hud == null:
+		return
+	var available: bool = winery_interior.can_request_immersive_mode()
+	var active: bool = winery_interior.is_vr_active()
+	_qr_screen.set_immersive_mode_available(available)
+	_hud.set_immersive_mode_available(available)
+	if _immersive_mode_loading:
+		_set_immersive_mode_busy(true)
+	else:
+		_set_immersive_mode_active(active)
+	if _controls_overlay != null:
+		_controls_overlay.configure(_should_show_vr_controls_section(), OS.is_debug_build())
+
+
+func _should_show_vr_controls_section() -> bool:
+	return winery_interior != null and (winery_interior.is_vr_active() or winery_interior.can_request_immersive_mode())
+
+
+func _set_immersive_mode_busy(busy: bool) -> void:
+	if _qr_screen != null:
+		_qr_screen.set_immersive_mode_busy(busy)
+	if _hud != null:
+		_hud.set_immersive_mode_busy(busy)
+
+
+func _set_immersive_mode_active(active: bool) -> void:
+	if _qr_screen != null:
+		_qr_screen.set_immersive_mode_active(active)
+	if _hud != null:
+		_hud.set_immersive_mode_active(active)
+
+
+func _set_immersive_mode_message(message: String, is_error: bool = false) -> void:
+	if _qr_screen != null:
+		_qr_screen.set_immersive_mode_message(message, is_error)
+	if _hud != null:
+		_hud.set_immersive_mode_message(message, is_error)
+
+
+func _has_text_input_focus() -> bool:
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	return focus_owner is LineEdit or focus_owner is TextEdit
+
+
 func _reset_current_view_for_demo() -> void:
 	match ExperienceManager.current_state:
 		ExperienceManager.ExperienceState.WINERY_INTERIOR:
@@ -592,7 +1055,7 @@ func _reset_current_view_for_demo() -> void:
 		print("[WineVR][Demo] reset view for state=%s" % _state_name(ExperienceManager.current_state))
 
 
-# Dev-only shortcut: Escape returns to the QR/client selection screen without unloading data.
+# Dev-only helper retained for scripted resets; Escape now belongs to the Main Menu flow.
 func _return_to_qr_scan_debug() -> void:
 	_hotspots.close_panel()
 	_hud.close_winery_modal()
@@ -729,6 +1192,12 @@ func _relayout_all_ui(viewport_size: Vector2) -> void:
 		_exploration_mode.layout(viewport_size)
 	if _journey != null:
 		_journey.layout(viewport_size)
+	if _controls_overlay != null:
+		_controls_overlay.layout(viewport_size)
+	if _main_menu != null:
+		_main_menu.layout(viewport_size)
+	if _ui_modal_priority != null:
+		_ui_modal_priority.call("refresh")
 
 
 func refresh_all_ui_layouts(reason: String = "manual") -> void:
@@ -751,6 +1220,12 @@ func refresh_all_ui_layouts(reason: String = "manual") -> void:
 		_exploration_mode.layout(viewport_size)
 	if _journey != null:
 		_journey.layout(viewport_size)
+	if _controls_overlay != null:
+		_controls_overlay.layout(viewport_size)
+	if _main_menu != null:
+		_main_menu.layout(viewport_size)
+	if _ui_modal_priority != null:
+		_ui_modal_priority.call("refresh")
 	var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
 	print("[WineVR][UI] layout refresh complete: %s viewport=%s options_pos=%s options_size=%s" % [
 		reason,
@@ -773,9 +1248,6 @@ func _wait_for_valid_viewport() -> void:
 
 func _ensure_exploration_input_actions() -> void:
 	_ensure_input_action_key("toggle_explore_mode", KEY_TAB)
-	_ensure_input_action_key("toggle_explore_mode", KEY_E)
-	_ensure_input_action_key("exit_mode", KEY_ESCAPE)
-	_ensure_input_action_mouse("interact", MOUSE_BUTTON_LEFT)
 
 
 func _ensure_input_action_key(action_name: String, keycode: int) -> void:

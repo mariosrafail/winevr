@@ -1,0 +1,106 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/vr/vr_hand_vial_holder.gd" id="1_holder_script"]
+
+[sub_resource type="BoxMesh" id="1_palm_mesh"]
+size = Vector3(0.095, 0.055, 0.07)
+
+[sub_resource type="CylinderMesh" id="2_finger_mesh"]
+top_radius = 0.0105
+bottom_radius = 0.013
+height = 0.155
+radial_segments = 10
+rings = 2
+
+[sub_resource type="CylinderMesh" id="3_thumb_mesh"]
+top_radius = 0.012
+bottom_radius = 0.015
+height = 0.112
+radial_segments = 10
+rings = 2
+
+[sub_resource type="BoxMesh" id="4_wrist_cuff_mesh"]
+size = Vector3(0.112, 0.036, 0.078)
+
+[sub_resource type="BoxMesh" id="5_trim_mesh"]
+size = Vector3(0.104, 0.007, 0.084)
+
+[sub_resource type="CylinderMesh" id="6_vial_anchor_mesh"]
+top_radius = 0.031
+bottom_radius = 0.031
+height = 0.006
+radial_segments = 18
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="7_glove_mat"]
+albedo_color = Color(0.075, 0.029, 0.045, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="8_gold_mat"]
+albedo_color = Color(0.84, 0.69, 0.37, 1)
+roughness = 0.44
+
+[node name="VRHandVialHolder" type="Node3D"]
+script = ExtResource("1_holder_script")
+
+[node name="HandAnchor" type="Node3D" parent="."]
+
+[node name="Palm" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(-0.01, 0.072, -0.061)
+rotation_degrees = Vector3(6, -8, -4)
+cast_shadow = 0
+mesh = SubResource("1_palm_mesh")
+surface_material_override/0 = SubResource("7_glove_mat")
+
+[node name="Thumb" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(-0.053, 0.074, -0.023)
+rotation_degrees = Vector3(68, -18, -48)
+cast_shadow = 0
+mesh = SubResource("3_thumb_mesh")
+surface_material_override/0 = SubResource("7_glove_mat")
+
+[node name="FingerIndex" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(-0.033, 0.105, -0.029)
+rotation_degrees = Vector3(15, -18, -8)
+cast_shadow = 0
+mesh = SubResource("2_finger_mesh")
+surface_material_override/0 = SubResource("7_glove_mat")
+
+[node name="FingerMiddle" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(-0.003, 0.111, -0.036)
+rotation_degrees = Vector3(11, -8, 0)
+cast_shadow = 0
+mesh = SubResource("2_finger_mesh")
+surface_material_override/0 = SubResource("7_glove_mat")
+
+[node name="FingerRing" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(0.027, 0.101, -0.031)
+rotation_degrees = Vector3(13, 4, 9)
+cast_shadow = 0
+mesh = SubResource("2_finger_mesh")
+surface_material_override/0 = SubResource("7_glove_mat")
+
+[node name="WristCuff" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(-0.012, 0.012, -0.063)
+rotation_degrees = Vector3(4, -8, 0)
+cast_shadow = 0
+mesh = SubResource("4_wrist_cuff_mesh")
+surface_material_override/0 = SubResource("7_glove_mat")
+
+[node name="CuffGoldTrim" type="MeshInstance3D" parent="HandAnchor"]
+position = Vector3(-0.012, 0.033, -0.063)
+rotation_degrees = Vector3(4, -8, 0)
+cast_shadow = 0
+mesh = SubResource("5_trim_mesh")
+surface_material_override/0 = SubResource("8_gold_mat")
+
+[node name="VialAnchor" type="Node3D" parent="."]
+position = Vector3(0.002, -0.005, 0)
+rotation_degrees = Vector3(-3, -6, 2)
+
+[node name="VialAnchorGuide" type="MeshInstance3D" parent="VialAnchor"]
+position = Vector3(0, 0.082, -0.027)
+rotation_degrees = Vector3(90, 0, 0)
+cast_shadow = 0
+mesh = SubResource("6_vial_anchor_mesh")
+surface_material_override/0 = SubResource("8_gold_mat")

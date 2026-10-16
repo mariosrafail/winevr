@@ -45,8 +45,6 @@ func enter_mode() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if winery_interior != null:
 		winery_interior.set_exploration_mode_active(true)
-	if crosshair != null:
-		crosshair.set_active(true)
 	if explore_button != null:
 		explore_button.text = "Exploring"
 	exploration_mode_entered.emit()
@@ -59,18 +57,16 @@ func exit_mode() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if winery_interior != null:
 		winery_interior.set_exploration_mode_active(false)
-	if crosshair != null:
-		crosshair.set_active(false)
 	if explore_button != null:
 		explore_button.text = "Explore"
 	exploration_mode_exited.emit()
 
 
 func handle_input(event: InputEvent) -> bool:
-	if event.is_action_pressed("toggle_explore_mode") and (available or active):
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB and (available or active):
 		toggle()
 		return true
-	if active and event.is_action_pressed("exit_mode"):
+	if active and InputMap.has_action("exit_mode") and event.is_action_pressed("exit_mode"):
 		exit_mode()
 		return true
 	return false

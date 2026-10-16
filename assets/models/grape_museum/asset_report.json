@@ -1,0 +1,28 @@
+[
+  {
+    "variety": "liatiko",
+    "berries": 178,
+    "triangles": 234220,
+    "material_surfaces": 10,
+    "bytes": 9819316,
+    "source": "C:\\Users\\mario\\Nextcloud\\wine-vr\\blender_models\\liatiko_bunch.blend",
+    "anchor_blender": [
+      0.010999999940395355,
+      0.004000000189989805,
+      0.13600000739097595
+    ]
+  },
+  {
+    "variety": "kotsifali",
+    "berries": 152,
+    "triangles": 200648,
+    "material_surfaces": 10,
+    "bytes": 8960128,
+    "source": "C:\\Users\\mario\\Nextcloud\\wine-vr\\blender_models\\kotsifali_bunch.blend",
+    "anchor_blender": [
+      0.012000000104308128,
+      0.004999999888241291,
+      0.10900000482797623
+    ]
+  }
+]

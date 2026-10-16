@@ -4,6 +4,7 @@ class_name HotspotUIController
 signal hotspot_viewed(hotspot_data: Dictionary)
 signal enter_winery_state_changed(all_required_viewed: bool)
 signal layout_refresh_requested(reason: String)
+signal annotation_opened
 signal annotation_closed
 
 var layer: Control
@@ -192,6 +193,7 @@ func open_centered_annotation_panel(title: String, body: String, extra_data: Dic
 func _show_panel() -> void:
 	_stop_panel_tween()
 	panel.visible = true
+	annotation_opened.emit()
 	layout_refresh_requested.emit("panel opened")
 	await get_tree().process_frame
 	ResponsiveLayoutController.center_panel_safe(panel, panel.get_viewport(), clampf(panel.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), _annotation_max_height_ratio)

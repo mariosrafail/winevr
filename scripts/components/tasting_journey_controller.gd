@@ -7,6 +7,8 @@ signal restart_requested
 signal choose_another_requested
 signal show_qr_requested
 signal layout_refresh_requested(reason: String)
+signal journey_modal_opened(id: String)
+signal journey_modal_closed(id: String)
 
 var canvas_layer: CanvasLayer
 var progress_panel: PanelContainer
@@ -107,6 +109,14 @@ func close_open_modal() -> bool:
 		_hide_completion_panel()
 		return true
 	return false
+
+
+func close_tasting_card() -> void:
+	_hide_tasting_card()
+
+
+func close_completion_panel() -> void:
+	_hide_completion_panel()
 
 
 func complete_hotspot(hotspot_id: String) -> void:
@@ -377,25 +387,33 @@ func _animate_completed_dot(index: int) -> void:
 func _show_tasting_card() -> void:
 	_update_tasting_card_text()
 	tasting_card_panel.visible = true
+	journey_modal_opened.emit("journey_card")
 	layout(tasting_card_panel.get_viewport().get_visible_rect().size)
 	PremiumUIStyles.animate_panel_open(tasting_card_panel, 10.0)
 
 
 func _hide_tasting_card() -> void:
 	if tasting_card_panel != null:
+		var was_visible: bool = tasting_card_panel.visible
 		tasting_card_panel.visible = false
+		if was_visible:
+			journey_modal_closed.emit("journey_card")
 
 
 func _show_completion_panel() -> void:
 	_update_completion_text()
 	completion_panel.visible = true
+	journey_modal_opened.emit("journey_completion")
 	layout(completion_panel.get_viewport().get_visible_rect().size)
 	PremiumUIStyles.animate_panel_open(completion_panel, 10.0)
 
 
 func _hide_completion_panel() -> void:
 	if completion_panel != null:
+		var was_visible: bool = completion_panel.visible
 		completion_panel.visible = false
+		if was_visible:
+			journey_modal_closed.emit("journey_completion")
 
 
 func _update_tasting_card_text() -> void:

@@ -4,7 +4,11 @@ class_name ExperienceHUDController
 signal start_requested
 signal enter_winery_requested
 signal return_to_vial_requested
+signal immersive_mode_requested
+signal explore_winery_requested
 signal layout_refresh_requested(reason: String)
+signal winery_modal_opened
+signal winery_modal_closed
 
 var intro_screen: Control
 var inspection_hud: Control
@@ -16,6 +20,9 @@ var hotspot_panel: PanelContainer
 var winery_modal: PanelContainer
 var inspection_hint: Label
 var door_prompt_label: Label
+var intro_immersive_button: Button
+var intro_immersive_message_label: Label
+var intro_explore_winery_button: Button
 var enter_winery_button: Button
 var unlock_feedback_label: Label
 
@@ -46,9 +53,12 @@ func setup(root: Node) -> void:
 	intro_wine_name = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/WineName") as Label
 	intro_region = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/Region") as Label
 	intro_text = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/IntroText") as RichTextLabel
+	var intro_vbox: VBoxContainer = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox") as VBoxContainer
 	var start_button: Button = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/StartButton") as Button
 	PremiumUIStyles.apply_gold_outline_button(start_button)
 	start_button.pressed.connect(func() -> void: start_requested.emit())
+	_build_intro_browser_explore_control(intro_vbox, start_button)
+	_build_intro_immersive_controls(intro_vbox, start_button)
 
 	inspection_hud = root.get_node("CanvasLayer/InspectionHUD") as Control
 	inspection_info_card = root.get_node("CanvasLayer/InspectionHUD/InfoCard") as PanelContainer
@@ -155,6 +165,35 @@ func set_door_prompt(prompt: String) -> void:
 	door_prompt_label.text = prompt
 
 
+func set_immersive_mode_available(available: bool) -> void:
+	if intro_immersive_button != null:
+		intro_immersive_button.visible = available
+	if not available:
+		set_immersive_mode_message("")
+
+
+func set_immersive_mode_busy(busy: bool) -> void:
+	if intro_immersive_button == null:
+		return
+	intro_immersive_button.disabled = busy
+	intro_immersive_button.text = "Entering VR..." if busy and OS.has_feature("web") else ("Entering Immersive Mode..." if busy else _immersive_button_label())
+
+
+func set_immersive_mode_active(active: bool) -> void:
+	if intro_immersive_button == null:
+		return
+	intro_immersive_button.disabled = active
+	intro_immersive_button.text = "VR Active" if active and OS.has_feature("web") else ("Immersive Mode Active" if active else _immersive_button_label())
+
+
+func set_immersive_mode_message(message: String, is_error: bool = false) -> void:
+	if intro_immersive_message_label == null:
+		return
+	intro_immersive_message_label.text = message
+	intro_immersive_message_label.visible = not message.is_empty()
+	intro_immersive_message_label.label_settings = _make_label_settings(14, Color(1.0, 0.55, 0.46, 1.0) if is_error else PremiumUIStyles.TEXT_MUTED)
+
+
 func show_interactable_modal(interactable_data: Dictionary) -> void:
 	if not interactable_data.is_empty():
 		winery_modal_title.text = str(interactable_data.get("title", winery_modal_title.text))
@@ -169,6 +208,7 @@ func close_winery_modal() -> void:
 func _show_winery_modal() -> void:
 	_stop_winery_modal_tween()
 	winery_modal.visible = true
+	winery_modal_opened.emit()
 	layout_refresh_requested.emit("panel opened")
 	await get_tree().process_frame
 	ResponsiveLayoutController.center_panel_safe(winery_modal, winery_modal.get_viewport(), clampf(winery_modal.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), 0.45)
@@ -185,6 +225,7 @@ func _hide_winery_modal() -> void:
 	_winery_modal_tween.tween_property(winery_modal, "scale", Vector2(0.96, 0.96), 0.12)
 	await _winery_modal_tween.finished
 	winery_modal.visible = false
+	winery_modal_closed.emit()
 
 
 func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
@@ -204,6 +245,47 @@ func _on_enter_winery_button_pressed() -> void:
 	enter_winery_requested.emit()
 
 
+func _build_intro_immersive_controls(intro_vbox: VBoxContainer, start_button: Button) -> void:
+	if intro_vbox == null or start_button == null:
+		return
+	intro_immersive_button = Button.new()
+	intro_immersive_button.name = "EnterImmersiveModeButton"
+	intro_immersive_button.text = _immersive_button_label()
+	intro_immersive_button.tooltip_text = _immersive_button_label()
+	intro_immersive_button.custom_minimum_size = Vector2(0.0, 52.0)
+	intro_immersive_button.visible = false
+	PremiumUIStyles.apply_gold_outline_button(intro_immersive_button)
+	intro_immersive_button.pressed.connect(func() -> void: immersive_mode_requested.emit())
+	intro_vbox.add_child(intro_immersive_button)
+	intro_vbox.move_child(intro_immersive_button, start_button.get_index())
+
+	intro_immersive_message_label = Label.new()
+	intro_immersive_message_label.name = "ImmersiveModeMessage"
+	intro_immersive_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro_immersive_message_label.visible = false
+	intro_immersive_message_label.label_settings = _make_label_settings(14, PremiumUIStyles.TEXT_MUTED)
+	intro_vbox.add_child(intro_immersive_message_label)
+	intro_vbox.move_child(intro_immersive_message_label, intro_immersive_button.get_index() + 1)
+
+
+func _build_intro_browser_explore_control(intro_vbox: VBoxContainer, start_button: Button) -> void:
+	if intro_vbox == null or start_button == null or not OS.has_feature("web"):
+		return
+	intro_explore_winery_button = Button.new()
+	intro_explore_winery_button.name = "ExploreWineryButton"
+	intro_explore_winery_button.text = "Explore Winery"
+	intro_explore_winery_button.tooltip_text = "Walk around the winery with WASD and mouse controls"
+	intro_explore_winery_button.custom_minimum_size = Vector2(0.0, 52.0)
+	PremiumUIStyles.apply_gold_outline_button(intro_explore_winery_button)
+	intro_explore_winery_button.pressed.connect(func() -> void: explore_winery_requested.emit())
+	intro_vbox.add_child(intro_explore_winery_button)
+	intro_vbox.move_child(intro_explore_winery_button, start_button.get_index())
+
+
+func _immersive_button_label() -> String:
+	return "Enter VR (Headset)" if OS.has_feature("web") else "Enter Immersive Mode"
+
+
 func _stop_winery_modal_tween() -> void:
 	if _winery_modal_tween != null:
 		_winery_modal_tween.kill()
@@ -213,7 +295,14 @@ func _stop_winery_modal_tween() -> void:
 func apply_panel_height_policy(viewport_size: Vector2) -> void:
 	var small_min_h: float = 120.0
 	var modal_min_h: float = 180.0
-	_apply_scroll_height(intro_card, _intro_scroll, intro_text, modal_min_h, viewport_size.y * 0.5, 86.0, 110.0)
+	var intro_reserved_bottom: float = 86.0
+	if intro_explore_winery_button != null and intro_explore_winery_button.visible:
+		intro_reserved_bottom += 62.0
+	if intro_immersive_button != null and intro_immersive_button.visible:
+		intro_reserved_bottom += 62.0
+	if intro_immersive_message_label != null and intro_immersive_message_label.visible:
+		intro_reserved_bottom += 38.0
+	_apply_scroll_height(intro_card, _intro_scroll, intro_text, modal_min_h, viewport_size.y * 0.5, intro_reserved_bottom, 110.0)
 	_apply_scroll_height(inspection_info_card, _inspection_scroll, inspection_text, modal_min_h, viewport_size.y * 0.55, 90.0, 130.0)
 	_apply_scroll_height(winery_info_card, _winery_info_scroll, winery_text, modal_min_h, viewport_size.y * 0.55, 94.0, 130.0)
 	_apply_scroll_height(winery_modal, _winery_modal_scroll, winery_modal_text, modal_min_h, viewport_size.y * 0.5, 92.0, 130.0)
