@@ -1,0 +1,13 @@
+{
+  "asset": "Rocky Terrain 02",
+  "author": "Amal Kumar / Poly Haven",
+  "source": "https://polyhaven.com/a/rocky_terrain_02",
+  "license": "CC0-1.0",
+  "license_url": "https://polyhaven.com/license",
+  "maps": [
+    "Diffuse 2K JPEG",
+    "AO/Roughness/Metal 2K JPEG",
+    "OpenGL normal 2K JPEG"
+  ],
+  "notes": "Original CC0 maps used for landscape surface detail; artistic interpretation, not surveyed Dafnes terrain."
+}

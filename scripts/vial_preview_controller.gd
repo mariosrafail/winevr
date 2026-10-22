@@ -25,6 +25,13 @@ var _accent_material: StandardMaterial3D
 
 
 func _ready() -> void:
+	# Godot 4.6.1 Mobile retains seven reflection-atlas textures after this
+	# probe is freed. Retire it before first draw; studio cards/lights remain.
+	if RenderingServer.get_current_rendering_method() == "mobile":
+		var probe: ReflectionProbe = get_node_or_null("ReflectionProbe") as ReflectionProbe
+		if probe != null:
+			remove_child(probe)
+			probe.queue_free()
 	_build_presentation()
 	apply_client_profile(ClientProfileLoader.get_active_client_data())
 
@@ -99,6 +106,7 @@ func set_interaction_enabled(enabled: bool) -> void:
 
 
 func set_camera_active(active: bool) -> void:
+	camera.environment = $WorldEnvironment.environment
 	camera.current = active
 
 

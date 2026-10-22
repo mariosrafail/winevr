@@ -16,7 +16,7 @@ var progress_label: Label
 var next_button: Button
 var show_me_button: Button
 var show_button: Button
-var collapsed: bool = false
+var collapsed: bool = true
 var canvas_layer: CanvasLayer
 var completion_active: bool = false
 var completion_overlay: Control
@@ -24,8 +24,13 @@ var completion_card: PanelContainer
 var completion_title: Label
 var completion_text: RichTextLabel
 var restart_button: Button
-var text_scroll: ScrollContainer
 var vr_winery_mode: bool = false
+var external_guidance_active: bool = false
+
+
+func set_external_guidance_active(active: bool) -> void:
+	external_guidance_active = active
+	_update_visibility(true)
 
 
 func setup(parent_canvas_layer: CanvasLayer) -> void:
@@ -61,10 +66,7 @@ func layout(viewport_size: Vector2, margin: float) -> void:
 	panel_position.y = clampf(panel_position.y, margin, maxf(margin, viewport_size.y - height - margin))
 	panel.position = panel_position
 	panel.size = Vector2(width, height)
-	var reserved_bottom: float = 118.0
-	var text_max: float = clampf(height - reserved_bottom, 84.0, maxf(84.0, max_height - reserved_bottom))
-	text_scroll.custom_minimum_size.y = text_max
-	show_button.position = Vector2((viewport_size.x - 104.0) * 0.5, clampf(margin, 4.0, maxf(4.0, viewport_size.y - 44.0 - 4.0)))
+	show_button.position = Vector2(viewport_size.x - 104.0 - margin, 88.0)
 	show_button.size = Vector2(104.0, 44.0)
 
 	var completion_width: float = clampf(minf(460.0, viewport_size.x - margin * 2.0), 200.0, maxf(200.0, viewport_size.x - margin * 2.0))
@@ -108,11 +110,12 @@ func _build_panel() -> void:
 
 	title_label = Label.new()
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_label.label_settings = _make_label_settings(16, Color(0.976, 0.968, 0.941, 1.0))
 	header.add_child(title_label)
 
 	var hide_button: Button = Button.new()
-	hide_button.text = "Minimize"
+	hide_button.text = "Κλείσιμο"
 	hide_button.custom_minimum_size = Vector2(62.0, 38.0)
 	PremiumUIStyles.apply_gold_outline_button(hide_button)
 	hide_button.pressed.connect(_set_collapsed.bind(true))
@@ -122,24 +125,13 @@ func _build_panel() -> void:
 	target_label.label_settings = _make_label_settings(12, Color(PremiumUIStyles.GOLD_ACCENT.r, PremiumUIStyles.GOLD_ACCENT.g, PremiumUIStyles.GOLD_ACCENT.b, 0.9))
 	box.add_child(target_label)
 
-	text_scroll = ScrollContainer.new()
-	text_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	text_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	text_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	box.add_child(text_scroll)
-
-	var content_box: VBoxContainer = VBoxContainer.new()
-	content_box.name = "ContentVBox"
-	content_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_scroll.add_child(content_box)
-
 	text_label = RichTextLabel.new()
-	text_label.fit_content = true
-	text_label.scroll_active = false
+	text_label.fit_content = false
+	text_label.scroll_active = true
+	text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_label.custom_minimum_size = Vector2(0.0, 84.0)
-	content_box.add_child(text_label)
+	box.add_child(text_label)
 
 	hint_label = Label.new()
 	hint_label.visible = false
@@ -152,7 +144,7 @@ func _build_panel() -> void:
 	box.add_child(actions)
 
 	show_me_button = Button.new()
-	show_me_button.text = "Show me"
+	show_me_button.text = "Δείξε το σημείο"
 	show_me_button.custom_minimum_size = Vector2(0.0, 44.0)
 	show_me_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(show_me_button)
@@ -160,7 +152,7 @@ func _build_panel() -> void:
 	actions.add_child(show_me_button)
 
 	next_button = Button.new()
-	next_button.text = "Continue"
+	next_button.text = "Συνέχεια"
 	next_button.custom_minimum_size = Vector2(0.0, 44.0)
 	next_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(next_button)
@@ -169,7 +161,7 @@ func _build_panel() -> void:
 
 	show_button = Button.new()
 	show_button.name = "NarrativeShowButton"
-	show_button.text = "Guide"
+	show_button.text = "Οδηγός"
 	show_button.visible = false
 	show_button.z_index = 50
 	show_button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -213,22 +205,24 @@ func _build_completion_modal() -> void:
 	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	completion_title = Label.new()
-	completion_title.text = "Tasting Complete"
+	completion_title.text = "Η διαδρομή ολοκληρώθηκε"
+	completion_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	completion_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	completion_title.label_settings = _make_label_settings(28, Color(0.976, 0.968, 0.941, 1.0))
 	box.add_child(completion_title)
 
 	completion_text = RichTextLabel.new()
-	completion_text.text = "You discovered the wine story, its essential tasting notes, and the winery details that shape this guided tasting."
-	completion_text.fit_content = true
-	completion_text.scroll_active = false
+	completion_text.text = "Γνώρισες την ιστορία του κρασιού, τα αρώματα και τις λεπτομέρειες της οινοποίησης."
+	completion_text.fit_content = false
+	completion_text.scroll_active = true
+	completion_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	completion_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	completion_text.custom_minimum_size = Vector2(0.0, 96.0)
 	completion_text.add_theme_color_override("default_color", Color(0.86, 0.86, 0.82, 1.0))
 	box.add_child(completion_text)
 
 	restart_button = Button.new()
-	restart_button.text = "Restart Experience"
+	restart_button.text = "Από την αρχή"
 	restart_button.custom_minimum_size = Vector2(0.0, 48.0)
 	PremiumUIStyles.apply_gold_outline_button(restart_button)
 	restart_button.pressed.connect(_on_restart_pressed)
@@ -264,7 +258,9 @@ func _set_collapsed(value: bool) -> void:
 
 
 func _update_visibility(can_show: bool) -> void:
-	if vr_winery_mode and ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+	# The tasting journey owns guidance in the vial and introduction. Showing
+	# two independent guides covered the wine and consumed mobile interaction.
+	if external_guidance_active or vr_winery_mode or ExperienceManager.current_state != ExperienceManager.ExperienceState.WINERY_INTERIOR:
 		panel.visible = false
 		show_button.visible = false
 		completion_overlay.visible = false
@@ -306,6 +302,8 @@ func _on_restart_pressed() -> void:
 
 
 func _show_completion_modal() -> void:
+	if external_guidance_active or vr_winery_mode or ExperienceManager.current_state != ExperienceManager.ExperienceState.WINERY_INTERIOR:
+		return
 	panel.visible = false
 	show_button.visible = false
 	completion_overlay.visible = true
@@ -353,12 +351,12 @@ func _make_label_settings(font_size: int, font_color: Color) -> LabelSettings:
 func _format_target_type(target_type: String) -> String:
 	match target_type:
 		"hotspot":
-			return "Tasting Note"
+			return "Σημείο γευσιγνωσίας"
 		"zone":
-			return "Winery Detail"
+			return "Στο οινοποιείο"
 		"prop":
-			return "Cellar Detail"
+			return "Στο κελάρι"
 		"door":
-			return "Entry Point"
+			return "Είσοδος"
 		_:
-			return "Opening Note"
+			return "Η αρχή της διαδρομής"

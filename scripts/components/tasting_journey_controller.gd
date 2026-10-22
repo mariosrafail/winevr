@@ -6,6 +6,7 @@ signal journey_completed
 signal restart_requested
 signal choose_another_requested
 signal show_qr_requested
+signal cellar_requested
 signal layout_refresh_requested(reason: String)
 signal journey_modal_opened(id: String)
 signal journey_modal_closed(id: String)
@@ -25,6 +26,8 @@ var completion_body: RichTextLabel
 var restart_button: Button
 var choose_button: Button
 var show_qr_button: Button
+var cellar_button: Button
+var continue_button: Button
 
 var steps: Array[Dictionary] = []
 var completed_ids: Dictionary = {}
@@ -47,6 +50,8 @@ func configure_from_profile(profile_data: Dictionary, client_data: Dictionary = 
 	steps.clear()
 	completed_ids.clear()
 	current_index = 0
+	if show_qr_button != null:
+		show_qr_button.visible = not bool(selected_profile.get("demo_collection", client_data.get("demo_collection", false)))
 
 	var raw_hotspots: Array = []
 	if selected_profile.has("hotspots") and typeof(selected_profile.get("hotspots")) == TYPE_ARRAY:
@@ -120,7 +125,15 @@ func close_completion_panel() -> void:
 
 
 func complete_hotspot(hotspot_id: String) -> void:
-	if not active or hotspot_id.is_empty():
+	if hotspot_id.is_empty():
+		return
+	# Optional discoveries remain collectible after the required route unlocks.
+	if not active:
+		if _required_steps_complete():
+			for step in steps:
+				if str(step.get("id", "")) == hotspot_id:
+					completed_ids[hotspot_id] = true
+					_update_progress_ui()
 		return
 	if current_index < 0 or current_index >= steps.size():
 		return
@@ -137,6 +150,7 @@ func complete_hotspot(hotspot_id: String) -> void:
 	if _required_steps_complete():
 		active = false
 		active_step_changed.emit({})
+		_update_progress_ui()
 		_show_completion_panel()
 		journey_completed.emit()
 		layout_refresh_requested.emit("panel opened")
@@ -165,18 +179,25 @@ func get_completed_ids() -> Dictionary:
 
 func layout(viewport_size: Vector2) -> void:
 	var margin: float = 20.0 if viewport_size.x >= 760.0 else 12.0
+	var compact: bool = viewport_size.x < 700.0
 	if progress_panel != null:
-		var width: float = clampf(300.0, 230.0, maxf(230.0, viewport_size.x - margin * 2.0))
-		var height: float = 94.0
+		var width: float = minf(340.0, viewport_size.x - margin * 2.0)
+		var height: float = 90.0
 		progress_panel.size = Vector2(width, height)
-		progress_panel.position = Vector2(viewport_size.x - width - margin, margin)
+		progress_panel.position = Vector2(viewport_size.x - width - margin, 88.0 if compact else margin)
 	if tasting_card_button != null:
-		tasting_card_button.size = Vector2(140.0, 40.0)
-		tasting_card_button.position = Vector2(viewport_size.x - tasting_card_button.size.x - margin, margin + 104.0)
+		tasting_card_button.size = Vector2(152.0, 42.0)
+		tasting_card_button.position = Vector2(viewport_size.x - tasting_card_button.size.x - margin, (88.0 if compact else margin) + 102.0)
 	if tasting_card_panel != null and tasting_card_panel.visible:
-		ResponsiveLayoutController.center_panel_safe(tasting_card_panel, tasting_card_panel.get_viewport(), clampf(viewport_size.x * 0.42, 360.0, 620.0), 0.58)
+		_size_modal(tasting_card_panel, viewport_size, Vector2(560, 480))
 	if completion_panel != null and completion_panel.visible:
-		ResponsiveLayoutController.center_panel_safe(completion_panel, completion_panel.get_viewport(), clampf(viewport_size.x * 0.44, 380.0, 680.0), 0.62)
+		_size_modal(completion_panel, viewport_size, Vector2(560, 500))
+
+
+func _size_modal(panel: PanelContainer, viewport_size: Vector2, preferred: Vector2) -> void:
+	panel.custom_minimum_size = Vector2.ZERO
+	panel.size = Vector2(minf(preferred.x, viewport_size.x - 24.0), minf(preferred.y, viewport_size.y - 132.0))
+	panel.position = Vector2((viewport_size.x - panel.size.x) * 0.5, maxf(86.0, (viewport_size.y - panel.size.y) * 0.5))
 
 
 func _build_progress_ui() -> void:
@@ -204,8 +225,9 @@ func _build_progress_ui() -> void:
 	box.add_child(header)
 
 	title_label = Label.new()
-	title_label.text = "Tasting Journey"
+	title_label.text = "Η διαδρομή του κρασιού"
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_label.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
 	header.add_child(title_label)
 
@@ -220,7 +242,7 @@ func _build_progress_ui() -> void:
 
 	tasting_card_button = Button.new()
 	tasting_card_button.name = "TastingCardButton"
-	tasting_card_button.text = "Tasting Card"
+	tasting_card_button.text = "Οι σημειώσεις μου"
 	tasting_card_button.visible = false
 	tasting_card_button.z_index = 96
 	tasting_card_button.pressed.connect(_show_tasting_card)
@@ -233,7 +255,7 @@ func _build_tasting_card_panel() -> void:
 	tasting_card_panel.name = "TastingCardPanel"
 	tasting_card_panel.visible = false
 	tasting_card_panel.z_index = 101
-	tasting_card_panel.add_theme_stylebox_override("panel", PremiumUIStyles.make_panel_style(0.92))
+	tasting_card_panel.add_theme_stylebox_override("panel", PremiumUIStyles.make_panel_style(1.0))
 	canvas_layer.add_child(tasting_card_panel)
 
 	var margin: MarginContainer = MarginContainer.new()
@@ -249,21 +271,24 @@ func _build_tasting_card_panel() -> void:
 	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	var title: Label = Label.new()
-	title.text = "Tasting Card"
+	title.text = "ΟΙ ΑΝΑΚΑΛΥΨΕΙΣ ΣΟΥ"
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
 	box.add_child(title)
 
 	tasting_card_text = RichTextLabel.new()
 	tasting_card_text.bbcode_enabled = true
-	tasting_card_text.fit_content = true
-	tasting_card_text.scroll_active = false
+	tasting_card_text.fit_content = false
+	tasting_card_text.scroll_active = true
+	tasting_card_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tasting_card_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tasting_card_text.custom_minimum_size = Vector2(0.0, 210.0)
+	tasting_card_text.custom_minimum_size = Vector2(0.0, 72.0)
+	tasting_card_text.add_theme_font_size_override("normal_font_size", 16)
 	tasting_card_text.add_theme_color_override("default_color", PremiumUIStyles.TEXT_BODY)
 	box.add_child(tasting_card_text)
 
 	tasting_card_close = Button.new()
-	tasting_card_close.text = "Close"
+	tasting_card_close.text = "Συνέχεια στη διαδρομή"
 	tasting_card_close.custom_minimum_size = Vector2(0.0, 42.0)
 	tasting_card_close.pressed.connect(_hide_tasting_card)
 	PremiumUIStyles.apply_gold_outline_button(tasting_card_close)
@@ -275,7 +300,7 @@ func _build_completion_panel() -> void:
 	completion_panel.name = "TastingJourneyCompletion"
 	completion_panel.visible = false
 	completion_panel.z_index = 102
-	completion_panel.add_theme_stylebox_override("panel", PremiumUIStyles.make_panel_style(0.94))
+	completion_panel.add_theme_stylebox_override("panel", PremiumUIStyles.make_panel_style(1.0))
 	canvas_layer.add_child(completion_panel)
 
 	var margin: MarginContainer = MarginContainer.new()
@@ -291,39 +316,56 @@ func _build_completion_panel() -> void:
 	PremiumUIStyles.apply_panel_chrome_to_vbox(box)
 
 	completion_title = Label.new()
-	completion_title.text = "Tasting Journey Complete"
+	completion_title.text = "ΤΟ ΚΡΑΣΙ ΕΧΕΙ ΜΙΑ ΙΣΤΟΡΙΑ"
+	completion_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	completion_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	completion_title.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
 	box.add_child(completion_title)
 
 	completion_body = RichTextLabel.new()
 	completion_body.bbcode_enabled = false
-	completion_body.fit_content = true
-	completion_body.scroll_active = false
+	completion_body.fit_content = false
+	completion_body.scroll_active = true
+	completion_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	completion_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	completion_body.custom_minimum_size = Vector2(0.0, 120.0)
+	completion_body.custom_minimum_size = Vector2(0.0, 72.0)
+	completion_body.add_theme_font_size_override("normal_font_size", 16)
 	completion_body.add_theme_color_override("default_color", PremiumUIStyles.TEXT_BODY)
 	box.add_child(completion_body)
 
-	var buttons: HBoxContainer = HBoxContainer.new()
+	cellar_button = _make_modal_button("Συνέχεια στο κελάρι →")
+	cellar_button.pressed.connect(func() -> void:
+		if not _required_steps_complete():
+			return
+		_hide_completion_panel()
+		cellar_requested.emit()
+	)
+	box.add_child(cellar_button)
+	continue_button = _make_modal_button("Ανακάλυψε και το επιπλέον σημείο")
+	continue_button.pressed.connect(_continue_optional_steps)
+	box.add_child(continue_button)
+	var buttons: GridContainer = GridContainer.new()
+	buttons.columns = 2
 	buttons.add_theme_constant_override("separation", 10)
+	buttons.add_theme_constant_override("h_separation", 10)
+	buttons.add_theme_constant_override("v_separation", 8)
 	box.add_child(buttons)
 
-	restart_button = _make_modal_button("Restart")
+	restart_button = _make_modal_button("Από την αρχή")
 	restart_button.pressed.connect(func() -> void:
 		_hide_completion_panel()
 		restart_requested.emit()
 	)
 	buttons.add_child(restart_button)
 
-	choose_button = _make_modal_button("Choose Another")
+	choose_button = _make_modal_button("Άλλο κρασί")
 	choose_button.pressed.connect(func() -> void:
 		_hide_completion_panel()
 		choose_another_requested.emit()
 	)
 	buttons.add_child(choose_button)
 
-	show_qr_button = _make_modal_button("Show QR")
+	show_qr_button = _make_modal_button("Πληροφορίες QR")
 	show_qr_button.pressed.connect(func() -> void:
 		_hide_completion_panel()
 		show_qr_requested.emit()
@@ -343,20 +385,18 @@ func _make_modal_button(text: String) -> Button:
 func _update_progress_ui() -> void:
 	if title_label == null or count_label == null:
 		return
-	var total: int = max(steps.size(), 1)
-	var display_index: int = mini(current_index + 1, total)
-	var step_title: String = "Journey Complete"
+	var step_title: String = "Η διαδρομή ολοκληρώθηκε"
 	if active and current_index >= 0 and current_index < steps.size():
 		step_title = str(steps[current_index].get("title", "Tasting Step"))
 	title_label.text = step_title
-	count_label.text = "%s/%s" % [display_index, steps.size()]
+	count_label.text = "%s/%s" % [completed_ids.size(), steps.size()]
 	_rebuild_dots()
 	_update_tasting_card_text()
 
 
 func _rebuild_dots() -> void:
 	for child in dots_row.get_children():
-		child.queue_free()
+		child.free()
 	for index in range(steps.size()):
 		var step: Dictionary = steps[index]
 		var dot: ColorRect = ColorRect.new()
@@ -419,31 +459,45 @@ func _hide_completion_panel() -> void:
 func _update_tasting_card_text() -> void:
 	if tasting_card_text == null:
 		return
-	var categories: Array[String] = ["Color", "Aroma", "Texture", "Pairing", "Story"]
 	var lines: Array[String] = []
-	for category in categories:
-		var discovery: Dictionary = _find_step_for_category(category)
-		if discovery.is_empty():
-			lines.append("[color=#9C927F]%s: Locked[/color]" % category)
-			continue
+	var wine: String = str(selected_profile.get("name", runtime_profile.get("wine_name", "")))
+	lines.append("[b]" + _escape_bbcode(wine) + "[/b]\n")
+	for discovery in steps:
 		var step_id: String = str(discovery.get("id", ""))
 		var is_complete: bool = completed_ids.has(step_id)
 		var label_color: String = "#D6B15E" if is_complete else "#9C927F"
 		var body_color: String = "#D9D1C0" if is_complete else "#9C927F"
-		var body: String = str(discovery.get("description", "Locked"))
-		lines.append("[color=%s]%s[/color]: [color=%s]%s[/color]" % [label_color, category, body_color, body if is_complete else "Locked"])
-	tasting_card_text.text = "\n".join(lines)
+		var body: String = str(discovery.get("description", "")) if is_complete else "Άνοιξε αυτό το σημείο στη διαδρομή."
+		var title: String = ("✓ " if is_complete else "○ ") + str(discovery.get("title", "Σημείο"))
+		lines.append("[color=%s][b]%s[/b][/color]\n[color=%s]%s[/color]" % [label_color, _escape_bbcode(title), body_color, _escape_bbcode(body)])
+	tasting_card_text.text = "\n\n".join(lines)
+
+
+func _escape_bbcode(value: String) -> String:
+	return value.replace("[", "[lb]")
 
 
 func _update_completion_text() -> void:
 	var wine_name: String = str(selected_profile.get("name", runtime_profile.get("wine_name", "Selected Wine")))
 	var region: String = str(selected_profile.get("region", runtime_profile.get("region_name", "")))
-	completion_body.text = "Wine: %s\nRegion: %s\nNotes discovered: %s/%s" % [
+	completion_body.text = "%s\n%s\n\nΣημεία που ανακάλυψες: %s/%s\nΗ συνέχεια σε περιμένει στο κελάρι." % [
 		wine_name,
 		region,
 		str(completed_ids.size()),
 		str(steps.size())
 	]
+	continue_button.visible = completed_ids.size() < steps.size()
+	cellar_button.disabled = not _required_steps_complete()
+	show_qr_button.visible = not bool(selected_profile.get("demo_collection", runtime_profile.get("demo_collection", false)))
+
+
+func _continue_optional_steps() -> void:
+	_hide_completion_panel()
+	current_index = 0
+	_skip_completed_steps()
+	active = current_index < steps.size()
+	_emit_active_step()
+	_update_progress_ui()
 
 
 func _emit_active_step() -> void:

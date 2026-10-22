@@ -1,31 +1,71 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "values_are_illustrative": true,
   "scale_note": "Ενδεικτικό προφίλ · Σχετική κλίμακα 0–100. Δεν αποτελεί εργαστηριακή ανάλυση ή πραγματική περιεκτικότητα επί τοις εκατό.",
   "metrics": [
     {"id": "total_acidity", "label": "Ολική οξύτητα", "color": "#DBBF78"},
     {"id": "sugars", "label": "Σάκχαρα", "color": "#D8A867"},
     {"id": "color_intensity", "label": "Ένταση χρώματος", "color": "#BC82A7"},
-    {"id": "phenolic_potential", "label": "Πολυφαινολικό δυναμικό", "color": "#91AF98"}
+    {"id": "phenolic_potential", "label": "Πολυφαινολικό δυναμικό", "color": "#91AF98"},
+    {"id": "bitterness", "label": "Πικράδα ρώγας", "color": "#BFA287"}
   ],
+  "sources": [
+    {"id": "berry_vasculature_2021", "title": "Frontiers in Plant Science (2021) · Vascular Connections Into the Grape Berry", "url": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.662433/full"},
+    {"id": "berry_anatomy_wsu_2012", "title": "Bondada & Keller (2012) · Healthy berry longitudinal sections", "url": "https://file.scirp.org/Html/6-2600383_20717.htm"},
+    {"id": "crete_vidiano", "title": "Wines of Crete · Βιδιανό", "url": "https://www.winesofcrete.gr/en/varieties/vidiano/"},
+    {"id": "greece_liatiko", "title": "Wines of Greece · Λιάτικο", "url": "https://winesofgreece.org/varieties/liatiko/"},
+    {"id": "ripening_study", "title": "Kontaxakis et al. · Plants 2022, 11, 3547", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9782995/"},
+    {"id": "awri_tannins", "title": "Australian Wine Research Institute · Τανίνες", "url": "https://www.awri.com.au/wp-content/uploads/2013/07/dambergs-Pinot-WS1-AWITC15.pdf"}
+  ],
+  "learning_cards": [
+    {"title": "ΦΛΟΥΔΑ", "text": "Χρωστικές και πολυφαινόλες.\nΗ κηρώδης επίστρωση σκορπίζει το φως."},
+    {"title": "ΣΑΡΚΑ", "text": "Χυμός, σάκχαρα και οργανικά οξέα.\nΤο °Brix αφορά διαλυτά στερεά."},
+    {"title": "ΓΙΓΑΡΤΑ", "text": "Οι σπόροι περιέχουν τανίνες.\nΠικράδα: γεύση · στυφάδα: αίσθηση ξηρότητας."}
+  ],
+  "measurement_note": "Πραγματικά δείγματα: οξύτητα σε g/L, σάκχαρα με εργαστηριακή μέθοδο ή διαλυτά στερεά σε °Brix. Η ολική οξύτητα δεν είναι pH. Οι μπάρες εδώ είναι εκπαιδευτικές εκτιμήσεις, χωρίς αισθητήρα ή υπέρυθρη μέτρηση.",
   "varieties": [
     {
       "id": "liatiko",
       "name": "Λιάτικο",
       "latin_name": "LIATIKO",
       "number": "01",
-      "model": "res://assets/models/grape_museum/liatiko_bunch.glb",
+      "color_type": "ΕΡΥΘΡΗ ΠΟΙΚΙΛΙΑ",
+      "model": "res://assets/models/grape_museum/liatiko_bunch_spaced.scn",
       "description": "Παρατήρησε τη μορφή του τσαμπιού, τις αποχρώσεις της φλούδας και την κηρώδη επίστρωση. Πλησίασε ή περπάτησε γύρω από το έκθεμα για να δεις τις λεπτομέρειες.",
-      "metrics": {"total_acidity": 52, "sugars": 82, "color_intensity": 38, "phenolic_potential": 58}
+      "origin_note": "ΚΡΗΤΗ · ΠΟΠ ΔΑΦΝΕΣ / ΛΙΑΤΙΚΟ",
+      "identity": "Ερυθρή κρητική ποικιλία συνδεδεμένη\nμε την ΠΟΠ Δαφνές. Το χρώμα του κρασιού\nδεν προβλέπεται μόνο από τη σκούρα φλούδα.",
+      "ripening_note": "Στον τρύγο συγκρίνουμε σάκχαρα, οξέα,\nφλούδα και σπόρους. Το χρώμα μόνο του\nδεν δίνει ημερομηνία ωρίμανσης.",
+      "sources": ["greece_liatiko", "awri_tannins"],
+      "metrics": {"total_acidity": 52, "sugars": 82, "color_intensity": 38, "phenolic_potential": 58, "bitterness": 42}
     },
     {
       "id": "kotsifali",
       "name": "Κοτσιφάλι",
       "latin_name": "KOTSIFALI",
       "number": "02",
-      "model": "res://assets/models/grape_museum/kotsifali_bunch.glb",
+      "color_type": "ΕΡΥΘΡΗ ΠΟΙΚΙΛΙΑ",
+      "model": "res://assets/models/grape_museum/kotsifali_bunch_spaced.scn",
       "description": "Παρατήρησε τις ελαφρώς οβάλ ρώγες, τα κοτσανάκια και τις ερυθροϊώδεις αποχρώσεις κάτω από την κηρώδη επίστρωση. Οι μπάρες παρουσιάζουν ενδεικτικό συγκριτικό προφίλ.",
-      "metrics": {"total_acidity": 46, "sugars": 76, "color_intensity": 64, "phenolic_potential": 68}
+      "origin_note": "ΚΡΗΤΗ · ΚΟΤΣΙΦΑΛΙ",
+      "identity": "Ερυθρή ποικιλία της Κρήτης.\nΠαρατήρησε τη διαφορά φλούδας,\nσάρκας και σπόρων σε κάθε ρώγα.",
+      "ripening_note": "Σε μελέτη κρητικού αμπελώνα αυξήθηκαν\nτα διαλυτά στερεά προς τον τρύγο.\nΗ οξύτητα δεν άλλαξε το ίδιο σε κάθε ποικιλία.",
+      "sources": ["ripening_study", "awri_tannins"],
+      "metrics": {"total_acidity": 46, "sugars": 76, "color_intensity": 64, "phenolic_potential": 68, "bitterness": 55}
+    },
+    {
+      "id": "vidiano",
+      "name": "Βιδιανό",
+      "latin_name": "VIDIANO",
+      "number": "03",
+      "color_type": "ΛΕΥΚΗ ΠΟΙΚΙΛΙΑ",
+      "generator": "vidiano",
+      "model_note": "Πρωτότυπη διαδικαστική εικαστική αναπαράσταση, όχι βοτανική σάρωση.",
+      "description": "Εξερεύνησε μια λευκή κρητική ποικιλία: πρασινοκίτρινες ρώγες, φυσική ανομοιομορφία και λεπτή κηρώδης επίστρωση. Η αναπαράσταση είναι εκπαιδευτική, όχι σάρωση πραγματικού δείγματος.",
+      "origin_note": "ΚΡΗΤΗ · ΛΕΥΚΗ ΠΟΙΚΙΛΙΑ",
+      "identity": "Λευκή ποικιλία του κρητικού αμπελώνα.\nΣτα κρασιά της συναντώνται συχνά\nαρώματα βερίκοκου και πλούσιο σώμα.",
+      "ripening_note": "Η λευκή ρώγα επίσης περιέχει πολυφαινόλες.\nΗ ωριμότητα φλούδας και σπόρων\nδεν ταυτίζεται με τη συσσώρευση σακχάρων.",
+      "sources": ["crete_vidiano", "ripening_study", "awri_tannins"],
+      "metrics": {"total_acidity": 62, "sugars": 72, "color_intensity": 12, "phenolic_potential": 32, "bitterness": 29}
     }
   ]
 }

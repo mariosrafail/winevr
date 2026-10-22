@@ -1,0 +1,4 @@
+# Keep Git metadata and generated Godot cache local on each computer.
+.git
+.godot
+node_modules

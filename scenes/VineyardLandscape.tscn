@@ -6,15 +6,17 @@
 script = ExtResource("1_controller")
 wind_strength_scale = 1.0
 
-[node name="SunsetKey" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-28, -132, -8)
-light_color = Color(1, 0.57, 0.28, 1)
-light_energy = 1.7
+[node name="LateAfternoonSun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-31, -124, 0)
+light_color = Color(1, 0.87, 0.67, 1)
+light_energy = 1.25
 shadow_enabled = true
-directional_shadow_max_distance = 35.0
+directional_shadow_max_distance = 32.0
+shadow_bias = 0.04
+shadow_normal_bias = 1.2
 
 [node name="WarmFill" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(-52, 38, 0)
-light_color = Color(0.56, 0.68, 0.86, 1)
-light_energy = 0.78
+light_color = Color(0.62, 0.75, 0.88, 1)
+light_energy = 0.22
 shadow_enabled = false

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://04tiwwt6ne00"
 path.s3tc="res://.godot/imported/vineyard_landscape_leaf_normal.png-b35da4e0085b233b546b8cf93c729393.s3tc.ctex"
+path.etc2="res://.godot/imported/vineyard_landscape_leaf_normal.png-b35da4e0085b233b546b8cf93c729393.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/vineyard_landscape/vineyard_landscape_leaf_normal.png"
-dest_files=["res://.godot/imported/vineyard_landscape_leaf_normal.png-b35da4e0085b233b546b8cf93c729393.s3tc.ctex"]
+dest_files=["res://.godot/imported/vineyard_landscape_leaf_normal.png-b35da4e0085b233b546b8cf93c729393.s3tc.ctex", "res://.godot/imported/vineyard_landscape_leaf_normal.png-b35da4e0085b233b546b8cf93c729393.etc2.ctex"]
 
 [params]
 

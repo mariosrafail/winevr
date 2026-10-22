@@ -45,6 +45,11 @@ func show_controls() -> void:
 	PremiumUIStyles.animate_panel_open(panel, 12.0)
 	print("[WineVR][Controls] overlay shown")
 	controls_opened.emit()
+	# Newly rebuilt wrapping labels need a layout pass before their minimum sizes settle.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_open():
+		_layout(get_viewport().get_visible_rect().size)
 
 
 func hide_controls(emit_signal: bool = true) -> void:
@@ -124,13 +129,13 @@ func _build_overlay(parent_canvas_layer: CanvasLayer) -> void:
 	PremiumUIStyles.apply_panel_chrome_to_vbox(outer_vbox)
 
 	title_label = Label.new()
-	title_label.text = "Controls"
+	title_label.text = "Πώς εξερευνάς"
 	title_label.add_theme_font_size_override("font_size", 26)
 	title_label.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
 	outer_vbox.add_child(title_label)
 
 	subtitle_label = Label.new()
-	subtitle_label.text = "Learn how to explore the tasting experience."
+	subtitle_label.text = "Πλησίασε ένα τσαμπί, φέρ’ το κοντά σου και παρατήρησε τις λεπτομέρειες."
 	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	subtitle_label.add_theme_font_size_override("font_size", 14)
 	subtitle_label.add_theme_color_override("font_color", PremiumUIStyles.TEXT_BODY)
@@ -171,7 +176,7 @@ func _build_overlay(parent_canvas_layer: CanvasLayer) -> void:
 	outer_vbox.add_child(button_row)
 
 	close_button = Button.new()
-	close_button.text = "Close"
+	close_button.text = "Κλείσιμο"
 	close_button.custom_minimum_size = Vector2(0.0, 44.0)
 	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(close_button)
@@ -179,7 +184,7 @@ func _build_overlay(parent_canvas_layer: CanvasLayer) -> void:
 	button_row.add_child(close_button)
 
 	footer_label = Label.new()
-	footer_label.text = "You can view controls again from the Main Menu or by pressing F1."
+	footer_label.text = "Οι οδηγίες ανοίγουν ξανά από το μενού ή με F1."
 	footer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	footer_label.add_theme_font_size_override("font_size", 12)
 	footer_label.add_theme_color_override("font_color", PremiumUIStyles.TEXT_MUTED)
@@ -193,37 +198,47 @@ func _rebuild_controls() -> void:
 	_clear_children(essential_column)
 	_clear_children(advanced_column)
 
-	_add_section_title(essential_column, "Essential")
-	_add_control_row(essential_column, "Mouse", "Look around in Explore Mode")
-	_add_control_row(essential_column, "Right Mouse Drag", "Look around without Explore Mode")
-	_add_control_row(essential_column, "W / A / S / D", "Move inside the winery")
-	_add_control_row(essential_column, "E", "Inspect the highlighted target")
-	_add_control_row(essential_column, "Tab", "Toggle Explore Mode")
-	_add_control_row(essential_column, "Esc", "Open Main Menu or return from submenus")
-	_add_control_row(essential_column, "R", "Restart current experience")
-	_add_control_row(essential_column, "F", "Show guided target in the winery")
+	_add_section_title(essential_column, "01  /  Περιήγηση στη συλλογή")
+	_add_control_row(essential_column, "W A S D", "Περπάτησε ανάμεσα στα εκθέματα")
+	_add_control_row(essential_column, "Ποντίκι", "Κοίτα ελεύθερα γύρω σου")
+	_add_control_row(essential_column, "E", "Φέρε το επιλεγμένο τσαμπί κοντά σου")
+	_add_control_row(essential_column, "Αριστερό κλικ", "Πιάσε και τράβηξε ένα κοντινό τσαμπί")
+	_add_control_row(essential_column, "Tab", "Ελευθέρωσε ή δέσμευσε το ποντίκι")
+	_add_control_row(essential_column, "Esc", "Άνοιξε το μενού")
+	_add_control_row(essential_column, "F11", "Πλήρης οθόνη ή παράθυρο")
 
-	_add_section_title(advanced_column, "Advanced")
-	_add_control_row(advanced_column, "F1", "Show or hide this controls screen")
-	_add_control_row(advanced_column, "F3", "Toggle dev overlay")
-	_add_control_row(advanced_column, "F6", "Cycle demo viewport preset")
-	_add_control_row(advanced_column, "F7", "Toggle demo mode")
-	_add_control_row(advanced_column, "F8 / F9", "Hide or show UI for capture")
-	_add_control_row(advanced_column, "F10", "Reset current view")
+	_add_section_title(advanced_column, "02  /  Κοντινή παρατήρηση")
+	_add_control_row(advanced_column, "Αριστερό κλικ", "Πιάσε και μετακίνησε το σταφύλι")
+	_add_control_row(advanced_column, "Δεξί κλικ", "Περίστρεψε το τσαμπί")
+	_add_control_row(advanced_column, "Ροδέλα", "Πλησίασε ή απομάκρυνε το σταφύλι")
+	_add_control_row(advanced_column, "← / →", "Περιστροφή αριστερά ή δεξιά")
+	_add_control_row(advanced_column, "0°", "Επαναφορά από το κουμπί 0° της καρτέλας")
+	_add_control_row(advanced_column, "E / Esc", "Επέστρεψε το τσαμπί στη θέση του")
+	_add_control_row(advanced_column, "C", "Άλλαξε σελίδα πληροφοριών")
+	_add_control_row(advanced_column, "F1", "Άνοιξε αυτές τις οδηγίες")
+	if DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or "--touch-ui" in OS.get_cmdline_user_args():
+		_add_section_title(essential_column, "Αφή")
+		_add_control_row(essential_column, "Βέλη", "Κράτησε πατημένο για κίνηση")
+		_add_control_row(essential_column, "Σύρσιμο", "Σύρε στην κάτω περιοχή για να κοιτάξεις")
+		_add_control_row(essential_column, "Εξέταση", "Άνοιξε το έκθεμα που στοχεύεις")
+		_add_control_row(essential_column, "Καρτέλες", "Προφίλ, ρώγα, ωρίμανση και τομή 3D")
 	if _show_debug_controls:
-		_add_section_title(advanced_column, "VR Hand Debug")
-		_add_control_row(advanced_column, "H", "Toggle desktop VR hand preview")
-		_add_control_row(advanced_column, "J", "Force-show VR hand holder")
-		_add_control_row(advanced_column, "K", "Print VR hand holder status")
+		_add_section_title(advanced_column, "Εργαλεία δοκιμών")
+		_add_control_row(advanced_column, "F3", "Πληροφορίες δοκιμών")
+		_add_control_row(advanced_column, "F6", "Δοκιμή μεγέθους οθόνης")
+		_add_control_row(advanced_column, "F8 / F9", "Κρύψε ή εμφάνισε το περιβάλλον")
+		_add_control_row(advanced_column, "H", "Προεπισκόπηση χεριού VR")
+		_add_control_row(advanced_column, "J", "Εμφάνισε τη βάση χεριού VR")
+		_add_control_row(advanced_column, "K", "Καταγραφή κατάστασης χεριού")
 
 	if _show_vr_controls:
 		_add_section_title(advanced_column, "VR")
-		_add_control_row(advanced_column, "Headset", "Look around")
-		_add_control_row(advanced_column, "Right Controller", "Point at panels and tasting targets")
-		_add_control_row(advanced_column, "Right Trigger / A / Right Shoulder", "Select or interact")
-		_add_control_row(advanced_column, "Left Controller", "Aim teleport arc")
-		_add_control_row(advanced_column, "Left Trigger / Thumbstick", "Teleport when target is valid")
-		_add_control_row(advanced_column, "Left Hand", "Holds the vial")
+		_add_control_row(advanced_column, "Κάσκα", "Κοίτα γύρω σου")
+		_add_control_row(advanced_column, "Χειριστήριο", "Στόχευσε τις καρτέλες και τα εκθέματα")
+		_add_control_row(advanced_column, "Σκανδάλη / A", "Επίλεξε ή αλληλεπίδρασε")
+		_add_control_row(advanced_column, "Αριστερό χέρι", "Στόχευσε τη διαδρομή τηλεμεταφοράς")
+		_add_control_row(advanced_column, "Σκανδάλη / μοχλός", "Μετακίνηση σε έγκυρο σημείο")
+		_add_control_row(advanced_column, "Δεξί grip", "Πιάσε ένα κοντινό τσαμπί")
 
 
 func _add_section_title(parent: VBoxContainer, text: String) -> void:
@@ -269,12 +284,15 @@ func _layout(viewport_size: Vector2) -> void:
 	dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	var margin: float = 22.0 if viewport_size.x >= 760.0 else 12.0
-	var max_width: float = maxf(320.0, viewport_size.x - margin * 2.0)
+	var max_width: float = maxf(220.0, viewport_size.x - margin * 2.0)
 	var max_height: float = minf(viewport_size.y * 0.86, viewport_size.y - margin * 2.0)
 	var preferred_width: float = minf(max_width, 900.0)
-	var target_size: Vector2 = Vector2(preferred_width, minf(max_height, viewport_size.y - margin * 2.0))
+	var target_size: Vector2 = Vector2(preferred_width, minf(580.0, max_height))
 	panel.custom_minimum_size = Vector2(minf(320.0, target_size.x), minf(280.0, target_size.y))
+	subtitle_label.visible = viewport_size.y > 450
+	footer_label.visible = viewport_size.y > 450
 	panel.size = target_size
+	panel.set_deferred("size", target_size)
 	panel.position = (viewport_size - target_size) * 0.5
 
 	var single_column: bool = viewport_size.x < 760.0 or target_size.x < 680.0

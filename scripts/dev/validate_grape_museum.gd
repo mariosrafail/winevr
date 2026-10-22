@@ -21,9 +21,11 @@ func _run() -> void:
 	await get_tree().create_timer(2.0).timeout
 	var winery: WineryInteriorController = app.get_node("WineryInterior") as WineryInteriorController
 	var museum: GrapeMuseum = winery.get_node("GrapeMuseum") as GrapeMuseum
-	_check(museum != null and museum.exhibit_nodes.size() == 2, "Both authored varieties loaded")
+	_check(museum != null and museum.exhibit_nodes.size() >= 3, "Three distinct Cretan varieties loaded")
 	_check(bool(museum.data.get("values_are_illustrative", false)), "Illustrative values are labelled")
-	if museum.exhibit_nodes.size() != 2:
+	_check(museum.exhibit_nodes.has("vidiano"), "White Vidiano joins the two red exhibits")
+	_check((museum.data.get("metrics", []) as Array).size() == 5, "Chemical profile includes berry bitterness")
+	if museum.exhibit_nodes.size() < 3:
 		print("[MuseumQA] Missing exhibit data/assets; aborting integration checks")
 		app.queue_free()
 		await get_tree().process_frame
@@ -78,7 +80,7 @@ func _run() -> void:
 	if DisplayServer.get_name() != "headless":
 		_check(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, "Closing Options restores normal mouse look")
 	var physics: MuseumPhysicsController = museum.physics as MuseumPhysicsController
-	for id in ["liatiko", "kotsifali"]:
+	for id in museum.exhibit_nodes.keys():
 		var entry: Dictionary = museum.exhibit_nodes[id]
 		var bunch: RigidBody3D = entry["pivot"] as RigidBody3D
 		var model: Node3D = (entry["turntable"] as Node3D).get_node("AuthoredBunch") as Node3D
@@ -102,6 +104,7 @@ func _run() -> void:
 		winery.interaction_ray.force_raycast_update()
 		var hanging_down: InputEventMouseButton = InputEventMouseButton.new()
 		hanging_down.button_index = MOUSE_BUTTON_LEFT
+		hanging_down.shift_pressed = true
 		hanging_down.pressed = true
 		hanging_down.position = winery.camera.unproject_position(hit_center)
 		_send_mouse(hanging_down, physics)
@@ -113,7 +116,7 @@ func _run() -> void:
 		hanging_drag.button_mask = MOUSE_BUTTON_MASK_LEFT
 		var hanging_rotation: Quaternion = bunch.global_basis.get_rotation_quaternion()
 		_send_mouse(hanging_drag, physics)
-		await get_tree().create_timer(0.30).timeout
+		await get_tree().create_timer(0.75).timeout
 		_check(hanging_rotation.angle_to(bunch.global_basis.get_rotation_quaternion()) > 0.01, id + " hand pulls produce a real hanging swing")
 		_check(bunch.global_position.distance_to(anchor) < 0.025, id + " hand pulling preserves the stem attachment")
 		hanging_down.pressed = false
@@ -127,11 +130,36 @@ func _run() -> void:
 		await get_tree().create_timer(0.65).timeout
 		_check(museum.selected_id == id and physics.inspecting_id == id, id + " enters close inspection")
 		_check(panel.visible and not is_instance_valid(entry.get("joint")), id + " profile is shown and hook released only for inspection")
+		var sugar_score: Label3D = panel.get_node("ProfilePage/Score_sugars") as Label3D
+		_check(" / 100" in sugar_score.text and not "%" in sugar_score.text, id + " illustrative scores cannot be confused with sugar percentages")
+		var berry_tab: Interactable = panel.get_node("museum_" + id + "_page_1") as Interactable
+		berry_tab.interact()
+		_check((panel.get_node("BerryPage") as Node3D).visible and not (panel.get_node("ProfilePage") as Node3D).visible, id + " berry anatomy tab changes the actual world panel")
+		var maturity_tab: Interactable = panel.get_node("museum_" + id + "_page_2") as Interactable
+		maturity_tab.interact()
+		_check((panel.get_node("RipeningPage") as Node3D).visible and not (panel.get_node("BerryPage") as Node3D).visible, id + " maturity and origin card is selectable")
+		if capture and id == "vidiano":
+			await _capture("museum_vidiano_learning")
+		var anatomy_tab: Interactable = panel.get_node("museum_" + id + "_page_3") as Interactable
+		anatomy_tab.interact()
+		var anatomy: BerryAnatomy = panel.get_node("AnatomyPage") as BerryAnatomy
+		_check(anatomy.active and anatomy.is_visible_in_tree(), id + " fourth tab reveals the actual 3D berry cutaway")
+		for part in ["skin", "pulp", "seeds"]:
+			(anatomy.get_node("Anatomy_" + part) as Interactable).interact()
+			_check(anatomy.selected_part == part and not anatomy.get("_description").text.is_empty(), id + " anatomy selection explains " + part)
+		if capture and id == "vidiano":
+			await _capture("museum_vidiano_anatomy")
+		museum.set_profile_page(id, 0)
+		_check(not anatomy.visible and not anatomy.active, id + " switching page hides cutaway")
+		for collider in anatomy.find_children("*", "Area3D", true, false):
+			_check((collider as Area3D).collision_layer == 0, id + " hidden anatomy cannot intercept pointing")
 		_check(winery.camera.global_position.distance_to(bunch.to_global(bunch.center_of_mass)) < 1.4, id + " is brought physically close to the camera")
 		_check(physics.hand.visible, "The anatomical 3D hand is visible")
 		_check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "Inspect allows pointing at the bunch with the cursor")
 		var rotate_button: Interactable = panel.get_node("museum_" + id + "_turn_2") as Interactable
 		rotate_button.interact()
+		await get_tree().physics_frame
+		await get_tree().process_frame
 		await get_tree().physics_frame
 		_check(bunch.angular_velocity.length() > 0.005, id + " rotation applies physics torque")
 		var right_click: InputEventMouseButton = InputEventMouseButton.new()
@@ -152,6 +180,7 @@ func _run() -> void:
 		wheel.pressed = true
 		_send_mouse(wheel, physics)
 		await get_tree().physics_frame
+		await get_tree().process_frame
 		_check(physics.get("_inspect_distance") < 1.1, "Mouse wheel moves inspection closer")
 		museum.reset_exhibit(id)
 		await get_tree().create_timer(0.15).timeout
@@ -164,10 +193,12 @@ func _run() -> void:
 		await get_tree().physics_frame
 		var down: InputEventMouseButton = InputEventMouseButton.new()
 		down.button_index = MOUSE_BUTTON_LEFT
+		down.shift_pressed = true
 		down.pressed = true
 		down.position = pixel
 		_send_mouse(down, physics)
 		await get_tree().physics_frame
+		await get_tree().process_frame
 		_check(physics.grabbed_id == id, id + " left mouse button actually grabs the fruit")
 		var before: Vector3 = bunch.global_position
 		var drag: InputEventMouseMotion = InputEventMouseMotion.new()
@@ -175,7 +206,7 @@ func _run() -> void:
 		drag.relative = Vector2(75, -25)
 		drag.button_mask = MOUSE_BUTTON_MASK_LEFT
 		_send_mouse(drag, physics)
-		await get_tree().create_timer(0.30).timeout
+		await get_tree().create_timer(0.75).timeout
 		_check(bunch.global_position.distance_to(before) > 0.005, id + " hand drag produces physical movement")
 		_check(physics.hand.grip_target > 0.5, "The hand curls while grasping")
 		_check(physics.hand.skeleton.get_bone_count() == 16, "The anatomical hand has a real articulated skeleton")
@@ -207,6 +238,7 @@ func _run() -> void:
 		options.close()
 		await get_tree().create_timer(0.12).timeout
 		_check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and museum.controls_enabled, "Closing Options preserves the Inspect cursor")
+		museum.set_profile_page(id, 3)
 		var return_key: InputEventKey = InputEventKey.new()
 		return_key.keycode = KEY_E if id == "liatiko" else KEY_ESCAPE
 		return_key.pressed = true
@@ -216,6 +248,8 @@ func _run() -> void:
 		Input.parse_input_event(return_key)
 		await get_tree().create_timer(0.65).timeout
 		_check(not museum.is_inspecting() and not panel.visible, id + " E/Esc return hides its profile again")
+		_check(not anatomy.active and not anatomy.is_visible_in_tree(), id + " leaving inspection cleans up cutaway and its hit targets")
+		museum.set_profile_page(id, 0)
 		_check(is_instance_valid(entry.get("joint")) and bunch.global_position.distance_to(anchor) < 0.025, id + " returns to its original physical hook")
 		if DisplayServer.get_name() != "headless":
 			_check(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, "Returning resumes normal mouse look")
@@ -236,15 +270,30 @@ func _run() -> void:
 	_check(winery.player_rig.position.distance_to(start) > 0.01, "WASD moves the player in the museum")
 	_check(winery.player_rig is CharacterBody3D, "The walking rig has physical collisions")
 	var body: CharacterBody3D = winery.player_rig as CharacterBody3D
-	body.global_position = Vector3(1.65, 0, -0.8)
+	var first_exhibit: Dictionary = museum.exhibit_nodes[museum.exhibit_nodes.keys()[0]]
+	body.global_position = Vector3((first_exhibit["anchor"] as Node3D).global_position.x, 0, -0.8)
 	await get_tree().physics_frame
 	_check(body.test_move(body.global_transform, Vector3(0, 0, -1.0)), "Stone plinth blocks walking through the exhibit")
+	museum.set_passthrough_mode(true)
+	_check(not museum.architecture.visible, "Passthrough presentation hides the virtual room")
+	_check((first_exhibit["pivot"] as Node3D).is_visible_in_tree(), "Passthrough keeps the grape exhibit visible")
+	museum.set_passthrough_mode(false)
+	_check(museum.architecture.visible, "Leaving passthrough restores the gallery")
+	museum.inspect_exhibit("vidiano")
+	await get_tree().create_timer(0.65).timeout
+	museum.set_profile_page("vidiano", 3)
+	museum.visible = false
+	var hidden_anatomy: BerryAnatomy = (museum.exhibit_nodes["vidiano"]["panel"] as Node3D).get_node("AnatomyPage") as BerryAnatomy
+	_check(not hidden_anatomy.active, "Leaving the museum deactivates the cutaway immediately")
+	museum.visible = true
+	museum.close_inspection()
+	await get_tree().create_timer(0.65).timeout
 	menu.show_menu()
 	_check(not museum.controls_enabled, "Menu blocks inspection input")
 	app.call("_on_main_menu_resume_requested")
 	await get_tree().create_timer(0.2).timeout
 	_check(museum.controls_enabled, "Resume restores inspection")
-	var report: Dictionary = {"passed": _failures.is_empty(), "failures": _failures, "varieties": museum.exhibit_nodes.keys(), "ray_inspection": true, "world_space_bars": true, "close_inspection": true, "physical_grab": true, "options_cursor": true, "anatomical_hand": true, "contact_finger_curl": true, "opposing_thumb": true, "animated_release": true}
+	var report: Dictionary = {"passed": _failures.is_empty(), "failures": _failures, "varieties": museum.exhibit_nodes.keys(), "ray_inspection": true, "world_space_bars": true, "close_inspection": true, "physical_grab": true, "options_cursor": true, "anatomical_hand": true, "contact_finger_curl": true, "opposing_thumb": true, "animated_release": true, "berry_cutaway": true, "cutaway_cleanup": true}
 	var file: FileAccess = FileAccess.open("res://work/museum_qa.json", FileAccess.WRITE)
 	if file == null:
 		file = FileAccess.open("user://museum_qa.json", FileAccess.WRITE)
@@ -274,4 +323,7 @@ func _send_mouse(event: InputEventMouse, physics: MuseumPhysicsController) -> vo
 	if DisplayServer.get_name() == "headless":
 		physics._unhandled_input(event)
 	else:
-		Input.parse_input_event(event)
+		# Native input reaches _unhandled_input after GUI propagation. Copy the
+		# event because the caller may change a down event into its matching up.
+		Input.parse_input_event(event.duplicate())
+		Input.flush_buffered_events()

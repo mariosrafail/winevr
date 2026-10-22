@@ -13,6 +13,11 @@ signal interaction_target_changed(can_interact: bool, prompt_text: String)
 signal vr_vial_hotspot_viewed(hotspot_data: Dictionary)
 signal desktop_info_panel_opened
 signal desktop_info_panel_closed
+signal presentation_changed(mode: String)
+signal xr_state_changed(active: bool, mode: String)
+signal xr_capabilities_changed(capabilities: Dictionary)
+signal collection_requested
+signal tour_station_visited(station_id: String)
 
 @export var move_speed: float = 2.4
 @export var look_sensitivity: float = 0.005
@@ -84,6 +89,7 @@ var _vr_manager: WineVRVRManager
 var _is_vr_active: bool = false
 var _vr_hand_vial_holder: Node3D
 var _vr_trigger_was_pressed: bool = false
+var _vr_input_controller: XRController3D
 var _vr_teleport_system: Node
 var _vr_guided_tasting: Node
 var _vr_vial_hotspots: Node
@@ -92,6 +98,11 @@ var _vr_last_feedback: String = ""
 var _controls_enabled: bool = false
 var _active_client_data: Dictionary = {}
 var _grape_museum: GrapeMuseum
+var _vineyard: Node3D
+var _cellar: Node3D
+var presentation_mode: String = "museum"
+var _xr_focused: bool = true
+var _last_xr_interaction_msec: int = -300
 
 var _interaction_ui_layer: CanvasLayer
 var _tooltip_panel: PanelContainer
@@ -172,7 +183,19 @@ func _setup_grape_museum() -> void:
 func _apply_museum_presentation() -> void:
 	if _grape_museum == null:
 		return
-	_grape_museum.configure_environment(world_environment.environment)
+	if presentation_mode == "cellar" and _cellar != null:
+		_cellar.call("configure_environment", world_environment.environment)
+	elif presentation_mode == "vineyard" and _vineyard != null:
+		_vineyard.call("configure_environment", world_environment.environment)
+	else:
+		_grape_museum.configure_environment(world_environment.environment)
+	if presentation_mode == "museum" and _grape_museum.has_method("set_passthrough_mode"):
+		_grape_museum.call("set_passthrough_mode", is_ar_active())
+	if is_ar_active():
+		world_environment.environment.background_mode = Environment.BG_COLOR
+		world_environment.environment.background_color = Color(0, 0, 0, 0)
+		world_environment.environment.fog_enabled = false
+		world_environment.environment.ambient_light_energy = 0.85
 	directional_light.visible = false
 	fill_light.visible = false
 	held_vial.visible = false
@@ -182,6 +205,91 @@ func _apply_museum_presentation() -> void:
 		if legacy_root != null:
 			legacy_root.visible = false
 			_disable_museum_legacy_collisions(legacy_root)
+
+
+func set_presentation_mode(mode: String) -> void:
+	if mode not in ["museum", "vineyard", "cellar"]:
+		return
+	if is_ar_active() and mode != "museum":
+		return
+	if _grape_museum.physics != null:
+		_grape_museum.physics.call("close_inspection", true)
+		_grape_museum.physics.call("end_grab")
+	_grape_museum.selected_id = ""
+	_hide_info_panel()
+	_set_hovered_interactable(null)
+	presentation_mode = mode
+	if mode == "vineyard" and _vineyard == null:
+		_vineyard = (load("res://scenes/VineyardLandscape.tscn") as PackedScene).instantiate() as Node3D
+		add_child(_vineyard)
+		_vineyard.connect("return_to_museum_requested", func() -> void: collection_requested.emit())
+		_vineyard.connect("station_selected", func(id: String) -> void: tour_station_visited.emit(id))
+	if mode == "cellar" and _cellar == null:
+		_cellar = (load("res://scenes/CellarTour.tscn") as PackedScene).instantiate() as Node3D
+		add_child(_cellar)
+		_cellar.connect("return_to_museum_requested", func() -> void: collection_requested.emit())
+		_cellar.connect("station_selected", func(id: String) -> void: tour_station_visited.emit(id))
+	if _cellar != null:
+		_cellar.call("set_active", mode == "cellar")
+	_set_branch_active(_grape_museum, mode == "museum")
+	_grape_museum.controls_enabled = _controls_enabled and mode == "museum" and _xr_focused and _desktop_modal_active_id.is_empty()
+	if _vineyard != null:
+		_vineyard.call("set_active", mode == "vineyard")
+	var minimum: Vector2 = Vector2(-2.6, -2.8)
+	var maximum: Vector2 = Vector2(2.6, 2.2)
+	var spawn: Vector3 = Vector3(0, 0, 1.55)
+	var tour: Node3D = _cellar if mode == "cellar" else _vineyard
+	if mode != "museum" and tour != null:
+		minimum = tour.call("get_bounds_min")
+		maximum = tour.call("get_bounds_max")
+		spawn = tour.call("get_spawn_position")
+	_movement.configure_bounds(minimum, maximum)
+	_movement.set_camera_start(spawn, Vector3.ZERO)
+	if _vr_teleport_system != null:
+		_vr_teleport_system.call("configure_bounds", minimum, maximum)
+	_apply_museum_presentation()
+	_register_scene_interactables()
+	reset_view()
+	presentation_changed.emit(mode)
+
+
+func _set_branch_active(branch: Node, active: bool) -> void:
+	if branch is Node3D:
+		(branch as Node3D).visible = active
+	branch.process_mode = Node.PROCESS_MODE_INHERIT if active else Node.PROCESS_MODE_DISABLED
+	_set_branch_collisions(branch, active)
+
+
+func _set_branch_collisions(node: Node, active: bool) -> void:
+	if node is CollisionObject3D:
+		var body: CollisionObject3D = node as CollisionObject3D
+		if not body.has_meta("presentation_layer"):
+			body.set_meta("presentation_layer", body.collision_layer)
+			body.set_meta("presentation_mask", body.collision_mask)
+		body.collision_layer = int(body.get_meta("presentation_layer")) if active else 0
+		body.collision_mask = int(body.get_meta("presentation_mask")) if active else 0
+		if body is RigidBody3D:
+			(body as RigidBody3D).freeze = not active
+	for child in node.get_children():
+		_set_branch_collisions(child, active)
+
+
+func is_ar_active() -> bool:
+	return _is_vr_active and _vr_manager != null and _vr_manager.get_session_mode() == "ar"
+
+
+func get_xr_capabilities() -> Dictionary:
+	_ensure_vr_manager()
+	return _vr_manager.get_capabilities()
+
+
+func get_xr_status() -> String:
+	return _vr_manager.get_status_message() if _vr_manager != null else "Δεν βρέθηκε συνδεδεμένη συσκευή XR."
+
+
+func end_immersive_mode() -> void:
+	if _vr_manager != null:
+		_vr_manager.end_session()
 
 
 func _disable_museum_legacy_collisions(root: Node) -> void:
@@ -208,7 +316,7 @@ func _physics_process(delta: float) -> void:
 		_update_interaction_prompt()
 		_set_vr_teleport_enabled(true)
 		return
-	if _grape_museum != null and _grape_museum.is_inspecting():
+	if _grape_museum != null and (_grape_museum.is_inspecting() or (_grape_museum.physics != null and bool(_grape_museum.physics.get("room_demo")) and bool(_grape_museum.physics.get("_transitioning")))):
 		_update_interaction_prompt()
 		return
 	if _movement != null and _movement.physics_update(delta):
@@ -246,7 +354,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		show_current_guided_target()
 		return
-	if _grape_museum != null and _grape_museum.is_inspecting():
+	if _grape_museum != null and (_grape_museum.is_inspecting() or (_grape_museum.physics != null and bool(_grape_museum.physics.get("room_demo")) and bool(_grape_museum.physics.get("_transitioning")))):
 		return
 	if _movement.handle_input(event):
 		_update_interaction_prompt()
@@ -297,15 +405,17 @@ func set_controls_enabled(enabled: bool) -> void:
 		return
 	_controls_enabled = enabled
 	if _grape_museum != null:
-		_grape_museum.controls_enabled = enabled
+		_grape_museum.controls_enabled = enabled and presentation_mode == "museum" and _xr_focused and _desktop_modal_active_id.is_empty()
 	_movement.set_controls_enabled(enabled and not _is_vr_active)
+	if vr_player_rig != null and vr_player_rig.has_method("set_input_enabled"):
+		vr_player_rig.call("set_input_enabled", enabled and _desktop_modal_active_id.is_empty() and _xr_focused)
 	if _interaction_ui_layer != null:
 		_interaction_ui_layer.visible = enabled and not _is_vr_active
 		if not _interaction_ui_layer.visible:
 			_hide_interact_text_feedback()
 	if _is_vr_active:
 		if vr_interaction_ray != null:
-			vr_interaction_ray.enabled = enabled
+			vr_interaction_ray.enabled = enabled and _xr_focused and _desktop_modal_active_id.is_empty()
 		if vr_pointer != null:
 			vr_pointer.visible = enabled
 		_set_vr_teleport_enabled(enabled)
@@ -325,6 +435,9 @@ func set_controls_enabled(enabled: bool) -> void:
 
 
 func set_camera_active(active: bool) -> void:
+	camera.environment = world_environment.environment
+	if vr_camera != null:
+		vr_camera.environment = world_environment.environment
 	if _is_vr_active:
 		if player_rig != null:
 			player_rig.visible = false
@@ -343,8 +456,11 @@ func reset_view() -> void:
 	if _movement != null:
 		_movement.reset_view()
 	if _is_vr_active and vr_player_rig != null and _movement != null:
-		vr_player_rig.position = _movement.camera_start_position
-		vr_player_rig.rotation = _movement.camera_start_rotation
+		if vr_player_rig.has_method("reset_origin"):
+			vr_player_rig.call("reset_origin", _movement.camera_start_position, _movement.camera_start_rotation)
+		else:
+			vr_player_rig.position = _movement.camera_start_position
+			vr_player_rig.rotation = _movement.camera_start_rotation
 
 
 func set_mobile_move_axis(axis: String, pressed: bool) -> void:
@@ -394,26 +510,23 @@ func can_request_immersive_mode() -> bool:
 	return _vr_manager != null and _vr_manager.may_have_supported_interface(force_desktop_mode)
 
 
-func request_immersive_mode() -> bool:
+func request_immersive_mode(mode: String = "vr") -> bool:
 	if _is_vr_active:
-		return true
+		return _vr_manager != null and _vr_manager.get_session_mode() == mode.to_lower()
 	_ensure_vr_manager()
 	if _vr_manager == null:
 		return false
 
 	# Immersive mode must be requested from a user action, so startup stays on
 	# the desktop rig until this method is called by the intro/QR UI.
-	_is_vr_active = await _vr_manager.initialize(force_desktop_mode)
-	if _is_vr_active and (vr_player_rig == null or vr_camera == null or vr_interaction_ray == null):
-		push_warning("[WineVR][VR] VRPlayerRig is incomplete, falling back to desktop mode.")
-		get_viewport().use_xr = false
-		_is_vr_active = false
+	var initialized: bool = await _vr_manager.initialize(force_desktop_mode, mode)
+	if initialized and (vr_player_rig == null or vr_camera == null or vr_interaction_ray == null):
+		push_warning("[WineVR][VR] Incomplete rig; returning to desktop.")
+		_vr_manager.end_session()
+		return false
+	# Session state signals own activation and cleanup, including asynchronous exit.
+	return initialized
 
-	if _is_vr_active:
-		_activate_vr_mode()
-	else:
-		_activate_desktop_mode()
-	return _is_vr_active
 
 
 func _ensure_vr_manager() -> void:
@@ -422,9 +535,73 @@ func _ensure_vr_manager() -> void:
 	_vr_manager = VR_MANAGER_SCRIPT.new() as WineVRVRManager
 	_vr_manager.name = "VRManager"
 	add_child(_vr_manager)
+	_vr_manager.session_state_changed.connect(_on_xr_session_state_changed)
+	_vr_manager.capabilities_changed.connect(func(caps: Dictionary) -> void: xr_capabilities_changed.emit(caps))
+	_vr_manager.focus_changed.connect(_on_xr_focus_changed)
+	_vr_manager.selection_requested.connect(_on_webxr_selection)
+	_vr_manager.reference_space_changed.connect(func(space: String) -> void:
+		if vr_player_rig.has_method("apply_reference_space"):
+			vr_player_rig.call("apply_reference_space", space)
+	)
+
+
+func _on_xr_session_state_changed(active: bool, mode: String) -> void:
+	_is_vr_active = active
+	_vr_trigger_was_pressed = false
+	if _grape_museum != null and _grape_museum.physics != null:
+		_grape_museum.physics.call("close_inspection", true)
+		_grape_museum.physics.call("end_grab")
+	if active:
+		_activate_vr_mode()
+		if mode == "ar":
+			set_presentation_mode("museum")
+	else:
+		_activate_desktop_mode()
+		_xr_focused = true
+	set_controls_enabled(_controls_enabled)
+	set_camera_active(is_visible_in_tree())
+	_apply_museum_presentation()
+	xr_state_changed.emit(active, mode)
+
+
+func _on_xr_focus_changed(focused: bool) -> void:
+	_xr_focused = focused
+	if not focused:
+		_vr_trigger_was_pressed = false
+		_vr_input_controller = null
+	if not focused and _grape_museum != null and _grape_museum.physics != null:
+		_grape_museum.physics.call("end_grab")
+	if vr_player_rig != null and vr_player_rig.has_method("set_input_enabled"):
+		vr_player_rig.call("set_input_enabled", focused and _controls_enabled and _desktop_modal_active_id.is_empty())
+	_set_vr_teleport_enabled(focused and _controls_enabled)
+	if _grape_museum != null:
+		_grape_museum.controls_enabled = focused and _controls_enabled and presentation_mode == "museum" and _desktop_modal_active_id.is_empty()
+
+
+func _on_webxr_selection(source_id: int) -> void:
+	if not _is_vr_active or not _controls_enabled or not _xr_focused:
+		return
+	if vr_player_rig.has_method("route_web_selection"):
+		if not bool(vr_player_rig.call("route_web_selection", _vr_manager, source_id)):
+			return
+	_update_interaction_prompt()
+	_try_xr_interact()
+
+
+func _try_xr_interact() -> void:
+	if not _is_vr_active or not _controls_enabled or not _xr_focused or not _desktop_modal_active_id.is_empty():
+		return
+	var now: int = Time.get_ticks_msec()
+	if now - _last_xr_interaction_msec < 250:
+		return
+	_last_xr_interaction_msec = now
+	_try_interact()
 
 
 func _activate_desktop_mode() -> void:
+	_is_vr_active = false
+	if vr_player_rig != null and vr_player_rig.has_method("set_xr_enabled"):
+		vr_player_rig.call("set_xr_enabled", false)
 	get_viewport().use_xr = false
 	if player_rig != null:
 		player_rig.visible = true
@@ -448,6 +625,8 @@ func _activate_desktop_mode() -> void:
 
 
 func _activate_vr_mode() -> void:
+	if vr_player_rig.has_method("set_xr_enabled"):
+		vr_player_rig.call("set_xr_enabled", true, is_ar_active())
 	if player_rig != null:
 		player_rig.visible = false
 	if camera != null:
@@ -481,13 +660,34 @@ func _activate_vr_mode() -> void:
 
 
 func _connect_vr_controller_input() -> void:
-	if vr_right_controller != null:
-		var button_callable: Callable = Callable(self, "_on_vr_controller_button_pressed")
-		if not vr_right_controller.button_pressed.is_connected(button_callable):
-			vr_right_controller.button_pressed.connect(_on_vr_controller_button_pressed)
-		var float_callable: Callable = Callable(self, "_on_vr_controller_input_float_changed")
-		if not vr_right_controller.input_float_changed.is_connected(float_callable):
-			vr_right_controller.input_float_changed.connect(_on_vr_controller_input_float_changed)
+	for controller: XRController3D in [vr_right_controller, vr_left_controller]:
+		if controller == null:
+			continue
+		var button_callable: Callable = _on_vr_controller_button_from.bind(controller)
+		if not controller.button_pressed.is_connected(button_callable):
+			controller.button_pressed.connect(button_callable)
+		var float_callable: Callable = _on_vr_controller_float_from.bind(controller)
+		if not controller.input_float_changed.is_connected(float_callable):
+			controller.input_float_changed.connect(float_callable)
+
+
+func _prepare_xr_controller_input(controller: XRController3D) -> bool:
+	if vr_player_rig == null or controller != vr_player_rig.call("get_interaction_controller"):
+		return false
+	if _vr_input_controller != controller:
+		_vr_trigger_was_pressed = false
+		_vr_input_controller = controller
+	return true
+
+
+func _on_vr_controller_button_from(button_name: String, controller: XRController3D) -> void:
+	if _prepare_xr_controller_input(controller):
+		_on_vr_controller_button_pressed(button_name)
+
+
+func _on_vr_controller_float_from(input_name: String, value: float, controller: XRController3D) -> void:
+	if _prepare_xr_controller_input(controller):
+		_on_vr_controller_input_float_changed(input_name, value)
 
 
 func _ensure_vr_teleport_system() -> void:
@@ -510,7 +710,7 @@ func _set_vr_teleport_enabled(enabled: bool) -> void:
 	if _vr_teleport_system == null and enabled:
 		_ensure_vr_teleport_system()
 	if _vr_teleport_system != null:
-		_vr_teleport_system.call("set_enabled", enabled and _is_vr_active)
+		_vr_teleport_system.call("set_enabled", enabled and _is_vr_active and not is_ar_active() and _xr_focused and _desktop_modal_active_id.is_empty())
 
 
 func _ensure_vr_guided_tasting() -> void:
@@ -543,7 +743,7 @@ func _set_vr_guided_tasting_enabled(enabled: bool) -> void:
 		_ensure_vr_guided_tasting()
 		_configure_vr_guided_tasting()
 	if _vr_guided_tasting != null:
-		_vr_guided_tasting.call("set_enabled", enabled and _is_vr_active)
+		_vr_guided_tasting.call("set_enabled", enabled and _is_vr_active and _grape_museum == null)
 
 
 func _ensure_vr_vial_hotspots() -> void:
@@ -576,7 +776,7 @@ func _set_vr_vial_hotspots_enabled(enabled: bool) -> void:
 		_ensure_vr_vial_hotspots()
 		_configure_vr_vial_hotspots()
 	if _vr_vial_hotspots != null:
-		_vr_vial_hotspots.call("set_enabled", enabled and _is_vr_active)
+		_vr_vial_hotspots.call("set_enabled", enabled and _is_vr_active and _grape_museum == null)
 
 
 func _try_activate_vr_vial_hotspot() -> bool:
@@ -972,35 +1172,35 @@ func _add_joypad_motion_to_action(action_name: String, axis: int, axis_value: fl
 
 
 func _on_vr_controller_button_pressed(button_name: Variant) -> void:
-	if not _is_vr_active or not _controls_enabled:
+	if not _is_vr_active or not _controls_enabled or not _xr_focused or OS.has_feature("web"):
 		return
 	if _is_vr_interact_button(button_name):
-		print("[WineVR][VR] Controller trigger pressed")
-		_try_interact()
+		_try_xr_interact()
 
 
 func _on_vr_controller_input_float_changed(input_name: Variant, value: float) -> void:
-	if not _is_vr_active or not _controls_enabled or not _is_vr_interact_axis(input_name):
+	if not _is_vr_active or not _controls_enabled or not _xr_focused or OS.has_feature("web") or not _is_vr_interact_axis(input_name):
 		return
 	var pressed: bool = value >= 0.72
 	if pressed and not _vr_trigger_was_pressed:
-		print("[WineVR][VR] Controller trigger pressed")
-		_try_interact()
+		_try_xr_interact()
 	_vr_trigger_was_pressed = pressed
 
 
 func _is_vr_interact_button(button_name: Variant) -> bool:
 	var normalized: String = String(button_name).to_lower()
-	return normalized.find("trigger") >= 0 or normalized == "ax_button" or normalized == "primary_click"
+	return normalized in ["trigger_click", "select_button", "ax_button", "primary_click"]
 
 
 func _is_vr_interact_axis(input_name: Variant) -> bool:
 	var normalized: String = String(input_name).to_lower()
-	return normalized.find("trigger") >= 0
+	return normalized == "trigger"
 
 
 func _get_active_interaction_ray() -> RayCast3D:
 	if _is_vr_active and vr_interaction_ray != null:
+		if vr_player_rig.has_method("get_active_interaction_ray"):
+			return vr_player_rig.call("get_active_interaction_ray") as RayCast3D
 		return vr_interaction_ray
 	return interaction_ray
 
@@ -1204,7 +1404,9 @@ func clear_narrative_highlight() -> void:
 
 
 func _try_interact() -> void:
-	if close_grape_inspection():
+	_update_interaction_prompt()
+	var action_hovered: bool = _current_hovered_interactable != null and _current_hovered_interactable.has_meta("museum_action")
+	if not action_hovered and close_grape_inspection():
 		return
 	if _try_activate_vr_vial_hotspot():
 		_play_click_audio()
@@ -1215,16 +1417,17 @@ func _try_interact() -> void:
 		if not _can_interact_interactable(_current_hovered_interactable):
 			return
 		_play_click_audio()
-		_current_hovered_interactable.interact()
-		if _current_hovered_interactable.has_meta("museum_exhibit") or _current_hovered_interactable.has_meta("museum_action"):
-			interactable_clicked.emit(_current_hovered_interactable)
+		var target: Interactable = _current_hovered_interactable
+		target.interact()
+		if target.has_meta("museum_exhibit") or target.has_meta("museum_action") or target.has_meta("navigation_action"):
+			interactable_clicked.emit(target)
 			_hide_tooltip()
 			return
-		interactable_clicked.emit(_current_hovered_interactable)
-		door_interacted.emit(_current_hovered_interactable.to_dict())
+		interactable_clicked.emit(target)
+		door_interacted.emit(target.to_dict())
 		if _guided != null:
 			_guided.try_complete_step(interactable_id)
-		_show_interaction_feedback(_current_hovered_interactable.to_dict())
+		_show_interaction_feedback(target.to_dict())
 		return
 
 	var active_ray: RayCast3D = _get_active_interaction_ray()
@@ -1276,11 +1479,6 @@ func _try_keyboard_interact() -> void:
 
 
 func _update_interaction_prompt() -> void:
-	if _grape_museum != null and _grape_museum.is_inspecting():
-		_set_hovered_interactable(null)
-		door_prompt_changed.emit("")
-		interaction_target_changed.emit(false, "")
-		return
 	var active_ray: RayCast3D = _get_active_interaction_ray()
 	if active_ray == null:
 		_hide_interact_text_feedback()
@@ -1308,11 +1506,16 @@ func _update_interaction_prompt() -> void:
 			_update_vr_feedback("Inspect tasting note", true, "Trigger to inspect")
 			return
 		hovered = _find_interactable_node(collider)
+		if _grape_museum != null and _grape_museum.is_inspecting() and (hovered == null or not hovered.has_meta("museum_action")):
+			_set_hovered_interactable(null)
+			door_prompt_changed.emit("")
+			interaction_target_changed.emit(false, "")
+			return
 		looking_at_door = collider is Node and (collider as Node).is_in_group("winery_door")
 		if hovered != null:
-			prompt = "Interact"
+			prompt = hovered.title
 			crosshair_can_interact = _can_interact_interactable(hovered)
-			crosshair_prompt = "Trigger to interact" if _is_vr_active else "Press E to inspect"
+			crosshair_prompt = "Επιλογή για εξέταση" if _is_vr_active else ("Πάτησε Εξέταση" if DisplayServer.is_touchscreen_available() or "--touch-ui" in OS.get_cmdline_user_args() else "E · Εξέταση")
 			if not _is_vr_active:
 				_hide_tooltip()
 		elif looking_at_door:
@@ -1389,7 +1592,7 @@ func _register_scene_interactables() -> void:
 
 
 func _can_interact_interactable(interactable: Interactable) -> bool:
-	if interactable == null:
+	if interactable == null or not interactable.is_visible_in_tree():
 		return false
 	if interactable.bypass_guided_lock:
 		return true
@@ -1582,8 +1785,12 @@ func _setup_interaction_ui() -> void:
 
 func set_desktop_modal_context(active_modal_id: String) -> void:
 	_desktop_modal_active_id = active_modal_id
+	if _is_vr_active:
+		if vr_player_rig != null and vr_player_rig.has_method("set_input_enabled"):
+			vr_player_rig.call("set_input_enabled", _controls_enabled and active_modal_id.is_empty() and _xr_focused)
+		_set_vr_teleport_enabled(_controls_enabled and active_modal_id.is_empty())
 	if _grape_museum != null:
-		_grape_museum.controls_enabled = _controls_enabled and active_modal_id.is_empty()
+		_grape_museum.controls_enabled = _controls_enabled and active_modal_id.is_empty() and presentation_mode == "museum" and _xr_focused
 	if not _desktop_modal_active_id.is_empty():
 		_hide_tooltip()
 		_hide_interact_text_feedback()

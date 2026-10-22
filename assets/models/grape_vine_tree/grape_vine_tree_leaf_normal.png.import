@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bnrxytms48bkl"
 path.s3tc="res://.godot/imported/grape_vine_tree_leaf_normal.png-8a46e06a85dd581ff86118b0fe18f843.s3tc.ctex"
+path.etc2="res://.godot/imported/grape_vine_tree_leaf_normal.png-8a46e06a85dd581ff86118b0fe18f843.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/grape_vine_tree/grape_vine_tree_leaf_normal.png"
-dest_files=["res://.godot/imported/grape_vine_tree_leaf_normal.png-8a46e06a85dd581ff86118b0fe18f843.s3tc.ctex"]
+dest_files=["res://.godot/imported/grape_vine_tree_leaf_normal.png-8a46e06a85dd581ff86118b0fe18f843.s3tc.ctex", "res://.godot/imported/grape_vine_tree_leaf_normal.png-8a46e06a85dd581ff86118b0fe18f843.etc2.ctex"]
 
 [params]
 

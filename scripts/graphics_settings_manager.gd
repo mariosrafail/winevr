@@ -66,6 +66,7 @@ func load_settings() -> void:
 
 func save_settings() -> void:
 	var config: ConfigFile = ConfigFile.new()
+	config.load(CONFIG_PATH)
 	config.set_value("graphics", "preset", current_preset)
 	config.set_value("graphics", "fps_friendly", fps_friendly)
 	config.save(CONFIG_PATH)
@@ -135,6 +136,7 @@ func _apply_viewport_profile(preset: String) -> void:
 func _apply_environment_profile(preset: String) -> void:
 	if _environment == null:
 		return
+	var forward_plus: bool = RenderingServer.get_current_rendering_method() == "forward_plus"
 	match preset:
 		PRESET_ULTRA_LOW:
 			_environment.glow_enabled = false
@@ -156,14 +158,14 @@ func _apply_environment_profile(preset: String) -> void:
 			_set_env_property_if_exists("ssr_enabled", false)
 		PRESET_HIGH:
 			_environment.glow_enabled = true
-			_environment.ssao_enabled = true
-			_environment.ssil_enabled = true
-			_set_env_property_if_exists("ssr_enabled", true)
+			_environment.ssao_enabled = forward_plus
+			_environment.ssil_enabled = forward_plus
+			_set_env_property_if_exists("ssr_enabled", forward_plus)
 		PRESET_CINEMATIC:
 			_environment.glow_enabled = true
-			_environment.ssao_enabled = true
-			_environment.ssil_enabled = true
-			_set_env_property_if_exists("ssr_enabled", true)
+			_environment.ssao_enabled = forward_plus
+			_environment.ssil_enabled = forward_plus
+			_set_env_property_if_exists("ssr_enabled", forward_plus)
 
 
 func _apply_group_profile(preset: String) -> void:

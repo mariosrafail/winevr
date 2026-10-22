@@ -1,0 +1,9 @@
+Asset: grape_pulp_albedo.png
+Created with the built-in image_gen tool. Original generated tissue material,
+not a photographic scan or a cultivar-specific specimen.
+The actual 3D cutaway geometry follows anatomical references:
+https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.662433/full
+https://file.scirp.org/Html/6-2600383_20717.htm
+
+Generation prompt:
+Use case: photorealistic-natural. Asset: seamless tileable PBR base-color / albedo material texture of healthy freshly cut grape berry mesocarp (interior flesh), for a true 3D botanical longitudinal cutaway. Flat edge-to-edge continuous surface, no whole berry outline, skin, seeds, holes, stems, diagrams or labels. Fresh wet translucent pale straw-green grape pulp, delicate softly interwoven translucent cell tissue and barely visible fine white vascular fibrils embedded in the watery flesh, subtle organic lobulation at microscopic scale, hydrated smooth gelatinous living tissue. Natural grape flesh, not citrus segments, not pear flesh, not apple, no honeycomb, no large pores, no bubbles or droplets, not plastic, not solid opaque chalk. Texture is photographed under perfectly diffuse cross-polarized neutral light, no baked highlights, no reflections, no shadows, no directional shading. Low-contrast tiny irregular fibers, delicate color variation. Approximate mean sRGB #A3AE86, faint ivory to muted pale green, no bright yellow, no neon. All edges seamlessly tile. Square production-ready realistic albedo.

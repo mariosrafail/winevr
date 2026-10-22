@@ -10,9 +10,15 @@ config_version=5
 
 [application]
 
-config/name="WineVR"
+config/name="Grapes of Crete"
+config/version="0.2.0"
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0.09, 0.14, 0.12, 1)
 run/main_scene="res://scenes/WineVRExperience.tscn"
-config/features=PackedStringArray("4.7", "Forward Plus")
+run/main_scene.grape_room_demo="res://scenes/GrapeRoomDemo.tscn"
+config/name.grape_room_demo="Grapes of Crete"
+run/flush_stdout_on_print.grape_room_demo=true
+config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -30,3 +36,20 @@ NarrativeManager="*res://core/narrative_manager.gd"
 [rendering]
 
 renderer/rendering_method="mobile"
+renderer/rendering_method.grape_room_demo="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method.web="gl_compatibility"
+renderer/rendering_method.android_xr="gl_compatibility"
+renderer/rendering_method.android_touch="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+
+[xr]
+
+openxr/enabled=true
+openxr/enabled.grape_room_demo=false
+openxr/enabled.android_touch=false
+openxr/default_action_map="res://scripts/vr/openxr_action_map.tres"
+openxr/startup_alert=false
+openxr/extensions/hand_tracking=true
+openxr/extensions/hand_interaction_profile=true
+shaders/enabled=true

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bka8gmdb52usj"
 path.s3tc="res://.godot/imported/grapes_game_leaf_basecolor.png-9e177d36d20565e5ae2a0c093d570ec0.s3tc.ctex"
+path.etc2="res://.godot/imported/grapes_game_leaf_basecolor.png-9e177d36d20565e5ae2a0c093d570ec0.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/grapes_game/grapes_game_leaf_basecolor.png"
-dest_files=["res://.godot/imported/grapes_game_leaf_basecolor.png-9e177d36d20565e5ae2a0c093d570ec0.s3tc.ctex"]
+dest_files=["res://.godot/imported/grapes_game_leaf_basecolor.png-9e177d36d20565e5ae2a0c093d570ec0.s3tc.ctex", "res://.godot/imported/grapes_game_leaf_basecolor.png-9e177d36d20565e5ae2a0c093d570ec0.etc2.ctex"]
 
 [params]
 

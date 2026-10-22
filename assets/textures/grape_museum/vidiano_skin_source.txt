@@ -1,0 +1,7 @@
+Asset: vidiano_skin_albedo.png
+Created with the built-in image_gen tool. Original generated artwork; not a botanical scan.
+Used only by the procedural Vidiano fruit shader. Mipmapped, seamless albedo,
+with independent per-berry offsets and separate runtime wax/roughness/skin relief.
+
+Generation prompt:
+Use case: photorealistic-natural. Asset type: seamless tileable physically based BASE COLOR / ALBEDO texture for the skin of an individual ripe white wine grape berry in a 3D game. Create a flat, edge-to-edge square material scan of grape skin, NOT a photograph of whole grapes. The entire image is one continuous surface, uniform scale and uniform diffuse illumination. Natural pale muted yellow-green / straw green grape skin with delicate irregular whitish translucent wax bloom, very subtle cloudy variation, tiny sparse amber/brown lenticel pinpricks and faint organic capillary marbling just beneath the epidermis. Real living fruit skin, extremely fine, smooth satin with microscopic pores, not wrinkled. Restrained low contrast, subtly translucent appearance through COLOR ONLY. No hard bright spots, no specular reflections, no shadows, no directional lighting, no dark edges, no vignette, no spheres, no fruit silhouettes, no leaves, no stems, no water droplets, no text, no borders. All four edges must tile seamlessly. Approximate mean sRGB color #A7AE79, soft muted natural white-grape hues, no neon lime, no orange peel, no large speckles, no visible veins like a leaf. Production ready albedo map, macro material realism.

@@ -1,0 +1,16 @@
+{
+  "kotsifali": {
+    "after_gap_mm": 1.5993881970644,
+    "before_gap_mm": -3.98965924978256,
+    "berries": 152,
+    "iterations": 43,
+    "max_shift_mm": 8.73910915106535
+  },
+  "liatiko": {
+    "after_gap_mm": 1.59953534603119,
+    "before_gap_mm": -2.44204886257648,
+    "berries": 178,
+    "iterations": 43,
+    "max_shift_mm": 8.67792870849371
+  }
+}

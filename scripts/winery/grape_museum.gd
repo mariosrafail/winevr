@@ -9,6 +9,10 @@ const GOLD: Color = Color("d8bd7b")
 const IVORY: Color = Color("f2e9d8")
 const MUTED: Color = Color("aaa393")
 const MODEL_SCALE: float = 2.5
+const VIDIANO_BUILDER: Script = preload("res://scripts/winery/vidiano_bunch_builder.gd")
+const BERRY_ANATOMY: Script = preload("res://scripts/winery/berry_anatomy.gd")
+const RED_SKIN_SHADER: Shader = preload("res://assets/shaders/red_grape_skin.gdshader")
+const BERRY_PHYSICS: Script = preload("res://scripts/winery/berry_physics.gd")
 
 var architecture: Node3D
 var exhibits: Node3D
@@ -21,6 +25,7 @@ var _mat_dark: StandardMaterial3D
 var _mat_gold: StandardMaterial3D
 var _mat_wood: StandardMaterial3D
 var _desktop_hint: Label
+var _passthrough_mode: bool = false
 
 
 func _ready() -> void:
@@ -44,13 +49,21 @@ func _ready() -> void:
 	for index in range(varieties.size()):
 		_build_exhibit(varieties[index] as Dictionary, index)
 	_build_desktop_hint()
+	visibility_changed.connect(func() -> void:
+		if _desktop_hint != null and not is_visible_in_tree():
+			_desktop_hint.visible = false
+		_sync_anatomy_visibility()
+	)
 	print("[WineVR][Museum] Loaded %s hanging exhibits; illustrative data=%s" % [exhibit_nodes.size(), data.get("values_are_illustrative", true)])
 
 
 func _process(delta: float) -> void:
+	_sync_anatomy_visibility()
 	if _desktop_hint != null:
-		_desktop_hint.text = "Αριστερό κλικ: πιάσιμο/σύρσιμο · Δεξί κλικ: περιστροφή · Ροδέλα: zoom · E / Esc: επιστροφή" if is_inspecting() else "WASD κίνηση · Ποντίκι ματιά · E Inspect · Κράτα αριστερό κλικ: πιάσιμο/τράβηγμα · F11 fullscreen · Esc μενού"
-		_desktop_hint.visible = controls_enabled and is_visible_in_tree() and not get_viewport().use_xr
+		_desktop_hint.text = "Κλικ + τράβηγμα: κόψε μία ρώγα · Shift + κλικ: τσαμπί · T: επαναφορά ρωγών · E / Esc: επιστροφή" if is_inspecting() else "WASD κίνηση · E: εξέταση · Κλικ + τράβηγμα: κόψε ρώγα · Shift + κλικ: τσαμπί · T: επαναφορά · Esc μενού"
+		if physics != null and is_instance_valid(physics.get("_loose_berry")):
+			_desktop_hint.text = "Κράτα αριστερό: κράτημα ρώγας · Δεξί + σύρσιμο: περιστροφή · Ροδέλα: κοντά / μακριά · T: επαναφορά"
+		_desktop_hint.visible = controls_enabled and is_visible_in_tree() and not get_viewport().use_xr and not DisplayServer.is_touchscreen_available() and not OS.has_feature("mobile") and not "--touch-ui" in OS.get_cmdline_user_args()
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 		var width: float = minf(950.0, viewport_size.x - 40.0)
 		_desktop_hint.position = Vector2((viewport_size.x - width) * 0.5, viewport_size.y - 52.0)
@@ -66,6 +79,35 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_LEFT or event.keycode == KEY_RIGHT:
 			rotate_exhibit(selected_id, -20.0 if event.keycode == KEY_LEFT else 20.0)
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_C and is_inspecting():
+			var panel: Node3D = exhibit_nodes[selected_id]["panel"] as Node3D
+			set_profile_page(selected_id, (int(panel.get_meta("profile_page", 0)) + 1) % int(panel.get_meta("page_count", 4)))
+			get_viewport().set_input_as_handled()
+
+
+func set_passthrough_mode(enabled: bool) -> void:
+	_passthrough_mode = enabled
+	if architecture == null or exhibits == null:
+		return
+	architecture.visible = not enabled
+	for child in exhibits.get_children():
+		if child is MeshInstance3D:
+			(child as MeshInstance3D).visible = not enabled
+	# Invisible room solids must not remain physical obstacles in passthrough.
+	for root in [architecture, exhibits]:
+		for collider in root.find_children("*", "StaticBody3D", true, false):
+			var body: StaticBody3D = collider as StaticBody3D
+			if not body.has_meta("museum_original_layer"):
+				body.set_meta("museum_original_layer", body.collision_layer)
+			body.collision_layer = 0 if enabled else int(body.get_meta("museum_original_layer"))
+
+
+func _exhibit_x(index: int) -> float:
+	var count: int = (data.get("varieties", []) as Array).size()
+	if count <= 1:
+		return 0.0
+	var span: float = 1.65 if count == 2 else 2.20
+	return lerpf(-span, span, float(index) / float(count - 1))
 
 
 func configure_environment(environment: Environment) -> void:
@@ -97,7 +139,9 @@ func close_inspection() -> bool:
 	if not is_inspecting():
 		return false
 	selected_id = ""
-	return bool(physics.call("close_inspection"))
+	var closed: bool = bool(physics.call("close_inspection"))
+	_sync_anatomy_visibility()
+	return closed
 
 
 func inspect_exhibit(variety_id: String) -> void:
@@ -116,6 +160,9 @@ func rotate_exhibit(variety_id: String, degrees: float) -> void:
 	if not exhibit_nodes.has(variety_id):
 		return
 	inspect_exhibit(variety_id)
+	if bool(physics.get("room_demo")):
+		physics.call("demo_rotate", degrees)
+		return
 	var body: RigidBody3D = exhibit_nodes[variety_id]["pivot"] as RigidBody3D
 	if not body.freeze:
 		body.sleeping = false
@@ -140,10 +187,13 @@ func _build_room() -> void:
 	_box(architecture, "RightWall", Vector3(0.18, 3.45, 8.0), Vector3(3.90, 1.725, 0), wall_material)
 	_box(architecture, "FrontWall", Vector3(8.0, 3.45, 0.18), Vector3(0, 1.725, 3.90), wall_material)
 	_box(architecture, "Ceiling", Vector3(8.0, 0.12, 8.0), Vector3(0, 3.45, 0), _stone(Color("333a34")))
-	for x in [-1.65, 1.65]:
-		_box(architecture, "ExhibitAlcove", Vector3(3.0, 2.53, 0.08), Vector3(x, 1.44, -2.72), _mat_dark)
-		_box(architecture, "AlcoveGoldHeader", Vector3(3.0, 0.012, 0.018), Vector3(x, 2.71, -2.665), _mat_gold)
-		_box(architecture, "AlcoveGoldFooter", Vector3(3.0, 0.012, 0.018), Vector3(x, 0.17, -2.665), _mat_gold)
+	var count: int = (data.get("varieties", []) as Array).size()
+	var alcove_width: float = 3.0 if count <= 2 else 2.04
+	for index in range(count):
+		var x: float = _exhibit_x(index)
+		_box(architecture, "ExhibitAlcove", Vector3(alcove_width, 2.53, 0.08), Vector3(x, 1.44, -2.72), _mat_dark)
+		_box(architecture, "AlcoveGoldHeader", Vector3(alcove_width, 0.012, 0.018), Vector3(x, 2.71, -2.665), _mat_gold)
+		_box(architecture, "AlcoveGoldFooter", Vector3(alcove_width, 0.012, 0.018), Vector3(x, 0.17, -2.665), _mat_gold)
 	for z in [-3.72, 3.72]:
 		_box(architecture, "WallSkirting", Vector3(7.6, 0.12, 0.04), Vector3(0, 0.06, z), _mat_dark)
 	for x in [-3.72, 3.72]:
@@ -156,7 +206,8 @@ func _build_room() -> void:
 	var subtitle: Label3D = _label(architecture, "ΣΥΛΛΟΓΗ 01   /   ΤΟ ΣΤΑΦΥΛΙ ΑΠΟ ΚΟΝΤΑ", Vector3(0, 2.91, -2.675), 30, GOLD)
 	subtitle.pixel_size = 0.0022
 	_label(architecture, "ΠΕΡΠΑΤΗΣΕ · ΠΑΡΑΤΗΡΗΣΕ · ΣΥΓΚΡΙΝΕ", Vector3(0, 0.20, -2.69), 21, MUTED)
-	for x in [-1.65, 1.65]:
+	for index in range(count):
+		var x: float = _exhibit_x(index)
 		_box(architecture, "SuspensionCeilingFixing", Vector3(0.11, 0.035, 0.11), Vector3(x, 3.37, -1.70), _mat_gold)
 		_segment(architecture, "CeilingSuspension", Vector3(x, 3.36, -1.70), Vector3(x, 2.48, -1.70), 0.004, _mat_gold)
 		_spot(architecture, Vector3(x - 0.65, 3.05, -0.75), Vector3(x, 1.92, -1.7), 2.8, Color("fff1dd"), true)
@@ -192,7 +243,7 @@ func _build_suspension_frame() -> void:
 
 func _build_exhibit(variety: Dictionary, index: int) -> void:
 	var id: String = str(variety.get("id", ""))
-	var x: float = -1.65 if index == 0 else 1.65
+	var x: float = _exhibit_x(index)
 	var anchor: Vector3 = Vector3(x, 2.28, -1.70)
 	_segment(exhibits, "VineAttachment_" + id, Vector3(x, 2.45, -1.70), anchor, 0.008, _mat_wood)
 	var wrap: TorusMesh = TorusMesh.new()
@@ -225,30 +276,41 @@ func _build_exhibit(variety: Dictionary, index: int) -> void:
 	var turntable: Node3D = Node3D.new()
 	turntable.name = "InspectionRotation"
 	pivot.add_child(turntable)
-	var packed: PackedScene = load(str(variety.get("model", ""))) as PackedScene
-	if packed == null:
-		push_error("[WineVR][Museum] Missing model: " + id)
-		return
-	var model: Node3D = packed.instantiate() as Node3D
-	model.name = "AuthoredBunch"
-	model.scale = Vector3.ONE * MODEL_SCALE
+	var model: Node3D
+	if str(variety.get("generator", "")) == "vidiano":
+		model = VIDIANO_BUILDER.build()
+	else:
+		var packed: PackedScene = load(str(variety.get("model", ""))) as PackedScene
+		if packed == null:
+			push_error("[WineVR][Museum] Missing model: " + id)
+			return
+		model = packed.instantiate() as Node3D
+		model.name = "AuthoredBunch"
+		model.scale = Vector3.ONE * MODEL_SCALE
 	turntable.add_child(model)
 	for child in model.find_children("*", "MeshInstance3D", true, false):
 		var instance: MeshInstance3D = child as MeshInstance3D
 		for surface in range(instance.mesh.get_surface_count()):
 			var original: StandardMaterial3D = instance.get_active_material(surface) as StandardMaterial3D
 			if original != null and "baked skin" in original.resource_name:
-				var skin: StandardMaterial3D = original.duplicate() as StandardMaterial3D
-				skin.metallic_specular = 0.24
-				skin.cull_mode = BaseMaterial3D.CULL_BACK
+				var skin: ShaderMaterial = ShaderMaterial.new()
+				skin.shader = RED_SKIN_SHADER
+				# The spring rig identifies these original fruit surfaces by name.
+				skin.resource_name = original.resource_name + " | natural skin"
+				skin.set_shader_parameter("skin_albedo", load("res://assets/textures/grape_museum/" + id + "_skin_albedo.png"))
+				skin.set_shader_parameter("texture_offset", Vector2(fposmod(float(surface) * 0.6180339, 1.0), fposmod(float(surface) * 0.4142136, 1.0)))
+				skin.set_shader_parameter("skin_base", Vector3(0.12, 0.065, 0.09) if id == "liatiko" else Vector3(0.065, 0.055, 0.09))
+				var shade: float = 0.94 + float(surface % 6) * 0.022
+				skin.set_shader_parameter("skin_tint", Vector3(shade * (1.02 if id == "liatiko" else 0.98), shade, shade * (0.98 if id == "liatiko" else 1.03)))
 				instance.set_surface_override_material(surface, skin)
-	var physical_shape: CollisionShape3D = CollisionShape3D.new()
-	var capsule: CapsuleShape3D = CapsuleShape3D.new()
-	capsule.radius = 0.115
-	capsule.height = 0.64 if id == "liatiko" else 0.56
-	physical_shape.shape = capsule
-	physical_shape.position = Vector3(0, -0.36, 0)
-	pivot.add_child(physical_shape)
+	var berry_physics: Node3D = BERRY_PHYSICS.new()
+	berry_physics.name = "BerryPhysics"
+	pivot.add_child(berry_physics)
+	berry_physics.setup(pivot, model)
+	var fruit_material: PhysicsMaterial = PhysicsMaterial.new()
+	fruit_material.friction = 0.65
+	fruit_material.bounce = 0.04
+	pivot.physics_material_override = fruit_material
 	_collision(pivot, Vector3(0, -0.34, 0), Vector3(0.47, 0.85, 0.44))
 	var fixed_anchor: StaticBody3D = StaticBody3D.new()
 	fixed_anchor.name = "FixedStem_" + id
@@ -265,32 +327,70 @@ func _build_exhibit(variety: Dictionary, index: int) -> void:
 	for collider in panel.find_children("*", "CollisionObject3D", true, false):
 		(collider as CollisionObject3D).collision_layer = 0
 	_label(exhibits, str(variety.get("name", id)), Vector3(x, 1.25, -1.70), 34, IVORY)
+	_label(exhibits, str(variety.get("origin_note", "ΚΡΗΤΗ")), Vector3(x, 1.13, -1.70), 14, GOLD)
 
 
 func _build_profile_panel(variety: Dictionary, x: float) -> Node3D:
 	var id: String = str(variety.get("id", ""))
+	var room_demo: bool = get_parent().get_meta("room_demo", false)
 	var panel: Interactable = _interactable(exhibits, "museum_" + id + "_profile", str(variety.get("name", "")) + " · Προφίλ", str(data.get("scale_note", "")))
 	panel.position = Vector3(x, 1.58, -1.72)
 	panel.set_meta("museum_exhibit", id)
 	panel.interacted.connect(func(_item: Interactable) -> void: inspect_exhibit(id))
-	_box(panel, "PanelBacking", Vector3(1.02, 1.36, 0.045), Vector3.ZERO, _mat_dark)
+	_box(panel, "PanelBacking", Vector3(1.02, 1.36, 0.045), Vector3.ZERO, _material(Color("202723"), 1.0, 0.0, true) if room_demo else _mat_dark)
 	_box(panel, "TopRule", Vector3(0.90, 0.009, 0.006), Vector3(0, 0.615, 0.027), _mat_gold)
-	_label(panel, str(variety.get("name", "")), Vector3(-0.44, 0.49, 0.030), 44, IVORY, true)
-	_label(panel, str(variety.get("latin_name", "")) + "   /   ΕΡΥΘΡΗ ΠΟΙΚΙΛΙΑ", Vector3(-0.44, 0.385, 0.030), 16, GOLD, true)
+	_label(panel, str(variety.get("name", "")), Vector3(-0.44, 0.51, 0.030), 44, IVORY, true)
+	_label(panel, str(variety.get("latin_name", "")) + "   /   " + str(variety.get("color_type", "")), Vector3(-0.44, 0.42, 0.030), 16, GOLD, true)
+	var profile: Node3D = Node3D.new()
+	profile.name = "ProfilePage"
+	panel.add_child(profile)
+	panel.set_meta("profile_page", 0)
 	var metrics: Array = data.get("metrics", [])
 	var values: Dictionary = variety.get("metrics", {})
 	for index in range(metrics.size()):
 		var metric: Dictionary = metrics[index] as Dictionary
 		var value: float = clampf(float(values.get(str(metric.get("id", "")), 0.0)), 0.0, 100.0)
-		var y: float = 0.22 - float(index) * 0.155
-		_label(panel, str(metric.get("label", "")), Vector3(-0.44, y + 0.037, 0.032), 22, IVORY, true)
-		_label(panel, "%d%%" % roundi(value), Vector3(0.40, y + 0.037, 0.032), 22, Color(str(metric.get("color", "#DBBF78"))), false, true)
-		_box(panel, "BarTrack_" + str(index), Vector3(0.88, 0.026, 0.006), Vector3(0, y - 0.020, 0.030), _material(Color("454b44"), 1.0, 0.0, true))
+		var y: float = 0.16 - float(index) * 0.125
+		_label(profile, str(metric.get("label", "")), Vector3(-0.44, y + 0.037, 0.032), 22, IVORY, true)
+		var score: Label3D = _label(profile, "%d / 100" % roundi(value), Vector3(0.43, y + 0.037, 0.032), 18, Color(str(metric.get("color", "#DBBF78"))), false, true)
+		score.name = "Score_" + str(metric.get("id", ""))
+		_box(profile, "BarTrack_" + str(index), Vector3(0.88, 0.026, 0.006), Vector3(0, y - 0.020, 0.030), _material(Color("454b44"), 1.0, 0.0, true))
 		var width: float = 0.88 * value / 100.0
-		_box(panel, "BarValue_" + str(index), Vector3(maxf(0.001, width), 0.026, 0.008), Vector3(-0.44 + width * 0.5, y - 0.020, 0.036), _material(Color(str(metric.get("color", "#DBBF78"))), 1.0, 0.0, true))
-	_label(panel, "ΕΝΔΕΙΚΤΙΚΟ ΠΡΟΦΙΛ · ΚΛΙΜΑΚΑ 0–100\nΌχι εργαστηριακή ανάλυση ή % περιεκτικότητας", Vector3(-0.44, -0.425, 0.032), 14, MUTED, true)
+		_box(profile, "BarValue_" + str(index), Vector3(maxf(0.001, width), 0.026, 0.008), Vector3(-0.44 + width * 0.5, y - 0.020, 0.036), _material(Color(str(metric.get("color", "#DBBF78"))), 1.0, 0.0, true))
+	_label(profile, "ΕΝΔΕΙΚΤΙΚΗ ΣΥΓΚΡΙΣΗ · ΚΛΙΜΑΚΑ 0–100\nΌχι μέτρηση ή ποσοστό περιεκτικότητας", Vector3(-0.44, -0.465, 0.032), 15, MUTED, true)
+	_build_learning_pages(panel, variety)
+	var page_count: int = 3 if get_parent().get_meta("room_demo", false) else 4
+	panel.set_meta("page_count", page_count)
+	if page_count == 4:
+		var anatomy: Node3D = BERRY_ANATOMY.new() as Node3D
+		panel.add_child(anatomy)
+		anatomy.call("build", variety)
+	var tab_width: float = 0.92 / float(page_count)
+	for index in range(page_count):
+		var tab: Interactable = _interactable(panel, "museum_" + id + "_page_" + str(index), ["Συγκριτικό προφίλ", "Μέσα στη ρώγα", "Ωρίμανση και προέλευση", "Τρισδιάστατη τομή ρώγας"][index], "")
+		tab.set_meta("museum_action", true)
+		tab.position = Vector3(-0.46 + (float(index) + 0.5) * tab_width, 0.31, 0.045)
+		_box(tab, "TabBacking", Vector3(tab_width - 0.015, 0.10 if room_demo else 0.08, 0.022), Vector3.ZERO, _material(Color("303b33") if room_demo else Color("394039"), 0.8, 0.0, room_demo))
+		var tab_label: Label3D = _label(tab, ["ΠΡΟΦΙΛ", "Η ΡΩΓΑ", "ΩΡΙΜΑΝΣΗ", "ΡΩΓΑ 3D"][index], Vector3(0, 0, 0.014), 21 if room_demo else 13, GOLD if index == 0 else MUTED)
+		tab_label.name = "TabLabel"
+		if room_demo:
+			_box(tab, "ActiveRule", Vector3(tab_width - 0.04, 0.006, 0.006), Vector3(0, -0.047, 0.016), _material(GOLD, 1.0, 0.0, true))
+			style_demo_button(tab, false, index == 0)
+		_collision(tab, Vector3.ZERO, Vector3(tab_width - 0.01, 0.09, 0.05))
+		var page_index: int = index
+		tab.interacted.connect(func(_item: Interactable) -> void: set_profile_page(id, page_index))
 	var status: Label3D = _label(panel, "Στόχευσε το τσαμπί · E για επιθεώρηση", Vector3(0, -0.59, 0.033), 16, MUTED)
 	status.name = "Status"
+	if room_demo:
+		status.hide()
+		var back: Interactable = _interactable(panel, "museum_" + id + "_close", "Επιστροφή στην αίθουσα", "")
+		back.set_meta("museum_action", true)
+		back.position = Vector3(0, -0.59, 0.045)
+		_box(back, "TabBacking", Vector3(0.90, 0.10, 0.022), Vector3.ZERO, _material(Color("303b33"), 1.0, 0.0, true))
+		var back_label: Label3D = _label(back, "ΕΠΙΣΤΡΟΦΗ   ·   E / Esc", Vector3(0, 0, 0.014), 20, IVORY)
+		back_label.name = "TabLabel"
+		_collision(back, Vector3.ZERO, Vector3(0.90, 0.10, 0.05))
+		back.interacted.connect(func(_item: Interactable) -> void: close_inspection())
 	# Controller-ray friendly physical buttons; they also work with the desktop E key.
 	for index in range(3):
 		var action: Interactable = _interactable(panel, "museum_" + id + "_turn_" + str(index), ["Περιστροφή αριστερά", "Επαναφορά", "Περιστροφή δεξιά"][index], "")
@@ -305,7 +405,112 @@ func _build_profile_panel(variety: Dictionary, x: float) -> Node3D:
 			var degrees: float = -20.0 if index == 0 else 20.0
 			action.interacted.connect(func(_item: Interactable) -> void: rotate_exhibit(id, degrees))
 	_collision(panel, Vector3.ZERO, Vector3(1.02, 1.36, 0.07))
+	if room_demo:
+		for node in panel.find_children("*", "Label3D", true, false):
+			var label: Label3D = node as Label3D
+			var text_factor: float = 1.40
+			if label.get_parent().name in ["BerryPage", "RipeningPage"]:
+				text_factor = 1.55
+			elif label.font_size >= 40:
+				text_factor = 1.10
+			elif label.name == "TabLabel":
+				text_factor = 1.32
+			label.font_size = roundi(label.font_size * text_factor)
 	return panel
+
+
+func _build_learning_pages(panel: Node3D, variety: Dictionary) -> void:
+	var berry: Node3D = Node3D.new()
+	berry.name = "BerryPage"
+	panel.add_child(berry)
+	var cards: Array = data.get("learning_cards", [])
+	for index in range(cards.size()):
+		var card: Dictionary = cards[index] as Dictionary
+		var y: float = 0.17 - float(index) * 0.21
+		_label(berry, str(card.get("title", "")), Vector3(-0.44, y, 0.032), 20, GOLD, true)
+		_label(berry, str(card.get("text", "")), Vector3(-0.44, y - 0.085, 0.032), 17, IVORY, true)
+	_label(berry, "Η ολική οξύτητα μετριέται σε g/L · δεν είναι pH.\nΗ πικράδα αξιολογείται αισθητηριακά.", Vector3(-0.44, -0.485, 0.032), 15, MUTED, true)
+	berry.visible = false
+	var ripening: Node3D = Node3D.new()
+	ripening.name = "RipeningPage"
+	panel.add_child(ripening)
+	_label(ripening, "ΠΟΙΚΙΛΙΑ ΚΑΙ ΤΟΠΟΣ", Vector3(-0.44, 0.18, 0.032), 20, GOLD, true)
+	_label(ripening, str(variety.get("identity", "")), Vector3(-0.44, 0.075, 0.032), 18, IVORY, true)
+	_label(ripening, "ΠΟΤΕ ΩΡΙΜΑΖΕΙ;", Vector3(-0.44, -0.10, 0.032), 20, GOLD, true)
+	_label(ripening, str(variety.get("ripening_note", "")), Vector3(-0.44, -0.215, 0.032), 18, IVORY, true)
+	_label(ripening, "Αμπελώνας, χρονιά και οινοποίηση αλλάζουν\nτο αποτέλεσμα. Δεν μετράμε το εικονικό τσαμπί.", Vector3(-0.44, -0.385, 0.032), 16, MUTED, true)
+	var source_text: String = "Πηγές: Wines of Greece · AWRI" if str(variety.get("id", "")) == "liatiko" else "Πηγές: Plants 11 (2022), 3547 · AWRI"
+	if str(variety.get("id", "")) == "vidiano":
+		source_text = "Πηγές: Wines of Crete · Plants 11 (2022), 3547"
+	_label(ripening, source_text, Vector3(-0.44, -0.50, 0.032), 12, GOLD, true)
+	ripening.visible = false
+
+
+func set_profile_page(variety_id: String, page_index: int) -> void:
+	if not exhibit_nodes.has(variety_id):
+		return
+	var panel: Node3D = exhibit_nodes[variety_id]["panel"] as Node3D
+	var page_count: int = int(panel.get_meta("page_count", 4))
+	var selected: int = clampi(page_index, 0, page_count - 1)
+	var page_names: Array[String] = ["ProfilePage", "BerryPage", "RipeningPage", "AnatomyPage"]
+	for index in range(page_count):
+		(panel.get_node(page_names[index]) as Node3D).visible = index == selected
+		var tab_label: Label3D = panel.get_node("museum_" + variety_id + "_page_" + str(index) + "/TabLabel") as Label3D
+		tab_label.modulate = GOLD if index == selected else MUTED
+	panel.set_meta("profile_page", selected)
+	if page_count == 3:
+		var page: Node3D = panel.get_node(page_names[selected])
+		if panel.has_meta("page_tween"):
+			(panel.get_meta("page_tween") as Tween).kill()
+		for page_name in page_names.slice(0, page_count):
+			(panel.get_node(page_name) as Node3D).position = Vector3.ZERO
+		page.position.x = 0.035
+		var tween: Tween = create_tween()
+		panel.set_meta("page_tween", tween)
+		tween.tween_property(page, "position:x", 0.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		for index in range(page_count):
+			style_demo_button(panel.get_node("museum_" + variety_id + "_page_" + str(index)), false, index == selected)
+	_sync_anatomy_visibility()
+
+func style_demo_button(button: Node3D, hovered: bool, selected: bool) -> void:
+	var state: int = int(hovered) + int(selected) * 2
+	if int(button.get_meta("style_state", -1)) == state:
+		return
+	button.set_meta("style_state", state)
+	if button.has_meta("style_tween"):
+		(button.get_meta("style_tween") as Tween).kill()
+	var backing: MeshInstance3D = button.get_node("TabBacking")
+	var material: StandardMaterial3D = backing.material_override as StandardMaterial3D
+	var label: Label3D = button.get_node("TabLabel")
+	var tween: Tween = create_tween().set_parallel(true)
+	button.set_meta("style_tween", tween)
+	tween.tween_property(material, "albedo_color", Color("705e36") if selected else (Color("465545") if hovered else Color("303b33")), 0.18)
+	tween.tween_property(label, "modulate", Color("fff2cc") if selected or hovered else IVORY, 0.18)
+	tween.tween_property(button, "scale", Vector3.ONE * (1.035 if hovered else 1.0), 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var rule: Node3D = button.get_node_or_null("ActiveRule")
+	if rule != null:
+		rule.visible = selected
+		rule.scale.x = 0.12 if selected else 1.0
+		if selected:
+			tween.tween_property(rule, "scale:x", 1.0, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+func press_demo_button(button: Node3D) -> void:
+	if button.has_meta("press_tween"):
+		(button.get_meta("press_tween") as Tween).kill()
+	# Press depth does not disturb the button's hit area or horizontal layout.
+	var tween: Tween = create_tween()
+	button.set_meta("press_tween", tween)
+	button.position.z = 0.036
+	tween.tween_property(button, "position:z", 0.045, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _sync_anatomy_visibility() -> void:
+	var inspecting_id: String = str(physics.get("inspecting_id")) if physics != null else ""
+	for id in exhibit_nodes:
+		var panel: Node3D = exhibit_nodes[id]["panel"] as Node3D
+		var anatomy: Node3D = panel.get_node_or_null("AnatomyPage") as Node3D
+		if anatomy != null:
+			anatomy.call("set_active", is_visible_in_tree() and panel.visible and inspecting_id == id and int(panel.get_meta("profile_page", 0)) == 3)
 
 
 func _interactable(parent: Node3D, id: String, title: String, description: String) -> Interactable:

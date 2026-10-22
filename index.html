@@ -1,72 +1,73 @@
 <!doctype html>
-<html lang="en">
+<html lang="el">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="WineVR Interactive Demo - explore the virtual wine experience directly in your browser.">
-    <title>WineVR Interactive Demo</title>
+    <meta name="theme-color" content="#18231e">
+    <meta name="description" content="Γνώρισε τις ποικιλίες της Κρήτης μέσα από το Grapes of Crete: σταφύλια από κοντά, ο αμπελώνας των Δαφνών και μια εκπαιδευτική διαδρομή στο οινοποιείο.">
+    <title>Grapes of Crete — Από τον τόπο στη ρώγα</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="site.css">
   </head>
   <body>
-    <main class="page-shell">
-      <section class="hero" aria-labelledby="page-title">
+    <a class="skip-link" href="#main">Μετάβαση στο περιεχόμενο</a>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="Grapes of Crete, αρχική"><span class="brand-mark" aria-hidden="true">G</span><span>GRAPES <span class="brand-light">OF CRETE</span></span></a>
+      <nav aria-label="Κύρια πλοήγηση"><a href="#experience">Η εμπειρία</a><a href="#visit">Πριν ξεκινήσεις</a></nav>
+      <span class="header-location">ΚΡΗΤΗ, ΕΛΛΑΔΑ <span aria-hidden="true">↗</span></span>
+    </header>
+
+    <main id="main">
+      <section class="hero section-width" aria-labelledby="page-title">
         <div class="hero-copy">
-          <p class="eyebrow">Browser demo</p>
-          <h1 id="page-title">WineVR Interactive Demo</h1>
-          <p class="subtitle">Explore the virtual wine experience directly in your browser.</p>
-
-          <div class="actions" aria-label="Demo actions">
-            <button class="button button-primary" type="button" id="launch-demo">
-              Launch Demo
-            </button>
-            <a class="button button-secondary" href="web5/WineVR.html" target="_blank" rel="noopener">
-              Open in New Tab
-            </a>
+          <p class="eyebrow"><span class="small-rule" aria-hidden="true"></span> ΑΠΟ ΤΟΝ ΤΟΠΟ ΣΤΗ ΡΩΓΑ</p>
+          <h1 id="page-title">Ο τόπος.<br>Ο καρπός.<br><em>Η εμπειρία.</em></h1>
+          <p class="hero-description">Ένα ταξίδι στον κόσμο του κρητικού οίνου. Πιάσε το σταφύλι, γνώρισε τον αμπελώνα και ακολούθησε τη διαδρομή του κρασιού.</p>
+          <div class="hero-actions">
+            <button class="button button-gold" type="button" id="launch-demo"><span class="play-icon" aria-hidden="true">▶</span> Μπες στην εμπειρία <span aria-hidden="true">↗</span></button>
+            <a class="text-link" href="#experience">Ανακάλυψε τη διαδρομή <span aria-hidden="true">↓</span></a>
           </div>
-
-          <p class="support-note">For the best experience, use Chrome or Edge on desktop.</p>
+          <p class="hero-note">Στον browser σου. Με ποντίκι, αφή ή συμβατή συσκευή XR.</p>
         </div>
-
-        <div class="preview-card" aria-label="WineVR preview">
-          <div class="preview-media">
-            <img src="web5/WineVR.png" alt="WineVR demo preview">
-          </div>
-          <div class="preview-details">
-            <div>
-              <span class="preview-kicker">Live web export</span>
-              <h2>Virtual wine tasting flow</h2>
-            </div>
-            <p>Launch the Godot Web build in a focused browser overlay, then close it cleanly when the demo is finished.</p>
-          </div>
-        </div>
+        <figure class="hero-visual preview-image">
+          <img src="assets/web/museum.png" alt="Η εικονική συλλογή κρητικών σταφυλιών του Grapes of Crete, με εκθέματα για κοντινή παρατήρηση" fetchpriority="high" width="1440" height="900">
+          <div class="image-fallback" aria-hidden="true"><span>GRAPES OF CRETE</span><span>Ο κόσμος του κρητικού οίνου σε 3D</span></div>
+          <span class="visual-index" aria-hidden="true">01 — ΣΥΛΛΟΓΗ</span>
+          <figcaption><span>Το σταφύλι, από κοντά.</span><span>Πραγματική εικόνα της εφαρμογής</span></figcaption>
+          <span class="vertical-caption" aria-hidden="true">ΠΑΡΑΤΗΡΗΣΕ · ΑΓΓΙΞΕ · ΣΥΓΚΡΙΝΕ</span>
+        </figure>
       </section>
+
+      <div class="variety-strip" aria-label="Οι ποικιλίες της συλλογής"><span>ΤΡΕΙΣ ΠΟΙΚΙΛΙΕΣ. ΤΡΕΙΣ ΧΑΡΑΚΤΗΡΕΣ.</span><p>Λιάτικο <i aria-hidden="true">✦</i> Κοτσιφάλι <i aria-hidden="true">✦</i> Βιδιανό</p></div>
+
+      <section id="experience" class="experience section-width" aria-labelledby="experience-title">
+        <div class="section-intro"><div><p class="eyebrow">Η ΔΙΑΔΡΟΜΗ</p><h2 id="experience-title">Τρεις τόποι.<br><em>Μία ιστορία.</em></h2></div><p>Από τη λεπτομέρεια της ρώγας στο τοπίο της Κρήτης. Εξερεύνησε με τον δικό σου ρυθμό και σύνδεσε όσα βλέπεις με όσα μαθαίνεις.</p></div>
+        <div class="experience-grid">
+          <article class="experience-item"><div class="scene-image preview-image"><img src="assets/web/museum.png" alt="Η συλλογή με τις ποικιλίες Λιάτικο, Κοτσιφάλι και Βιδιανό" loading="lazy" width="1440" height="900"><div class="image-fallback" aria-hidden="true">Η συλλογή</div><span class="scene-number">01</span></div><p class="eyebrow">ΠΑΡΑΤΗΡΗΣΗ</p><h3>Η συλλογή</h3><p>Περίστρεψε το τσαμπί, δες τη ρώγα από κοντά και σύγκρινε τα εκπαιδευτικά προφίλ των ποικιλιών.</p></article>
+          <article class="experience-item"><div class="scene-image preview-image"><img src="assets/web/vineyard.png" alt="Η πέτρινη βεράντα παρατήρησης με θέα στον εκπαιδευτικό κρητικό αμπελώνα" loading="lazy" width="1440" height="900"><div class="image-fallback" aria-hidden="true">Ο αμπελώνας</div><span class="scene-number">02</span></div><p class="eyebrow">Ο ΤΟΠΟΣ</p><h3>Ο αμπελώνας</h3><p>Γνώρισε τη σύνδεση των Δαφνών με το Λιάτικο, μέσα σε ένα τοπίο εμπνευσμένο από την κρητική γη.</p></article>
+          <article class="experience-item"><div class="scene-image preview-image"><img src="assets/web/cellar.png" alt="Η εικονική θολωτή κάβα με δρύινα βαρέλια, δεξαμενές και τραπέζι παρατήρησης" loading="lazy" width="1440" height="900"><div class="image-fallback" aria-hidden="true">Το οινοποιείο</div><span class="scene-number">03</span></div><p class="eyebrow">Η ΜΕΤΑΜΟΡΦΩΣΗ</p><h3>Το οινοποιείο</h3><p>Ακολούθησε τον τρύγο, τη ζύμωση και την ωρίμαση. Παρατήρησε πώς η πρώτη ύλη γίνεται κρασί.</p></article>
+        </div>
+        <p class="editorial-note">Τα περιβάλλοντα είναι καλλιτεχνικές αναπαραστάσεις. Οι κλίμακες σύγκρισης είναι εκπαιδευτικές· δεν αποτελούν εργαστηριακή ανάλυση πραγματικού δείγματος.</p>
+      </section>
+
+      <section id="visit" class="visit-section" aria-labelledby="visit-title"><div class="section-width visit-grid">
+        <div><p class="eyebrow">ΠΡΙΝ ΞΕΚΙΝΗΣΕΙΣ</p><h2 id="visit-title">Διάλεξε τον τρόπο<br><em>που θα εξερευνήσεις.</em></h2><p class="visit-copy">Η βασική περιήγηση γίνεται στην οθόνη. Οι λειτουργίες VR και AR εμφανίζονται όταν τις υποστηρίζουν η συσκευή και ο browser σου.</p><a class="text-link direct-link" href="exports/local/web/WineVR.html" target="_blank" rel="noopener">Άνοιγμα σε ξεχωριστή καρτέλα <span aria-hidden="true">↗</span></a><p class="headset-note">Για browser μέσα σε headset, προτίμησε την ξεχωριστή καρτέλα και επίλεξε VR ή AR από το μενού της εφαρμογής.</p></div>
+        <div class="visit-details">
+          <div class="control-guide"><span class="control-icon" aria-hidden="true">↔</span><div><h3>Στην οθόνη</h3><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> κίνηση · ποντίκι για ματιά · <kbd>E</kbd> επιλογή.<br>Σε οθόνη αφής χρησιμοποίησε τα χειριστήρια της εφαρμογής.</p></div></div>
+          <div class="control-guide"><span class="control-icon" aria-hidden="true">◎</span><div><h3>Με VR / AR</h3><p>Άνοιξε την εφαρμογή σε συμβατό browser με ασφαλή σύνδεση. Η άδεια και η έναρξη της συνεδρίας γίνονται μέσα στο Grapes of Crete.</p></div></div>
+          <div class="device-status" aria-labelledby="device-title"><p id="device-title">ΣΕ ΑΥΤΟΝ ΤΟΝ BROWSER</p><dl><div><dt>Οθόνη</dt><dd id="screen-status">Έλεγχος…</dd></div><div><dt>VR</dt><dd id="vr-status">Έλεγχος…</dd></div><div><dt>AR</dt><dd id="ar-status">Έλεγχος…</dd></div></dl><p class="status-footnote">Ο έλεγχος δείχνει τις δυνατότητες που αναφέρει ο browser. Η διαθεσιμότητα επιβεβαιώνεται κατά την έναρξη.</p></div>
+        </div>
+      </div></section>
     </main>
 
-    <div class="demo-overlay" id="demo-overlay" aria-hidden="true">
-      <div class="demo-surface" id="demo-surface" role="dialog" aria-modal="true" aria-labelledby="demo-title">
-        <div class="demo-bar">
-          <h2 id="demo-title">WineVR Demo</h2>
-          <div class="demo-controls">
-            <button class="control-button" type="button" id="fullscreen-demo">Fullscreen</button>
-            <button class="control-button" type="button" id="reload-demo">Reload</button>
-            <button class="control-button control-button-strong" type="button" id="close-demo">Close</button>
-          </div>
-        </div>
-        <div class="iframe-wrap">
-          <iframe
-            id="demo-frame"
-            title="WineVR Interactive Demo"
-            allow="fullscreen; autoplay; gamepad; xr-spatial-tracking"
-            allowfullscreen
-          ></iframe>
-        </div>
+    <footer class="site-footer section-width"><a class="brand" href="#">GRAPES <span class="brand-light">OF CRETE</span></a><p>Η Κρήτη μέσα από τον καρπό της.</p><span>STINIS DIGITAL · 2026</span></footer>
+
+    <dialog id="demo-dialog" aria-labelledby="demo-title">
+      <div class="demo-surface" id="demo-surface"><header class="demo-bar"><div><h2 id="demo-title">GRAPES OF CRETE</h2><p id="runtime-status" role="status" aria-live="polite">Προετοιμασία της εμπειρίας…</p></div><div class="demo-controls"><a class="control-button direct-link" href="exports/local/web/WineVR.html" target="_blank" rel="noopener" aria-label="Άνοιγμα του Grapes of Crete σε νέα καρτέλα">Νέα καρτέλα ↗</a><button class="control-button" type="button" id="fullscreen-demo">Πλήρης οθόνη</button><button class="control-button" type="button" id="reload-demo">Ξανά</button><button class="control-button close-button" type="button" id="close-demo" aria-label="Κλείσιμο της εμπειρίας">Κλείσιμο ✕</button></div></header>
+        <div class="iframe-wrap"><iframe id="demo-frame" title="Grapes of Crete — διαδραστική εμπειρία" allow="fullscreen; autoplay; gamepad; xr-spatial-tracking" allowfullscreen></iframe><div id="launch-state" class="launch-state" role="status" aria-live="polite"><span class="loading-ring" id="loading-ring" aria-hidden="true"></span><p class="eyebrow">GRAPES OF CRETE</p><h3 id="launch-state-title">Η διαδρομή σου ξεκινά.</h3><p id="launch-state-message">Ελέγχουμε ότι η εμπειρία είναι διαθέσιμη.</p><button class="button button-gold" id="retry-demo" type="button" hidden>Δοκίμασε ξανά</button></div></div>
       </div>
-    </div>
-
-    <footer class="site-footer">
-      <span>Stinis Digital</span>
-    </footer>
-
-    <script src="site.js"></script>
+    </dialog>
+    <noscript><div class="noscript-message">Για τη διαδραστική περιήγηση χρειάζεται ενεργή JavaScript. Μπορείς να διαβάσεις τη διαδρομή και τις οδηγίες σε αυτή τη σελίδα.</div></noscript>
+    <script src="site.js" defer></script>
   </body>
 </html>

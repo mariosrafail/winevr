@@ -8,6 +8,8 @@ signal modal_focus_applied(id: String)
 var _panels: Dictionary = {}
 var _active_modal_id: String = ""
 var _applying_focus: bool = false
+var _raised_canvas: CanvasLayer
+var _original_canvas_layer: int = 0
 
 
 func register_panel(id: String, control: Control, priority: int, close_callback: Callable = Callable()) -> void:
@@ -88,6 +90,7 @@ func _apply_focus() -> void:
 		return
 	_applying_focus = true
 	var active_control: Control = _panel_control(_active_modal_id)
+	_restore_canvas_layer()
 	for panel_id in _panels.keys():
 		var id: String = str(panel_id)
 		var control: Control = _panel_control(id)
@@ -100,10 +103,25 @@ func _apply_focus() -> void:
 			if active_control != null and id == _active_modal_id:
 				control.mouse_filter = Control.MOUSE_FILTER_STOP
 	if active_control != null:
+		# z_index cannot bring a panel above a different CanvasLayer. The
+		# winery info panel lives outside the main HUD canvas.
+		var canvas: Node = active_control.get_parent()
+		while canvas != null and not canvas is CanvasLayer:
+			canvas = canvas.get_parent()
+		if canvas is CanvasLayer:
+			_raised_canvas = canvas as CanvasLayer
+			_original_canvas_layer = _raised_canvas.layer
+			_raised_canvas.layer = 100
 		_bring_to_front(active_control)
 		print("[WineVR][UI] Modal focus applied: %s" % _active_modal_id)
 		modal_focus_applied.emit(_active_modal_id)
 	_applying_focus = false
+
+
+func _restore_canvas_layer() -> void:
+	if is_instance_valid(_raised_canvas):
+		_raised_canvas.layer = _original_canvas_layer
+	_raised_canvas = null
 
 
 func _panel_control(id: String) -> Control:
@@ -154,16 +172,16 @@ func _restore_mouse_filters(id: String) -> void:
 		var target: Control = instance_from_id(int(instance_id)) as Control
 		if target != null:
 			target.mouse_filter = int(filters[instance_id])
-	_restore_uncaptured_active_controls(control)
+	_restore_uncaptured_active_controls(control, filters)
 
 
-func _restore_uncaptured_active_controls(node: Node) -> void:
+func _restore_uncaptured_active_controls(node: Node, filters: Dictionary) -> void:
 	if node is Control:
 		var control: Control = node as Control
-		if control.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		if not filters.has(control.get_instance_id()) and control.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 			control.mouse_filter = Control.MOUSE_FILTER_PASS
 	for child in node.get_children():
-		_restore_uncaptured_active_controls(child)
+		_restore_uncaptured_active_controls(child, filters)
 
 
 func _set_mouse_filter_recursive(node: Node, filter: int) -> void:

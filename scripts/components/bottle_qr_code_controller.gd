@@ -33,6 +33,10 @@ func apply_profile(profile_data: Dictionary) -> void:
 		return
 	_ensure_display_nodes()
 	_update_display_transform()
+	# Educational collection is selected from the catalog, without a code printed on the vial.
+	display_root.visible = not bool(profile_data.get("demo_collection", false))
+	if not display_root.visible:
+		return
 
 	current_organization_id = str(profile_data.get("organization_id", profile_data.get("qr_id", profile_data.get("client_id", "demo_winery"))))
 	current_organization_name = str(profile_data.get("organization_name", profile_data.get("winery_name", profile_data.get("winery", "Demo Winery"))))

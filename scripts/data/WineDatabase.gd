@@ -1,9 +1,12 @@
 extends Node
 
 const PROFILES_PATH: String = "res://data/tasting_profiles/profiles.json"
+const CRETAN_COLLECTION_PATH: String = "res://data/tasting_profiles/cretan_collection.json"
 const USER_PROFILES_PATH: String = "user://profiles.json"
 const EXTERNAL_PROFILES_FILENAME: String = "profiles.json"
 const DEFAULT_QR_IMAGE: String = "res://assets/qr/demo_winery_qr.png"
+const MAX_SAMPLE_CODE_LENGTH: int = 32
+const MAX_SAMPLE_INPUT_LENGTH: int = 64
 
 var _profiles: Array[Dictionary] = []
 var _profiles_by_id: Dictionary = {}
@@ -44,6 +47,7 @@ func load_profiles() -> void:
 		print("[WineDB] All JSON sources failed. Using built-in fallback demo profiles.")
 		_load_fallback_profiles()
 
+	_append_cretan_collection()
 	if _profiles.is_empty():
 		push_error("[WineDB] No tasting profiles available (JSON + fallback failed).")
 	else:
@@ -113,6 +117,52 @@ func get_profile_by_id(profile_id: String) -> Dictionary:
 	return {}
 
 
+func resolve_sample_code(raw_code: String) -> Dictionary:
+	return resolve_sample_code_from_profiles(raw_code, _profiles)
+
+
+func resolve_sample_code_from_profiles(raw_code: String, profiles: Array) -> Dictionary:
+	# A pure lookup: rejected or ambiguous codes never select or modify a wine.
+	var normalized: Dictionary = normalize_sample_code(raw_code)
+	if not bool(normalized.get("ok", false)):
+		return normalized
+	var code: String = str(normalized["code"])
+	var matches: Array[String] = []
+	for raw_profile in profiles:
+		if not raw_profile is Dictionary:
+			continue
+		var profile: Dictionary = raw_profile as Dictionary
+		var aliases: Variant = profile.get("sample_codes", [])
+		if not aliases is Array:
+			continue
+		for raw_alias in aliases:
+			if not raw_alias is String:
+				continue
+			var alias: Dictionary = normalize_sample_code(raw_alias)
+			if bool(alias.get("ok", false)) and str(alias["code"]) == code:
+				matches.append(str(profile.get("id", "")))
+	if matches.size() > 1:
+		return {"ok": false, "code": code, "error": "duplicate"}
+	if matches.is_empty() or matches[0].is_empty():
+		return {"ok": false, "code": code, "error": "unknown"}
+	return {"ok": true, "code": code, "profile_id": matches[0], "error": ""}
+
+
+func normalize_sample_code(raw_code: String) -> Dictionary:
+	if raw_code.length() > MAX_SAMPLE_INPUT_LENGTH:
+		return {"ok": false, "error": "too_long"}
+	var code: String = raw_code.strip_edges().to_upper()
+	if code.is_empty():
+		return {"ok": false, "error": "empty"}
+	if code.length() > MAX_SAMPLE_CODE_LENGTH:
+		return {"ok": false, "error": "too_long"}
+	for index in range(code.length()):
+		var character: int = code.unicode_at(index)
+		if not ((character >= 65 and character <= 90) or (character >= 48 and character <= 57) or character == 45):
+			return {"ok": false, "error": "invalid"}
+	return {"ok": true, "code": code, "error": ""}
+
+
 func get_default_profile() -> Dictionary:
 	for profile in _profiles:
 		if bool(profile.get("unlocked_by_default", false)):
@@ -143,6 +193,9 @@ func get_selection_entries() -> Array[Dictionary]:
 		"winery": str(profile.get("winery", "")),
 		"region": str(profile.get("region", "")),
 		"wine_type": str(profile.get("wine_type", "")),
+		"grape_variety": str(profile.get("grape_variety", "")),
+		"demo_collection": bool(profile.get("demo_collection", false)),
+		"sample_codes": profile.get("sample_codes", []).duplicate(),
 		"organization_id": str(profile.get("organization_id", "")),
 		"organization_name": str(profile.get("organization_name", profile.get("winery", ""))),
 		"qr_code_image": str(profile.get("qr_code_image", DEFAULT_QR_IMAGE)),
@@ -172,6 +225,7 @@ func build_runtime_client_profile(profile: Dictionary) -> Dictionary:
 
 	return {
 		"client_id": profile_id,
+		"demo_collection": bool(profile.get("demo_collection", false)),
 		"winery_name": winery,
 		"wine_name": wine_name,
 		"region_name": region,
@@ -250,6 +304,21 @@ func _load_profiles_from_json(path: String, source_label: String) -> bool:
 	return success
 
 
+func _append_cretan_collection() -> void:
+	if not FileAccess.file_exists(CRETAN_COLLECTION_PATH):
+		return
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CRETAN_COLLECTION_PATH))
+	if not parsed is Array:
+		push_warning("[WineDB] Cretan collection must contain an array.")
+		return
+	for raw_profile in parsed:
+		if raw_profile is Dictionary:
+			var normalized: Dictionary = _normalize_profile(raw_profile)
+			if _validate_profile(normalized):
+				# Existing external records with the same ID take precedence.
+				_add_profile(normalized)
+
+
 func _load_fallback_profiles() -> void:
 	for profile in _fallback_profiles():
 		var normalized: Dictionary = _normalize_profile(profile)
@@ -286,6 +355,8 @@ func _normalize_profile(profile: Dictionary) -> Dictionary:
 	p["tasting_notes"] = _normalize_string_array(p.get("tasting_notes", []))
 	p["aroma_notes"] = _normalize_string_array(p.get("aroma_notes", []))
 	p["pairing_suggestions"] = _normalize_string_array(p.get("pairing_suggestions", []))
+	# Preserve duplicate aliases so the resolver can reject ambiguous config.
+	p["sample_codes"] = p.get("sample_codes", []) if p.get("sample_codes", []) is Array else []
 
 	var normalized_hotspots: Array = []
 	for raw_hotspot in p.get("hotspots", []):

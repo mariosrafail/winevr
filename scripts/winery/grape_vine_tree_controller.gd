@@ -10,6 +10,10 @@ const VINE_GLB_PATH: String = "res://assets/models/grape_vine_tree/grape_vine_tr
 
 @export var wind_strength_scale: float = 1.0
 @export var visibility_distance: float = 14.0
+@export_enum("liatiko", "kotsifali", "vidiano") var grape_variety: String = "liatiko"
+
+var _berry_materials: Array[ShaderMaterial] = []
+static var _cached_visual: PackedScene
 
 
 func _ready() -> void:
@@ -18,6 +22,14 @@ func _ready() -> void:
 
 
 func _load_vine_visual() -> void:
+	# Reuse imported meshes and textures across the outdoor demonstration vines.
+	if _cached_visual == null and ResourceLoader.exists(VINE_GLB_PATH):
+		_cached_visual = load(VINE_GLB_PATH) as PackedScene
+	if _cached_visual != null:
+		var imported: Node = _cached_visual.instantiate()
+		imported.name = "GrapeVineVisual"
+		add_child(imported)
+		return
 	if not FileAccess.file_exists(VINE_GLB_PATH):
 		push_warning("[WineVR][Vine] Missing grape vine asset: %s" % VINE_GLB_PATH)
 		return
@@ -76,7 +88,34 @@ func _make_berry_material() -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = BERRY_SHADER
 	material.set_shader_parameter("wind_strength", 0.010 * wind_strength_scale)
+	_berry_materials.append(material)
+	_apply_variety_palette(material)
 	return material
+
+
+func set_variety(variety_id: String) -> void:
+	if variety_id not in ["liatiko", "kotsifali", "vidiano"]:
+		return
+	grape_variety = variety_id
+	for material: ShaderMaterial in _berry_materials:
+		_apply_variety_palette(material)
+
+
+func _apply_variety_palette(material: ShaderMaterial) -> void:
+	# These are visual skin palettes, never chemical measurements.
+	match grape_variety:
+		"vidiano":
+			material.set_shader_parameter("grape_deep", Color("5c6c26"))
+			material.set_shader_parameter("grape_mid", Color("c3b85e"))
+			material.set_shader_parameter("bloom_tint", Color("e4df9c"))
+		"kotsifali":
+			material.set_shader_parameter("grape_deep", Color("19132b"))
+			material.set_shader_parameter("grape_mid", Color("46213d"))
+			material.set_shader_parameter("bloom_tint", Color("888497"))
+		_:
+			material.set_shader_parameter("grape_deep", Color("321124"))
+			material.set_shader_parameter("grape_mid", Color("702b40"))
+			material.set_shader_parameter("bloom_tint", Color("a48b95"))
 
 
 func _make_bark_material() -> ShaderMaterial:

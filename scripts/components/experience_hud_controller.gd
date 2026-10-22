@@ -39,11 +39,9 @@ var winery_text: RichTextLabel
 var winery_modal_title: Label
 var winery_modal_text: RichTextLabel
 var _winery_modal_tween: Tween
-var _intro_scroll: ScrollContainer
-var _inspection_scroll: ScrollContainer
-var _winery_info_scroll: ScrollContainer
-var _winery_modal_scroll: ScrollContainer
 var _vr_winery_mode: bool = false
+var _is_educational_collection: bool = false
+var _layout_pending: bool = false
 
 
 func setup(root: Node) -> void:
@@ -55,6 +53,7 @@ func setup(root: Node) -> void:
 	intro_text = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/IntroText") as RichTextLabel
 	var intro_vbox: VBoxContainer = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox") as VBoxContainer
 	var start_button: Button = root.get_node("CanvasLayer/IntroScreen/IntroCard/Margin/VBox/StartButton") as Button
+	start_button.text = "Ξεκίνα την εξερεύνηση"
 	PremiumUIStyles.apply_gold_outline_button(start_button)
 	start_button.pressed.connect(func() -> void: start_requested.emit())
 	_build_intro_browser_explore_control(intro_vbox, start_button)
@@ -83,6 +82,7 @@ func setup(root: Node) -> void:
 	winery_title = root.get_node("CanvasLayer/WineryHUD/InfoCard/Margin/VBox/Title") as Label
 	winery_text = root.get_node("CanvasLayer/WineryHUD/InfoCard/Margin/VBox/Text") as RichTextLabel
 	var return_button: Button = root.get_node("CanvasLayer/WineryHUD/InfoCard/Margin/VBox/ReturnButton") as Button
+	return_button.text = "Επιστροφή στο κρασί"
 	PremiumUIStyles.apply_gold_outline_button(return_button)
 	return_button.pressed.connect(func() -> void: return_to_vial_requested.emit())
 	door_prompt_label = root.get_node("CanvasLayer/WineryHUD/DoorPrompt") as Label
@@ -90,32 +90,40 @@ func setup(root: Node) -> void:
 	winery_modal_title = root.get_node("CanvasLayer/WineryHUD/WineryModal/Margin/VBox/Title") as Label
 	winery_modal_text = root.get_node("CanvasLayer/WineryHUD/WineryModal/Margin/VBox/Text") as RichTextLabel
 	var modal_close: Button = root.get_node("CanvasLayer/WineryHUD/WineryModal/Margin/VBox/CloseButton") as Button
+	modal_close.text = "Συνέχεια"
 	PremiumUIStyles.apply_gold_outline_button(modal_close)
 	modal_close.pressed.connect(close_winery_modal)
-	_intro_scroll = _wrap_rich_text_with_scroll(intro_text)
-	_inspection_scroll = _wrap_rich_text_with_scroll(inspection_text)
-	_winery_info_scroll = _wrap_rich_text_with_scroll(winery_text)
-	_winery_modal_scroll = _wrap_rich_text_with_scroll(winery_modal_text)
 	_configure_scroll_text(intro_text)
 	_configure_scroll_text(inspection_text)
 	_configure_scroll_text(winery_text)
 	_configure_scroll_text(winery_modal_text)
 	_apply_premium_visual_style()
+	for panel in [intro_card, inspection_info_card, winery_info_card, winery_modal]:
+		(panel as PanelContainer).minimum_size_changed.connect(_queue_settled_layout)
+	winery_modal.add_theme_stylebox_override("panel", PremiumUIStyles.make_panel_style(1.0))
+	for label in [intro_winery_name, inspection_winery_name, intro_region, inspection_region, unlock_feedback_label]:
+		(label as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		(label as Label).label_settings = _make_label_settings(14, PremiumUIStyles.TEXT_MUTED)
+	for label in [intro_wine_name, inspection_wine_name, winery_title, winery_modal_title]:
+		(label as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		(label as Label).label_settings = _make_label_settings(24, PremiumUIStyles.TEXT_TITLE)
+	inspection_hint.text = "Περίστρεψε το φιαλίδιο · άνοιξε τα σημεία της διαδρομής"
+	inspection_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inspection_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	winery_modal.modulate.a = 0.0
 	winery_modal.scale = Vector2(0.96, 0.96)
 
 
 func apply_client_profile(client_data: Dictionary) -> void:
+	_is_educational_collection = bool(client_data.get("demo_collection", false))
 	var winery_name_value: String = str(client_data.get("winery_name", "Unknown Winery"))
 	var wine_name_value: String = str(client_data.get("wine_name", "Untitled Wine"))
 	var region_value: String = "%s, %s" % [str(client_data.get("region_name", "")), str(client_data.get("country", ""))]
 	var experience_settings: Dictionary = client_data.get("experience_settings", {})
 	var environment_settings: Dictionary = client_data.get("environment_settings", {})
-	var intro_title_value: String = str(experience_settings.get("intro_title", wine_name_value))
-	var intro_body_value: String = "%s\n\n%s" % [intro_title_value, str(experience_settings.get("intro_text", ""))]
+	var intro_body_value: String = str(experience_settings.get("intro_text", ""))
 	var winery_info_value: String = str(environment_settings.get("ambience_text", experience_settings.get("winery_info_text", "")))
-	var winery_scene_name: String = str(experience_settings.get("winery_scene_name", "default_cellar"))
 
 	intro_winery_name.text = winery_name_value
 	intro_wine_name.text = wine_name_value
@@ -125,10 +133,13 @@ func apply_client_profile(client_data: Dictionary) -> void:
 	inspection_wine_name.text = wine_name_value
 	inspection_region.text = region_value
 	inspection_text.text = intro_body_value
-	winery_title.text = "%s / %s" % [winery_name_value, winery_scene_name.replace("_", " ").capitalize()]
+	winery_title.text = "Η ιστορία του κρασιού" if _is_educational_collection else winery_name_value
 	winery_text.text = winery_info_value
 	winery_modal_title.text = wine_name_value
 	winery_modal_text.text = winery_info_value
+	for text in [intro_text, inspection_text, winery_text, winery_modal_text]:
+		(text as RichTextLabel).scroll_to_line(0)
+	apply_panel_height_policy(intro_card.get_viewport().get_visible_rect().size)
 
 
 func apply_state(state: int) -> void:
@@ -153,9 +164,9 @@ func set_vr_winery_mode(active: bool) -> void:
 
 func set_enter_winery_enabled(enabled: bool) -> void:
 	enter_winery_button.disabled = not enabled
-	enter_winery_button.text = "Enter Winery" if enabled else "View required points first"
+	enter_winery_button.text = "Περιήγηση στο κελάρι" if enabled else "Εξερεύνησε πρώτα τα σημεία"
 	enter_winery_button.modulate = Color(1.0, 1.0, 1.0, 1.0) if enabled else Color(0.72, 0.72, 0.72, 0.82)
-	unlock_feedback_label.text = "Winery unlocked" if enabled else ""
+	unlock_feedback_label.text = "Η διαδρομή στο κελάρι είναι διαθέσιμη" if enabled else ""
 	unlock_feedback_label.visible = enabled
 	if OS.is_debug_build():
 		print("[WineVR][EnterWinery] HUD button enabled=%s disabled=%s text=\"%s\"" % [enabled, enter_winery_button.disabled, enter_winery_button.text])
@@ -211,7 +222,8 @@ func _show_winery_modal() -> void:
 	winery_modal_opened.emit()
 	layout_refresh_requested.emit("panel opened")
 	await get_tree().process_frame
-	ResponsiveLayoutController.center_panel_safe(winery_modal, winery_modal.get_viewport(), clampf(winery_modal.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), 0.45)
+	apply_panel_height_policy(winery_modal.get_viewport().get_visible_rect().size)
+	winery_modal_text.scroll_to_line(0)
 	_winery_modal_tween = PremiumUIStyles.animate_panel_open(winery_modal, 10.0)
 
 
@@ -273,8 +285,8 @@ func _build_intro_browser_explore_control(intro_vbox: VBoxContainer, start_butto
 		return
 	intro_explore_winery_button = Button.new()
 	intro_explore_winery_button.name = "ExploreWineryButton"
-	intro_explore_winery_button.text = "Explore Winery"
-	intro_explore_winery_button.tooltip_text = "Walk around the winery with WASD and mouse controls"
+	intro_explore_winery_button.text = "Ελεύθερη περιήγηση"
+	intro_explore_winery_button.tooltip_text = "Περπάτησε με WASD και κοίτα γύρω με το ποντίκι"
 	intro_explore_winery_button.custom_minimum_size = Vector2(0.0, 52.0)
 	PremiumUIStyles.apply_gold_outline_button(intro_explore_winery_button)
 	intro_explore_winery_button.pressed.connect(func() -> void: explore_winery_requested.emit())
@@ -283,7 +295,7 @@ func _build_intro_browser_explore_control(intro_vbox: VBoxContainer, start_butto
 
 
 func _immersive_button_label() -> String:
-	return "Enter VR (Headset)" if OS.has_feature("web") else "Enter Immersive Mode"
+	return "Είσοδος σε VR"
 
 
 func _stop_winery_modal_tween() -> void:
@@ -293,62 +305,55 @@ func _stop_winery_modal_tween() -> void:
 
 
 func apply_panel_height_policy(viewport_size: Vector2) -> void:
-	var small_min_h: float = 120.0
-	var modal_min_h: float = 180.0
-	var intro_reserved_bottom: float = 86.0
-	if intro_explore_winery_button != null and intro_explore_winery_button.visible:
-		intro_reserved_bottom += 62.0
-	if intro_immersive_button != null and intro_immersive_button.visible:
-		intro_reserved_bottom += 62.0
-	if intro_immersive_message_label != null and intro_immersive_message_label.visible:
-		intro_reserved_bottom += 38.0
-	_apply_scroll_height(intro_card, _intro_scroll, intro_text, modal_min_h, viewport_size.y * 0.5, intro_reserved_bottom, 110.0)
-	_apply_scroll_height(inspection_info_card, _inspection_scroll, inspection_text, modal_min_h, viewport_size.y * 0.55, 90.0, 130.0)
-	_apply_scroll_height(winery_info_card, _winery_info_scroll, winery_text, modal_min_h, viewport_size.y * 0.55, 94.0, 130.0)
-	_apply_scroll_height(winery_modal, _winery_modal_scroll, winery_modal_text, modal_min_h, viewport_size.y * 0.5, 92.0, 130.0)
-	if hotspot_panel != null:
-		hotspot_panel.custom_minimum_size.y = small_min_h
+	if viewport_size.x < 120.0 or viewport_size.y < 120.0:
+		return
+	var compact: bool = viewport_size.x < 700.0
+	_size_hud_panel(intro_card, viewport_size, Vector2(520, 540), false)
+	_size_hud_panel(winery_modal, viewport_size, Vector2(540, 420), false)
+	_size_hud_panel(inspection_info_card, viewport_size, Vector2(340, 310 if compact else 350), true)
+	_size_hud_panel(winery_info_card, viewport_size, Vector2(340, 300), true)
+	inspection_hint.position.y = viewport_size.y - 56.0
+	inspection_hint.size.y = 42.0
+	inspection_hint.visible = ExperienceManager.current_state == ExperienceManager.ExperienceState.VIAL_INSPECTION and not (DisplayServer.is_touchscreen_available() or "--touch-ui" in OS.get_cmdline_user_args())
+
+
+func _queue_settled_layout() -> void:
+	if _layout_pending:
+		return
+	_layout_pending = true
+	call_deferred("_settle_layout")
+
+
+func _settle_layout() -> void:
+	await get_tree().process_frame
+	_layout_pending = false
+	apply_panel_height_policy(intro_card.get_viewport().get_visible_rect().size)
+
+
+func _size_hud_panel(panel: PanelContainer, viewport_size: Vector2, preferred: Vector2, side: bool) -> void:
+	if panel == null:
+		return
+	panel.custom_minimum_size = Vector2.ZERO
+	var compact: bool = viewport_size.x < 700.0
+	var width: float = minf(preferred.x, viewport_size.x - 24.0)
+	var height: float = minf(preferred.y, viewport_size.y - 140.0)
+	panel.size = Vector2(width, maxf(140.0, height))
+	if side:
+		panel.position = Vector2(12, maxf(164, viewport_size.y - panel.size.y - 66.0)) if compact else Vector2(16, 96)
+	else:
+		panel.position = Vector2((viewport_size.x - panel.size.x) * 0.5, maxf(86, (viewport_size.y - panel.size.y) * 0.5))
 
 
 func _configure_scroll_text(text_node: RichTextLabel) -> void:
-	text_node.fit_content = true
-	text_node.scroll_active = false
+	# Let the RichTextLabel own its scroll viewport. A content-fitting label
+	# nested in another scroll container fed its growing minimum into the card.
+	text_node.fit_content = false
+	text_node.scroll_active = true
 	text_node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_node.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-
-
-func _wrap_rich_text_with_scroll(text_node: RichTextLabel) -> ScrollContainer:
-	var vbox: VBoxContainer = text_node.get_parent() as VBoxContainer
-	if vbox == null:
-		return null
-	var old_index: int = text_node.get_index()
-	vbox.remove_child(text_node)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = text_node.name + "Scroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	var content: VBoxContainer = VBoxContainer.new()
-	content.name = "ContentVBox"
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
-	content.add_child(text_node)
-	vbox.add_child(scroll)
-	vbox.move_child(scroll, old_index)
-	return scroll
-
-
-func _apply_scroll_height(panel_node: PanelContainer, scroll: ScrollContainer, text_node: RichTextLabel, min_h: float, max_h: float, reserved_bottom: float, min_scroll_height: float) -> void:
-	if scroll == null:
-		return
-	if panel_node == null:
-		return
-	var panel_height_cap: float = clampf(panel_node.size.y - reserved_bottom, min_scroll_height, max_h)
-	var content_h: float = maxf(min_h, text_node.get_content_height() + 20.0)
-	var target_h: float = clampf(content_h, min_scroll_height, panel_height_cap)
-	scroll.custom_minimum_size.y = target_h
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_node.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_node.custom_minimum_size = Vector2(0, 64)
+	text_node.add_theme_font_size_override("normal_font_size", 16)
 
 
 func _apply_premium_visual_style() -> void:

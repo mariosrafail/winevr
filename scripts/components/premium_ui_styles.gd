@@ -1,19 +1,19 @@
 extends RefCounted
 class_name PremiumUIStyles
 
-const PANEL_BG: Color = Color(0.066, 0.062, 0.051, 0.86)
-const PANEL_BG_INNER: Color = Color(0.094, 0.086, 0.071, 0.92)
-const PANEL_BG_HOVER: Color = Color(0.13, 0.118, 0.092, 0.96)
+const PANEL_BG: Color = Color(0.055, 0.08, 0.07, 0.94)
+const PANEL_BG_INNER: Color = Color(0.08, 0.11, 0.095, 0.96)
+const PANEL_BG_HOVER: Color = Color(0.14, 0.18, 0.15, 0.98)
 const GOLD_BORDER: Color = Color(0.784, 0.655, 0.353, 0.65)
 const GOLD_ACCENT: Color = Color(0.839, 0.694, 0.369, 1.0)
 const GOLD_GLOW: Color = Color(0.839, 0.694, 0.369, 0.28)
 const TEXT_TITLE: Color = Color(0.961, 0.937, 0.89, 1.0)
 const TEXT_BODY: Color = Color(0.851, 0.82, 0.753, 1.0)
-const TEXT_MUTED: Color = Color(0.655, 0.612, 0.537, 1.0)
+const TEXT_MUTED: Color = Color(0.69, 0.72, 0.66, 1.0)
 const SHADOW: Color = Color(0.0, 0.0, 0.0, 0.36)
 
-const HOVER_SCALE: Vector2 = Vector2(1.03, 1.03)
-const PRESSED_SCALE: Vector2 = Vector2(0.98, 0.98)
+const HOVER_SCALE: Vector2 = Vector2(1.01, 1.01)
+const PRESSED_SCALE: Vector2 = Vector2(0.99, 0.99)
 const NORMAL_SCALE: Vector2 = Vector2.ONE
 
 
@@ -50,7 +50,7 @@ static func make_button_style(background: Color, border: Color = GOLD_BORDER, sh
 static func apply_gold_outline_button(button: Button) -> void:
 	if button == null:
 		return
-	button.mouse_default_cursor_shape = Control.CURSOR_ARROW
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_stylebox_override("normal", make_button_style(Color(PANEL_BG.r, PANEL_BG.g, PANEL_BG.b, 0.7), Color(GOLD_BORDER.r, GOLD_BORDER.g, GOLD_BORDER.b, 0.55)))
 	button.add_theme_stylebox_override("hover", make_button_style(PANEL_BG_HOVER, GOLD_ACCENT, 0.16))
 	button.add_theme_stylebox_override("pressed", make_button_style(Color(0.16, 0.13, 0.075, 0.98), GOLD_ACCENT, 0.08))

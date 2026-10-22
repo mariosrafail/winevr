@@ -3,6 +3,10 @@
 /android/
 /work/
 
+# Superseded demo exports and local runtime data
+/build/grape-room-demo/WineVR-GrapeRoom-Demo*.exe
+/build/grape-room-demo/profiles.json
+
 # Generated export outputs
 /exports/*
 !/exports/README.md

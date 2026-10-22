@@ -27,6 +27,9 @@ var _demo_mode: bool = false
 var _ui_hidden_for_capture: bool = false
 var _immersive_mode_loading: bool = false
 var _browser_free_explore_mode: bool = false
+var _section_bar: HBoxContainer
+var _section_label: Label
+var _visited_stations: Dictionary = {}
 
 var _qr_screen: QRScreenController
 var _loading_overlay: LoadingOverlayController
@@ -66,6 +69,11 @@ func _ready() -> void:
 	winery_interior.desktop_info_panel_opened.connect(func() -> void: _open_ui_modal("winery_info_panel"))
 	winery_interior.desktop_info_panel_closed.connect(func() -> void: _close_ui_modal("winery_info_panel"))
 	winery_interior.layout_refresh_requested.connect(refresh_all_ui_layouts)
+	winery_interior.xr_state_changed.connect(_on_xr_state_changed)
+	winery_interior.xr_capabilities_changed.connect(func(_caps: Dictionary) -> void: _refresh_xr_menu())
+	winery_interior.collection_requested.connect(func() -> void: _navigate_section("museum"))
+	winery_interior.tour_station_visited.connect(_on_tour_station_visited)
+	winery_interior.presentation_changed.connect(func(_mode: String) -> void: _update_section_bar())
 
 	_apply_client_profile(ClientProfileLoader.get_active_client_data())
 	_narrative_panel.refresh()
@@ -76,6 +84,7 @@ func _ready() -> void:
 	await refresh_all_ui_layouts("startup")
 	await refresh_all_ui_layouts("startup")
 	_show_main_menu()
+	_refresh_xr_menu()
 	_print_runtime_health_status()
 	if "--grape-museum" in OS.get_cmdline_user_args():
 		_on_grape_museum_requested()
@@ -85,6 +94,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
 		var new_window_size: Vector2i = DisplayServer.window_get_size()
 		await refresh_all_ui_layouts("window size changed")
+		_update_section_bar()
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 		var panel_rect: Rect2 = _graphics_panel.get_panel_rect() if _graphics_panel != null else Rect2()
 		print("[WineVR][Viewport] old_window=%s new_window=%s viewport=%s options_pos=%s options_size=%s" % [
@@ -201,6 +211,10 @@ func _build_components() -> void:
 	_mobile_controls = MobileControlsController.new()
 	add_child(_mobile_controls)
 	_mobile_controls.setup(canvas_layer, vial_preview, winery_interior)
+	var mobile_inspector: Node = (load("res://scripts/components/mobile_grape_inspector.gd") as Script).new()
+	mobile_inspector.name = "MobileGrapeInspectorController"
+	add_child(mobile_inspector)
+	mobile_inspector.call("setup", canvas_layer, winery_interior)
 
 	_narrative_panel = NarrativePanelController.new()
 	add_child(_narrative_panel)
@@ -258,6 +272,7 @@ func _build_components() -> void:
 	add_child(_journey)
 	_journey.setup(canvas_layer)
 	_journey.active_step_changed.connect(_on_journey_active_step_changed)
+	_journey.cellar_requested.connect(_on_enter_winery_pressed)
 	_journey.restart_requested.connect(_reset_current_experience)
 	_journey.choose_another_requested.connect(_choose_another_tasting)
 	_journey.show_qr_requested.connect(_show_selected_qr_info)
@@ -279,10 +294,15 @@ func _build_components() -> void:
 	_main_menu.resume_requested.connect(_on_main_menu_resume_requested)
 	_main_menu.options_requested.connect(_on_main_menu_options_requested)
 	_main_menu.museum_requested.connect(_on_grape_museum_requested)
+	_main_menu.vineyard_requested.connect(func() -> void: _navigate_section("vineyard"))
+	_main_menu.tasting_requested.connect(_open_tasting_catalog)
+	_main_menu.cellar_requested.connect(func() -> void: _navigate_section("cellar"))
+	_main_menu.xr_requested.connect(_on_immersive_mode_requested)
 	_main_menu.controls_requested.connect(_on_main_menu_controls_requested)
 	_main_menu.quit_requested.connect(_on_main_menu_quit_requested)
 	_main_menu.menu_opened.connect(func() -> void: _open_ui_modal("main_menu"))
 	_main_menu.menu_closed.connect(func() -> void: _close_ui_modal("main_menu"))
+	_build_section_bar()
 
 
 func _setup_ui_modal_priority() -> void:
@@ -484,7 +504,10 @@ func _show_main_menu() -> void:
 	if winery_interior != null and winery_interior.is_vr_active():
 		return
 	_return_to_main_menu_after_submenu = false
+	_qr_screen.set_visible(false)
+	_main_menu.resume_button.visible = ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR
 	_main_menu.show_menu()
+	_refresh_xr_menu()
 
 
 func _handle_escape_menu_flow() -> void:
@@ -506,6 +529,7 @@ func _handle_escape_menu_flow() -> void:
 
 
 func _on_main_menu_resume_requested() -> void:
+	_qr_screen.set_visible(ExperienceManager.current_state == ExperienceManager.ExperienceState.QR_SCAN)
 	_return_to_main_menu_after_submenu = false
 	if _main_menu != null:
 		_main_menu.hide_menu()
@@ -513,11 +537,116 @@ func _on_main_menu_resume_requested() -> void:
 
 
 func _on_grape_museum_requested() -> void:
-	if _transition_in_progress:
+	_navigate_section("museum")
+
+
+func _navigate_section(section: String) -> void:
+	if _transition_in_progress or winery_interior.is_ar_active():
 		return
 	_return_to_main_menu_after_submenu = false
 	_main_menu.hide_menu()
-	_enter_free_explore_mode()
+	winery_interior.set_presentation_mode(section)
+	if ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+		_browser_free_explore_mode = true
+		NarrativeManager.load_from_client_data({})
+		_apply_state(ExperienceManager.current_state)
+		_exploration_mode.enter_mode()
+	else:
+		_enter_free_explore_mode()
+	_update_section_bar()
+
+
+func _open_tasting_catalog() -> void:
+	if _transition_in_progress:
+		return
+	_main_menu.hide_menu()
+	winery_interior.close_grape_inspection()
+	_browser_free_explore_mode = false
+	NarrativeManager.load_from_client_data({})
+	ExperienceManager.show_qr_scan()
+	_apply_state(ExperienceManager.current_state)
+	_update_section_bar()
+
+
+func _build_section_bar() -> void:
+	_section_bar = HBoxContainer.new()
+	_section_bar.name = "CollectionNavigation"
+	_section_bar.add_theme_constant_override("separation", 6)
+	_section_bar.z_index = 90
+	canvas_layer.add_child(_section_bar)
+	for item in [["Συλλογή", "museum"], ["Δαφνές", "vineyard"], ["Κάβα", "cellar"], ["Κρασιά", "catalog"], ["☰", "menu"]]:
+		var button: Button = Button.new()
+		button.text = item[0]
+		button.custom_minimum_size = Vector2(62, 42)
+		PremiumUIStyles.apply_gold_outline_button(button)
+		var destination: String = item[1]
+		button.pressed.connect(func() -> void:
+			match destination:
+				"catalog": _open_tasting_catalog()
+				"menu": _show_main_menu()
+				_: _navigate_section(destination)
+		)
+		_section_bar.add_child(button)
+	_section_label = Label.new()
+	_section_label.add_theme_font_size_override("font_size", 12)
+	_section_label.add_theme_color_override("font_color", PremiumUIStyles.TEXT_MUTED)
+	_section_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas_layer.add_child(_section_label)
+	_update_section_bar()
+
+
+func _update_section_bar() -> void:
+	if _section_bar == null:
+		return
+	var show: bool = ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR and not winery_interior.is_vr_active()
+	_section_bar.visible = show
+	_section_label.visible = show
+	_section_bar.position = Vector2(16, 16)
+	var viewport_width: float = get_viewport().get_visible_rect().size.x
+	var compact: bool = viewport_width < 560
+	var button_width: float = floorf((viewport_width - 56) / 5) if compact else 80
+	for item in _section_bar.get_children():
+		var button: Button = item as Button
+		button.clip_text = true
+		button.custom_minimum_size = Vector2(button_width, 42)
+		button.add_theme_font_size_override("font_size", 12 if compact else 15)
+	_section_bar.size = Vector2.ZERO
+	_section_label.position = Vector2(18, 62)
+	var mode: String = winery_interior.presentation_mode
+	var tour: Node = winery_interior.get("_cellar") if mode == "cellar" else winery_interior.get("_vineyard")
+	var count: int = (tour.get("visited_stations") as Dictionary).size() if tour != null else 0
+	_section_label.text = ("04 / Η ΚΑΒΑ" if mode == "cellar" else "02 / ΔΑΦΝΕΣ") + "  ·  %s / 4 σημεία" % count if mode != "museum" else "01 / Η ΣΥΛΛΟΓΗ ΤΗΣ ΚΡΗΤΗΣ"
+	for button in _section_bar.get_children():
+		(button as Button).mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func _on_tour_station_visited(id: String) -> void:
+	_visited_stations[id] = true
+	_update_section_bar()
+
+
+func _refresh_xr_menu() -> void:
+	if _main_menu == null or winery_interior == null:
+		return
+	var capabilities: Dictionary = winery_interior.get_xr_capabilities()
+	var message: String = "Υπολογιστής και αφή · σύνδεσε συσκευή XR για VR/AR."
+	if bool(capabilities.get("checking", false)):
+		message = "Έλεγχος VR / AR στον περιηγητή…"
+	elif bool(capabilities.get("vr", false)) or bool(capabilities.get("ar", false)):
+		message = "Συμβατή συσκευή · ενεργοποίησε τη διαθέσιμη λειτουργία."
+	capabilities["message"] = message
+	_main_menu.set_xr_capabilities(capabilities, _immersive_mode_loading)
+
+
+func _on_xr_state_changed(active: bool, _mode: String) -> void:
+	if _hud == null:
+		return
+	if not active:
+		_apply_state(ExperienceManager.current_state)
+		if ExperienceManager.current_state == ExperienceManager.ExperienceState.WINERY_INTERIOR:
+			_show_main_menu()
+	_refresh_xr_menu()
+	_update_section_bar()
 
 
 func _on_main_menu_options_requested() -> void:
@@ -543,7 +672,7 @@ func _on_main_menu_controls_requested() -> void:
 func _on_main_menu_quit_requested() -> void:
 	if OS.has_feature("web"):
 		if _main_menu != null:
-			_main_menu.show_message("Quit is not available in browser mode.")
+			_main_menu.show_message("Για έξοδο, κλείσε την καρτέλα της εμπειρίας.")
 		return
 	get_tree().quit()
 
@@ -623,6 +752,7 @@ func _apply_state(state: int) -> void:
 	_qr_screen.set_visible(state == ExperienceManager.ExperienceState.QR_SCAN)
 	_hud.apply_state(state)
 	_narrative_panel.apply_state(state)
+	_narrative_panel.set_external_guidance_active(_browser_free_explore_mode)
 	_hud.set_vr_winery_mode(vr_winery_active)
 	if _browser_free_explore_mode:
 		_hud.winery_info_card.visible = false
@@ -649,6 +779,7 @@ func _apply_state(state: int) -> void:
 		_hotspots.close_panel()
 	_apply_narrative_target_highlight(NarrativeManager.get_current_step(), false)
 	_update_dev_overlay_context()
+	_update_section_bar()
 
 
 func _on_hotspot_viewed(hotspot_data: Dictionary) -> void:
@@ -714,8 +845,6 @@ func _get_current_journey_profile(client_data: Dictionary) -> Dictionary:
 
 
 func _on_winery_interacted(interactable_data: Dictionary = {}) -> void:
-	if _exploration_mode != null and _exploration_mode.active:
-		_exploration_mode.exit_mode()
 	if not interactable_data.is_empty():
 		var interactable_id: String = str(interactable_data.get("id", ""))
 		var interactable_type: String = str(interactable_data.get("type", "zone"))
@@ -787,6 +916,9 @@ func _on_enter_winery_pressed() -> void:
 	if OS.is_debug_build():
 		print("[WineVR][EnterWinery] request received transition=%s can_enter=%s state=%s" % [_transition_in_progress, can_enter, _state_name(ExperienceManager.current_state)])
 	if not _transition_in_progress and can_enter:
+		_browser_free_explore_mode = true
+		NarrativeManager.load_from_client_data({})
+		winery_interior.set_presentation_mode("cellar")
 		ExperienceManager.enter_winery()
 
 
@@ -798,25 +930,34 @@ func _on_return_to_vial_pressed() -> void:
 		_return_to_vial_with_fade()
 
 
-func _on_immersive_mode_requested() -> void:
+func _on_immersive_mode_requested(mode: String = "vr") -> void:
 	if _immersive_mode_loading:
 		return
 	_immersive_mode_loading = true
 	_set_immersive_mode_busy(true)
 	_set_immersive_mode_message("")
 
-	var initialized: bool = await winery_interior.request_immersive_mode()
+	_refresh_xr_menu()
+	var initialized: bool = await winery_interior.request_immersive_mode(mode)
 	_immersive_mode_loading = false
 	if initialized:
 		_set_immersive_mode_active(true)
 		_set_immersive_mode_message("")
+		_main_menu.hide_menu()
+		_browser_free_explore_mode = true
+		NarrativeManager.load_from_client_data({})
+		if mode == "ar":
+			winery_interior.set_presentation_mode("museum")
+		ExperienceManager.finish_winery_entry()
 		_apply_state(ExperienceManager.current_state)
 		await refresh_all_ui_layouts("immersive mode initialized")
 	else:
 		_set_immersive_mode_busy(false)
 		_set_immersive_mode_active(false)
-		_set_immersive_mode_message(IMMERSIVE_UNAVAILABLE_MESSAGE, true)
+		_set_immersive_mode_message(winery_interior.get_xr_status(), true)
+		_main_menu.show_message(winery_interior.get_xr_status())
 		await refresh_all_ui_layouts("immersive mode unavailable")
+	_refresh_xr_menu()
 
 
 func _on_browser_explore_winery_requested() -> void:
@@ -851,6 +992,7 @@ func _enter_winery_with_fade() -> void:
 	_transition_in_progress = false
 	if _browser_free_explore_mode and not winery_interior.is_vr_active() and _exploration_mode != null:
 		_exploration_mode.enter_mode()
+	_update_section_bar()
 
 
 func _return_to_vial_with_fade() -> void:
@@ -875,10 +1017,11 @@ func _select_qr_client(client_id: String) -> void:
 	if _profile_loading:
 		return
 	_browser_free_explore_mode = false
+	winery_interior.set_presentation_mode("museum")
 
 	_profile_loading = true
 	_qr_screen.set_error("")
-	_loading_overlay.show_loading("Preparing tasting")
+	_loading_overlay.show_loading("Ετοιμάζουμε τη γευστική διαδρομή…")
 	await get_tree().create_timer(0.18).timeout
 
 	_hotspots.reset_viewed()
@@ -897,10 +1040,10 @@ func _select_qr_client(client_id: String) -> void:
 			await refresh_all_ui_layouts("tasting selected")
 			profile_loaded_for_controls = true
 		else:
-			_qr_screen.set_error("This tasting profile is not available right now.")
+			_qr_screen.set_error("Το προφίλ δεν είναι διαθέσιμο. Διάλεξε άλλο κρασί από τη συλλογή.")
 			ExperienceManager.show_qr_scan()
 	elif not ClientProfileLoader.profile_exists(client_id):
-		_qr_screen.set_error("This tasting profile is not ready yet.")
+		_qr_screen.set_error("Αυτό το προφίλ δεν είναι ακόμη έτοιμο. Διάλεξε άλλο κρασί.")
 		ExperienceManager.show_qr_scan()
 	elif ClientProfileLoader.load_client_profile(client_id):
 		AppState.clear_selected_profile()
@@ -911,7 +1054,7 @@ func _select_qr_client(client_id: String) -> void:
 		await refresh_all_ui_layouts("tasting selected")
 		profile_loaded_for_controls = true
 	else:
-		_qr_screen.set_error("This tasting profile is not available right now.")
+		_qr_screen.set_error("Το προφίλ δεν είναι διαθέσιμο. Διάλεξε άλλο κρασί από τη συλλογή.")
 		ExperienceManager.show_qr_scan()
 
 	_loading_overlay.hide_loading()

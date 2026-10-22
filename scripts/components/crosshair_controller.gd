@@ -40,7 +40,7 @@ func set_active(active: bool) -> void:
 func set_default_state() -> void:
 	is_interactable = false
 	_last_prompt_text = ""
-	if not _active or _has_text_input_focus():
+	if not _active or blocked_by_modal or _has_text_input_focus():
 		hide_crosshair()
 		return
 	visible = true
@@ -55,20 +55,20 @@ func set_interactable_state(can_interact: bool, _prompt_text: String = "Interact
 	if not can_interact:
 		set_default_state()
 		return
-	if not _active or _has_text_input_focus():
+	if not _active or blocked_by_modal or _has_text_input_focus():
 		hide_crosshair()
 		return
 
 	is_interactable = not blocked_by_modal
 	visible = true
 	if prompt_label != null and not blocked_by_modal:
-		prompt_label.text = "Press E to inspect"
+		prompt_label.text = _prompt_text
 		_set_prompt_visible(true)
 	else:
 		_set_prompt_visible(false)
 	if instruction_label != null:
 		instruction_label.visible = false
-	_log_state(STATE_INTERACTABLE, "Press E to inspect")
+	_log_state(STATE_INTERACTABLE, _prompt_text)
 	queue_redraw()
 
 
@@ -103,7 +103,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	if not visible or not _active:
+	if not visible or not _active or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	var center: Vector2 = size * 0.5
 	var show_interactable_state: bool = is_interactable and not blocked_by_modal
@@ -114,7 +114,7 @@ func _draw() -> void:
 		draw_circle(center, 11.0 + pulse * 2.0, Color(glow_color.r, glow_color.g, glow_color.b, 0.09))
 	var dot_alpha: float = 0.62 + pulse * 0.16 if show_interactable_state else 0.58
 	var ring_alpha: float = 0.34 + pulse * 0.16 if show_interactable_state else 0.24
-	var ring_radius: float = 6.0 + pulse * 1.2 if show_interactable_state else 6.0
+	var ring_radius: float = 6.0 + pulse * 1.2 if show_interactable_state else 0.0
 	draw_circle(center, 2.2, Color(1.0, 0.94, 0.82, dot_alpha))
 	draw_arc(center, ring_radius, 0.0, TAU, 40, Color(PremiumUIStyles.GOLD_ACCENT.r, PremiumUIStyles.GOLD_ACCENT.g, PremiumUIStyles.GOLD_ACCENT.b, ring_alpha), 1.4, true)
 

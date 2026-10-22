@@ -1,22 +1,59 @@
-# WineVR
+# Grapes of Crete
 
-WineVR is a modular Godot 4.6 interactive wine demo. It simulates a QR-driven tasting flow, loads client-specific wine profiles, guides the user through vial inspection hotspots, then transitions into a configurable winery scene with props, zones, narrative guidance, and completion/restart flow.
+Grapes of Crete is a Godot 4.6.1 experience about the grapes, landscape and wine of Crete. Its Greek interface connects a physical grape collection, an artistic Dafnes vineyard, a four-stop cellar tour and a guided tasting catalog.
 
-## Current Flow
+## Current experience
 
-The main menu now includes **Αίθουσα σταφυλιών**, a desktop museum room with the
-authored Liatiko and Kotsifali bunches hanging from physics joints. E brings a bunch
-close and reveals its profile bars; hold left mouse to grasp/drag with the glove,
-right mouse to rotate, wheel to zoom, and E/Esc to return. Options releases the cursor
-and offers a Fullscreen button (also F11). See [grape museum notes](docs/grape_museum.md)
-for controls, editable illustrative data, asset baking and validation.
+- **Collection:** Liatiko, Kotsifali and Vidiano. Suspended fruit responds to physical grasping, rotation and close inspection. Four information pages cover comparative profiles, berry anatomy, ripening and an interactive 3D cutaway.
+- **Dafnes:** a walkable terrace overlooking vines and Cretan-inspired hills, four educational stations and a Crete map. The scene is an artistic representation, not surveyed terrain or a real winery.
+- **Cellar:** harvest, fermentation, oak maturation and tasting stations, with barrels, steel tanks and wine glasses. Tasting completion leads here; the menu also allows direct exploration.
+- **Wines:** searchable catalog with region filters, three clearly labeled educational Cretan profiles and the existing client profiles. Required hotspots gate the cellar step; optional steps can be skipped.
+- **Touch:** movement/look controls, rotation and a portrait inspection sheet with readable information and its own 3D cutaway.
+- **XR:** native OpenXR and browser WebXR lifecycles, controller/gaze selection, snap turn, validated teleportation, world-space navigation and conditional AR. Availability is detected at runtime. See [XR compatibility and device validation](docs/xr_compatibility.md).
 
-1. Select a wine profile from the QR simulation screen.
-2. Review the intro card.
-3. Inspect the vial and open required hotspots.
-4. Enter the winery once required vial points are viewed.
-5. Follow narrative steps through winery props, zones, or door targets.
-6. Complete the tasting and optionally restart.
+The five profile scores are **illustrative 0–100 comparisons**, not laboratory readings or percentages of sugar. Total acidity and pH are different quantities. Source references and explanatory notes are included in the data. No infrared measurement, invisible marker detection or universal device compatibility is claimed.
+
+## Run
+
+Open `project.godot` with Godot **4.6.1 stable**, or run:
+
+```powershell
+godot --path . --xr-mode off
+```
+
+For the Windows application, keep `build/WineVR.exe` beside `build/WineVR.pck`. The local web launcher is `index.html`; serve the repository over HTTP on localhost and open the address. WebXR on other hosts requires HTTPS and a compatible headset/browser. The launcher detects a missing export and explains how to recover. It does not publish automatically.
+
+WASD moves, the mouse looks, E inspects/returns, Esc opens the menu, and F11 toggles fullscreen. On desktop, hold left mouse on a berry and pull to detach it for testing; keep holding and use right-drag to roll it between the fingers, or the wheel to bring it closer/away. Release left mouse to drop it and T to restore all fruit. Shift + left mouse grasps the whole bunch. During inspection, right mouse rotates and the wheel zooms; C cycles information pages. Touch controls appear on touch devices. See [museum controls and assets](docs/grape_museum.md) and [local export targets](exports/README.md).
+
+## Standalone grape-room demo
+
+The standalone **Grape Room Demo** export opens `scenes/GrapeRoomDemo.tscn`
+with display settings above its startup menu, then enters only the museum room
+and its three grape exhibits. It creates no hands or picking interactions.
+E brings the bunch forward into a screen inspection overlay with the original
+charts, then returns it to its suspension. A separate transparent viewport keeps
+the bunch and charts in front of the room. The mesh center stays fixed
+on screen and the bunch remains upright relative to the viewer, even when the
+camera is tilted. Entry and return follow an eased 0.65-second flight; the
+foreground projection remains active through the return. The right panel has
+three larger tabs with animated hover, selection and page changes, plus a
+Return button. Left mouse dragging shows a hand cursor and rotates around
+the screen's vertical axis with
+the requested inverted horizontal direction. All three bunches use separated
+rest geometry and contacts enclosing their visible skins,
+with individual berry inertia,
+stem bending and neighboring fruit contacts. Escape pauses and F11 changes
+fullscreen. The room demo uses a 1.65 m/s walking pace with acceleration and
+braking, gently smoothed mouse look, and a small distance-driven camera sway
+that settles at rest and stops during inspection. Larger explanatory text and
+a centered hand/E prompt make the exhibits easier to read and discover.
+The export embeds its package in
+`build/grape-room-demo/Grapes-of-Crete.exe` so that executable can be copied
+on its own. This demo is built with `--export-debug "Grape Room Demo"`: the Windows
+debug runtime starts correctly on the tested GT 730 system, whereas the release
+runtime stalled during graphics initialization. The full application remains a
+separate export. Native room QA and the packaged demo's first rendered frame
+were verified.
 
 ## Architecture
 
@@ -40,7 +77,7 @@ for controls, editable illustrative data, asset baking and validation.
 - `qr_id`: unique simulated QR identifier.
 - `enabled`
 
-The QR simulation screen reads this registry and loads the selected profile through `ClientProfileLoader`.
+The catalog uses WineDatabase profiles first, with this registry as a fallback. The Cretan educational collection is appended without replacing client profiles.
 
 ## Adding A Client
 
@@ -147,7 +184,7 @@ It checks:
 These are for demo testing only and are not shown in normal UI:
 
 - `R`: reset current client experience, including viewed hotspots, narrative progress, vial view, winery view, and return to intro.
-- `Esc`: return to QR/client selection.
+- `Esc`: close inspection or open the main menu.
 - `F3`: toggle dev overlay with client id, state, current narrative step, active target, FPS, and input hint.
 - `F6`: cycle debug viewport presets: native, desktop 16:9, mobile portrait, and tablet landscape.
 - `F7`: toggle demo mode. Demo mode hides the dev overlay and keeps dev-only UI out of the recording view.
@@ -224,41 +261,35 @@ Capture helpers:
 - `F9`: restore UI.
 - `F10`: reset the current view before a retake.
 
-## Export Readiness
+## Export and local browser preview
 
-Export notes live in `exports/README.md`. Intended targets are Android, Web, and Windows desktop demo. Generated builds should not be committed.
+See [export targets](exports/README.md) for Windows, Linux, macOS, Web, Android Touch and the separately configured Android OpenXR target. Generated packages remain local. `tools/export_local.ps1` builds desktop/Web targets with the matching Godot 4.6.1 templates.
 
-## Web Demo Hosting
-
-The static landing page in the repository root loads the Godot Web export from `web5/WineVR.html`. The export files use relative paths, so keep the full `web5/` folder structure unchanged.
-
-Local test:
+The root landing page loads `exports/local/web/WineVR.html`. Serve the repository, for example:
 
 ```powershell
-python -m http.server 8000
+python -m http.server 8765 --bind 127.0.0.1
 ```
 
-Open:
+Open `http://127.0.0.1:8765/`. Do not open the HTML directly from the filesystem. Keep every generated Web file together. `netlify.toml` sets MIME types and revalidation for unversioned exports; a source-only deployment has no generated Web build. No deployment is performed by local export.
 
-```text
-http://localhost:8000/
-```
+## Runtime checks
 
-Use a local server for testing. Do not open `index.html` or `web5/WineVR.html` directly from the filesystem, because browser security rules can block the Godot export files.
+The development scenes exercise the actual application, state transitions and input paths:
 
-Netlify settings:
+- `GrapeMuseumQA.tscn`: suspended fruit, close inspection, grabbing, rotation, hand geometry and cutaway cleanup.
+- `CretanExperienceQA.tscn`: collection/vineyard/cellar/catalog transitions, bounds, touch actions and portrait inspection.
+- `TastingContentQA.tscn`: all six profiles, hotspot progression, optional steps, completion and responsive annotations.
+- `ResponsiveUIQA.tscn`: menu, options, controls, catalog and navigation from 320×568 to 1440×900.
+- `SampleCodeQA.tscn`: exact code lookup, duplicates/unknown input and real Enter-to-profile selection.
+- `XRIntegrationQA.tscn` and `scripts/vr/tests/validate_xr.gd`: simulated XR lifecycle, active rays, controller fallback, teleport physics, AR restoration and focus/modal gates.
 
-```text
-Build command:
-Publish directory: .
-```
+Run a development scene with `godot --headless --xr-mode off --path . res://scenes/dev/<scene>.tscn`; native rendering tests omit `--headless`. Screenshots and reports go to the ignored `work/` folder. Simulation cannot establish performance or compatibility on an untested physical headset.
 
-The `netlify.toml` file defines the required headers for Godot Web assets, including `application/wasm` for `.wasm`, `application/octet-stream` for `.pck`, `application/javascript` for `.js`, no-cache for HTML, and immutable caching for export binaries/scripts.
+## Scope and next hardware validation
 
-## Current Limitations
-
-- QR scanning is simulated.
-- No backend or remote profile loading.
-- No real AR/VR runtime integration yet.
-- Winery environments are generated from lightweight primitives.
-- Validation is structural and reference-based; it does not replace a runtime playthrough.
+- Wine selection uses local configured profiles and [sample codes](docs/sample_recognition.md), without a backend or camera recognition.
+- OpenXR/WebXR are implemented; availability still depends on the device, browser and active runtime.
+- Android native OpenXR needs its build template/toolchain completed. Android Touch is a separate debug package.
+- The 3D spaces and anatomy are educational representations. Scores are illustrative; no sensor, spectroscopy or laboratory inference is performed.
+- AR has no surface hit testing, persistent anchors or room reconstruction. Physical headset/phone validation remains required.

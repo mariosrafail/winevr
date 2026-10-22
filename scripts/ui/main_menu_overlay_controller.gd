@@ -2,6 +2,10 @@ extends Node
 class_name MainMenuOverlayController
 
 signal museum_requested
+signal vineyard_requested
+signal tasting_requested
+signal cellar_requested
+signal xr_requested(mode: String)
 signal resume_requested
 signal options_requested
 signal controls_requested
@@ -15,6 +19,16 @@ var panel: PanelContainer
 var message_label: Label
 var resume_button: Button
 var museum_button: Button
+var vineyard_button: Button
+var tasting_button: Button
+var cellar_button: Button
+var vr_button: Button
+var ar_button: Button
+var capability_label: Label
+var _columns: BoxContainer
+var _intro: VBoxContainer
+var _actions: VBoxContainer
+var _title: Label
 var options_button: Button
 var controls_button: Button
 var quit_button: Button
@@ -66,11 +80,31 @@ func layout(viewport_size: Vector2) -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var margin: float = 22.0 if viewport_size.x >= 760.0 else 12.0
-	var width: float = minf(380.0, viewport_size.x - margin * 2.0)
-	var height: float = minf(480.0, viewport_size.y * 0.86)
+	var width: float = minf(1040.0, viewport_size.x - margin * 2.0)
+	var height: float = minf(780.0 if width < 720.0 else 590.0, viewport_size.y - margin * 2.0)
+	if _columns != null:
+		_columns.vertical = width < 720.0
+		_intro.custom_minimum_size.x = 0.0 if _columns.vertical else width * 0.39
+		_actions.custom_minimum_size.x = 0.0
+		_title.add_theme_font_size_override("font_size", 30 if _columns.vertical else 42)
+		_title.text = "Η Κρήτη, σε μια ρώγα." if _columns.vertical else "Η Κρήτη,\nμέσα σε\nμια ρώγα."
+		_intro.get_node("JourneyDescription").visible = not _columns.vertical
+		_intro.get_node("JourneyNote").visible = not _columns.vertical
+		_intro.get_node("JourneySteps").visible = not _columns.vertical
 	panel.custom_minimum_size = Vector2(minf(320.0, width), minf(260.0, height))
 	panel.size = Vector2(width, height)
-	panel.position = (viewport_size - panel.size) * 0.5
+	panel.position = (viewport_size - Vector2(width, height)) * 0.5
+	panel.set_deferred("size", Vector2(width, height))
+
+
+func set_xr_capabilities(capabilities: Dictionary, busy: bool = false) -> void:
+	if vr_button == null:
+		return
+	vr_button.disabled = busy or not bool(capabilities.get("vr", false))
+	ar_button.disabled = busy or not bool(capabilities.get("ar", false))
+	capability_label.text = str(capabilities.get("message", "Υπολογιστής και αφή · έλεγχος διαθέσιμης συσκευής XR"))
+	if busy:
+		capability_label.text = "Σύνδεση με τη συσκευή…"
 
 
 func show_message(message: String) -> void:
@@ -90,7 +124,7 @@ func _build_overlay(parent_canvas_layer: CanvasLayer) -> void:
 
 	dimmer = ColorRect.new()
 	dimmer.name = "MainMenuDimmer"
-	dimmer.color = Color(0.012, 0.01, 0.009, 0.74)
+	dimmer.color = Color(0.012, 0.025, 0.022, 0.88)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
 	dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(dimmer)
@@ -113,45 +147,64 @@ func _build_overlay(parent_canvas_layer: CanvasLayer) -> void:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(margin)
 
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 14)
-	margin.add_child(vbox)
-	PremiumUIStyles.apply_panel_chrome_to_vbox(vbox)
+	_columns = BoxContainer.new()
+	_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_columns.add_theme_constant_override("separation", 30)
+	margin.add_child(_columns)
+	_intro = VBoxContainer.new()
+	_intro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_intro.add_theme_constant_override("separation", 20)
+	_columns.add_child(_intro)
+	_label(_intro, "W I N E V R   /   C R E T E", 14, PremiumUIStyles.GOLD_ACCENT)
+	_title = _label(_intro, "Η Κρήτη,\nμέσα σε\nμια ρώγα.", 42, PremiumUIStyles.TEXT_TITLE)
+	var description: Label = _label(_intro, "Άγγιξε τις ποικιλίες. Ανακάλυψε τον τόπο.\nΑκολούθησε το κρασί από το αμπέλι στο ποτήρι.", 17, PremiumUIStyles.TEXT_BODY)
+	description.name = "JourneyDescription"
+	_label(_intro, "01  ΣΤΑΦΥΛΙ     02  ΤΟΠΟΣ     03  ΚΡΑΣΙ", 12, PremiumUIStyles.GOLD_ACCENT).name = "JourneySteps"
+	_label(_intro, "Μια διαδραστική, εκπαιδευτική συλλογή\nμε τρισδιάστατα εκθέματα και φυσική κίνηση.", 13, PremiumUIStyles.TEXT_MUTED).name = "JourneyNote"
+	_actions = VBoxContainer.new()
+	_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_actions.add_theme_constant_override("separation", 10)
+	_columns.add_child(_actions)
+	var vbox: VBoxContainer = _actions
+	_label(vbox, "ΔΙΑΛΕΞΕ ΤΗ ΔΙΑΔΡΟΜΗ ΣΟΥ", 12, PremiumUIStyles.TEXT_MUTED)
 
-	var title: Label = Label.new()
-	title.text = "Main Menu"
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", PremiumUIStyles.TEXT_TITLE)
-	vbox.add_child(title)
-
-	var subtitle: Label = Label.new()
-	subtitle.text = "WineVR"
-	subtitle.add_theme_font_size_override("font_size", 14)
-	subtitle.add_theme_color_override("font_color", PremiumUIStyles.TEXT_BODY)
-	vbox.add_child(subtitle)
-
-	var spacer: Control = Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 4.0)
-	vbox.add_child(spacer)
-
-	resume_button = _make_menu_button("Resume", _on_resume_pressed)
+	museum_button = _make_menu_button("01   Η συλλογή σταφυλιών\nΛιάτικο · Κοτσιφάλι · Βιδιανό", func() -> void: museum_requested.emit())
+	museum_button.name = "GrapeMuseumButton"
+	museum_button.custom_minimum_size.y = 70
+	vbox.add_child(museum_button)
+	vineyard_button = _make_menu_button("02   Στον αμπελώνα των Δαφνών\nΤοπίο · τόπος · ιστορία", func() -> void: vineyard_requested.emit())
+	vineyard_button.custom_minimum_size.y = 70
+	vbox.add_child(vineyard_button)
+	tasting_button = _make_menu_button("03   Διάλεξε ένα κρασί\nΓνωριμία και γευστική εξερεύνηση", func() -> void: tasting_requested.emit())
+	tasting_button.custom_minimum_size.y = 70
+	vbox.add_child(tasting_button)
+	cellar_button = _make_menu_button("04   Ξενάγηση στην κάβα\nΤρύγος · ζύμωση · παλαίωση", func() -> void: cellar_requested.emit())
+	cellar_button.custom_minimum_size.y = 62
+	vbox.add_child(cellar_button)
+	var xr_row: HBoxContainer = HBoxContainer.new()
+	xr_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(xr_row)
+	vr_button = _make_menu_button("Είσοδος VR", func() -> void: xr_requested.emit("vr"))
+	ar_button = _make_menu_button("Είσοδος AR", func() -> void: xr_requested.emit("ar"))
+	vr_button.disabled = true
+	ar_button.disabled = true
+	xr_row.add_child(vr_button)
+	xr_row.add_child(ar_button)
+	capability_label = _label(vbox, "Έλεγχος διαθέσιμης συσκευής…", 12, PremiumUIStyles.TEXT_MUTED)
+	resume_button = _make_menu_button("Συνέχεια εξερεύνησης", _on_resume_pressed)
 	vbox.add_child(resume_button)
 
-	museum_button = _make_menu_button("Αίθουσα σταφυλιών", func() -> void: museum_requested.emit())
-	museum_button.name = "GrapeMuseumButton"
-	vbox.add_child(museum_button)
+	var utility_row: HBoxContainer = HBoxContainer.new()
+	utility_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(utility_row)
+	options_button = _make_menu_button("Ρυθμίσεις", _on_options_pressed)
+	utility_row.add_child(options_button)
 
-	options_button = _make_menu_button("Options", _on_options_pressed)
-	vbox.add_child(options_button)
+	controls_button = _make_menu_button("Χειρισμός", _on_controls_pressed)
+	utility_row.add_child(controls_button)
 
-	controls_button = _make_menu_button("Controls", _on_controls_pressed)
-	vbox.add_child(controls_button)
-
-	quit_button = _make_menu_button("Quit", _on_quit_pressed)
-	vbox.add_child(quit_button)
+	quit_button = _make_menu_button("Έξοδος", _on_quit_pressed)
+	utility_row.add_child(quit_button)
 
 	message_label = Label.new()
 	message_label.text = ""
@@ -160,11 +213,24 @@ func _build_overlay(parent_canvas_layer: CanvasLayer) -> void:
 	message_label.add_theme_color_override("font_color", PremiumUIStyles.TEXT_MUTED)
 	message_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(message_label)
+	resume_button.visible = false
+
+
+func _label(parent: Node, text: String, font_size: int, color: Color) -> Label:
+	var label: Label = Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	parent.add_child(label)
+	return label
 
 
 func _make_menu_button(text: String, callback: Callable) -> Button:
 	var button: Button = Button.new()
 	button.text = text
+	button.clip_text = true
 	button.custom_minimum_size = Vector2(0.0, 44.0)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(button)

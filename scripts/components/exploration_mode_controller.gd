@@ -24,7 +24,7 @@ func setup(parent_canvas_layer: CanvasLayer, winery: WineryInteriorController, c
 func set_available(is_available: bool) -> void:
 	available = is_available
 	if explore_button != null:
-		explore_button.visible = available
+		explore_button.visible = available and not DisplayServer.is_touchscreen_available() and not "--touch-ui" in OS.get_cmdline_user_args()
 	if not available and active:
 		exit_mode()
 
@@ -42,7 +42,7 @@ func enter_mode() -> void:
 	if graphics_panel != null and graphics_panel.is_open():
 		graphics_panel.close()
 	active = true
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if DisplayServer.is_touchscreen_available() or "--touch-ui" in OS.get_cmdline_user_args() else Input.MOUSE_MODE_CAPTURED
 	if winery_interior != null:
 		winery_interior.set_exploration_mode_active(true)
 	if explore_button != null:

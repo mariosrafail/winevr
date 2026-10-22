@@ -10,6 +10,8 @@ signal options_opened
 signal options_closed
 signal controls_requested
 
+const PRESET_KEYS: Array[String] = ["Ultra Low", "Low", "Medium", "High", "Cinematic"]
+
 const CONFIG_PATH: String = "user://graphics_settings.cfg"
 
 var root: CanvasLayer
@@ -32,8 +34,11 @@ var options_content: BoxContainer
 var left_column: VBoxContainer
 var right_column: VBoxContainer
 var buttons_row: HBoxContainer
+var header_row: BoxContainer
 var _options_scroll_enabled: bool = false
 var _last_viewport_size: Vector2 = Vector2.ZERO
+var animated_menus: bool = false
+var _closing: bool = false
 
 
 func setup(canvas_layer: CanvasLayer) -> void:
@@ -51,6 +56,7 @@ func toggle() -> void:
 
 
 func open() -> void:
+	_closing = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if overlay_root != null:
 		overlay_root.visible = true
@@ -65,7 +71,11 @@ func open() -> void:
 
 
 func close() -> void:
-	if panel == null or not panel.visible:
+	if panel == null or not panel.visible or _closing:
+		return
+	if animated_menus:
+		_closing = true
+		_animate_overlay(false)
 		return
 	if overlay_root != null:
 		overlay_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -106,6 +116,7 @@ func layout(viewport_size: Vector2) -> void:
 		overlay_dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_last_viewport_size = viewport_size
 	if menu_button != null:
+		menu_button.visible = not (DisplayServer.is_touchscreen_available() or "--touch-ui" in OS.get_cmdline_user_args())
 		var safe_margin: float = 20.0 if viewport_size.x >= 760.0 else 16.0
 		menu_button.size = Vector2(128.0, 44.0)
 		menu_button.set_anchors_preset(Control.PRESET_BOTTOM_LEFT, false)
@@ -177,8 +188,8 @@ func _build_options_panel() -> void:
 
 	menu_button = Button.new()
 	menu_button.name = "OptionsMenuButton"
-	menu_button.text = "Options"
-	menu_button.tooltip_text = "Open Options"
+	menu_button.text = "Ρυθμίσεις"
+	menu_button.tooltip_text = "Άνοιγμα ρυθμίσεων"
 	menu_button.z_index = 98
 	PremiumUIStyles.apply_gold_outline_button(menu_button)
 	menu_button.pressed.connect(toggle)
@@ -200,19 +211,21 @@ func _build_options_panel() -> void:
 	outer_margin.add_child(outer_vbox)
 	PremiumUIStyles.apply_panel_chrome_to_vbox(outer_vbox)
 
-	var header: HBoxContainer = HBoxContainer.new()
+	var header: BoxContainer = BoxContainer.new()
+	header_row = header
 	header.add_theme_constant_override("separation", 8)
 	outer_vbox.add_child(header)
 
 	var title: Label = Label.new()
-	title.text = "Options"
+	title.text = "Ρυθμίσεις"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.modulate = PremiumUIStyles.TEXT_TITLE
 	header.add_child(title)
 	fullscreen_button = Button.new()
 	fullscreen_button.name = "FullscreenButton"
-	fullscreen_button.text = "Fullscreen (F11)"
+	fullscreen_button.text = "Πλήρης οθόνη (F11)"
 	fullscreen_button.custom_minimum_size = Vector2(180, 42)
+	fullscreen_button.clip_text = true
 	PremiumUIStyles.apply_gold_outline_button(fullscreen_button)
 	fullscreen_button.pressed.connect(toggle_fullscreen)
 	header.add_child(fullscreen_button)
@@ -239,19 +252,19 @@ func _build_options_panel() -> void:
 	right_column.add_theme_constant_override("separation", 12)
 	options_content.add_child(right_column)
 
-	_add_section_title(left_column, "Graphics")
+	_add_section_title(left_column, "Γραφικά")
 
 	quality_dropdown = OptionButton.new()
-	quality_dropdown.add_item("Ultra Low")
-	quality_dropdown.add_item("Low")
-	quality_dropdown.add_item("Medium")
-	quality_dropdown.add_item("High")
-	quality_dropdown.add_item("Cinematic")
+	quality_dropdown.add_item("Ελάχιστη")
+	quality_dropdown.add_item("Χαμηλή")
+	quality_dropdown.add_item("Μεσαία")
+	quality_dropdown.add_item("Υψηλή")
+	quality_dropdown.add_item("Κινηματογραφική")
 	quality_dropdown.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_dropdown_style(quality_dropdown)
 	left_column.add_child(quality_dropdown)
 
-	_add_section_title(left_column, "Resolution")
+	_add_section_title(left_column, "Ανάλυση")
 
 	resolution_dropdown = OptionButton.new()
 	_populate_resolution_options()
@@ -260,44 +273,45 @@ func _build_options_panel() -> void:
 	left_column.add_child(resolution_dropdown)
 
 	fullscreen_toggle = CheckBox.new()
-	fullscreen_toggle.text = "Fullscreen"
+	fullscreen_toggle.text = "Πλήρης οθόνη"
 	fullscreen_toggle.modulate = PremiumUIStyles.TEXT_BODY
 	left_column.add_child(fullscreen_toggle)
 
 	vsync_dropdown = OptionButton.new()
-	vsync_dropdown.add_item("VSync: Off")
-	vsync_dropdown.add_item("VSync: On")
+	vsync_dropdown.add_item("Συγχρονισμός: Όχι")
+	vsync_dropdown.add_item("Συγχρονισμός: Ναι")
 	vsync_dropdown.selected = 1
 	vsync_dropdown.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_dropdown_style(vsync_dropdown)
 	left_column.add_child(vsync_dropdown)
 
-	_add_section_title(right_column, "Controls")
+	_add_section_title(right_column, "Χειρισμός")
 
 	var explore_hint: Label = Label.new()
-	explore_hint.text = "Inspect: E\nExplore Mode: Tab\nEsc opens the Main Menu"
+	explore_hint.text = "Εξέταση: E\nΕλεύθερο ποντίκι: Tab\nΜενού: Esc"
 	explore_hint.modulate = PremiumUIStyles.TEXT_BODY
 	explore_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explore_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_column.add_child(explore_hint)
 
 	var controls_button: Button = Button.new()
-	controls_button.text = "View Controls"
+	controls_button.text = "Οδηγίες χειρισμού"
 	controls_button.custom_minimum_size = Vector2(0.0, 42.0)
 	controls_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(controls_button)
 	controls_button.pressed.connect(func() -> void: controls_requested.emit())
 	right_column.add_child(controls_button)
 
-	_add_section_title(right_column, "Performance")
+	_add_section_title(right_column, "Απόδοση")
 
 	fps_toggle = CheckBox.new()
-	fps_toggle.text = "FPS-friendly"
+	fps_toggle.text = "Ομαλή κίνηση"
+	fps_toggle.tooltip_text = "Προτεραιότητα στην απόδοση αντί για τα βαρύτερα εφέ."
 	fps_toggle.modulate = PremiumUIStyles.TEXT_BODY
 	right_column.add_child(fps_toggle)
 
 	var hint: Label = Label.new()
-	hint.text = "Esc returns to the Main Menu."
+	hint.text = "Το Esc επιστρέφει στο μενού."
 	hint.modulate = PremiumUIStyles.TEXT_MUTED
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -318,7 +332,7 @@ func _build_options_panel() -> void:
 	outer_vbox.add_child(buttons_row)
 
 	apply_button = Button.new()
-	apply_button.text = "Apply"
+	apply_button.text = "Εφαρμογή"
 	apply_button.custom_minimum_size = Vector2(0.0, 44.0)
 	apply_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(apply_button)
@@ -326,7 +340,7 @@ func _build_options_panel() -> void:
 	buttons_row.add_child(apply_button)
 
 	close_button = Button.new()
-	close_button.text = "Close"
+	close_button.text = "Κλείσιμο"
 	close_button.custom_minimum_size = Vector2(0.0, 44.0)
 	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(close_button)
@@ -335,7 +349,7 @@ func _build_options_panel() -> void:
 
 
 func _on_apply_pressed() -> void:
-	var preset: String = quality_dropdown.get_item_text(quality_dropdown.selected)
+	var preset: String = PRESET_KEYS[quality_dropdown.selected]
 	apply_requested.emit(preset, fps_toggle.button_pressed)
 	await _apply_display_settings()
 
@@ -362,7 +376,7 @@ func _build_prompt_bar() -> void:
 	PremiumUIStyles.apply_panel_chrome_to_vbox(vbox)
 
 	var label: Label = Label.new()
-	label.text = "Ultra Performance Mode recommended"
+	label.text = "Προτείνεται ελαφρύτερη ποιότητα"
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.modulate = PremiumUIStyles.TEXT_TITLE
@@ -374,7 +388,7 @@ func _build_prompt_bar() -> void:
 	vbox.add_child(prompt_buttons)
 
 	var accept_button: Button = Button.new()
-	accept_button.text = "Use Ultra Low"
+	accept_button.text = "Χρήση ελάχιστης ποιότητας"
 	accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(accept_button)
 	accept_button.pressed.connect(func() -> void:
@@ -384,7 +398,7 @@ func _build_prompt_bar() -> void:
 	prompt_buttons.add_child(accept_button)
 
 	var ignore_button: Button = Button.new()
-	ignore_button.text = "Ignore"
+	ignore_button.text = "Παράβλεψη"
 	ignore_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	PremiumUIStyles.apply_gold_outline_button(ignore_button)
 	ignore_button.pressed.connect(func() -> void:
@@ -449,7 +463,7 @@ func _apply_display_settings() -> void:
 	await get_tree().process_frame
 	var new_window_size: Vector2i = DisplayServer.window_get_size()
 	if fullscreen_button != null:
-		fullscreen_button.text = "Windowed (F11)" if fullscreen_toggle.button_pressed else "Fullscreen (F11)"
+		fullscreen_button.text = "Παράθυρο (F11)" if fullscreen_toggle.button_pressed else "Πλήρης οθόνη (F11)"
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	print("Window size after apply:", new_window_size)
 	print("Viewport visible size:", viewport_size)
@@ -510,15 +524,16 @@ func _apply_centered_panel_layout(viewport_size: Vector2 = Vector2.ZERO) -> Rect
 	if actual_viewport_size.x < 120.0 or actual_viewport_size.y < 120.0:
 		return Rect2(panel.position, panel.size)
 	var margin: float = 28.0 if actual_viewport_size.x >= 900.0 else 20.0
-	var max_width: float = maxf(320.0, actual_viewport_size.x - margin * 2.0)
+	var max_width: float = maxf(220.0, actual_viewport_size.x - margin * 2.0)
 	var max_height: float = maxf(320.0, actual_viewport_size.y - margin * 2.0)
 	var preferred_width: float = clampf(actual_viewport_size.x * 0.5, 420.0, 900.0)
 	var ratio_height_cap: float = minf(actual_viewport_size.y * 0.86, max_height)
 	var preferred_height: float = clampf(actual_viewport_size.y * 0.7, minf(400.0, ratio_height_cap), ratio_height_cap)
 	var target_size: Vector2 = Vector2(minf(preferred_width, max_width), minf(preferred_height, max_height))
 	panel.custom_minimum_size = Vector2(minf(420.0, target_size.x), minf(360.0, target_size.y))
-	panel.size = target_size
 	_configure_options_content_layout(actual_viewport_size, target_size)
+	panel.size = target_size
+	panel.set_deferred("size", target_size)
 	panel.position = (actual_viewport_size - target_size) * 0.5
 	var rect: Rect2 = Rect2(panel.position, target_size)
 	print("[WineVR][Options] viewport=%s panel_size=%s scroll_enabled=%s" % [
@@ -534,6 +549,9 @@ func _configure_options_content_layout(viewport_size: Vector2, panel_size: Vecto
 	# Apply/Close row and fullscreen control outside the window.
 	var use_scroll: bool = true
 	_set_options_scroll_enabled(use_scroll)
+	if header_row != null:
+		header_row.vertical = panel_size.x < 520
+		fullscreen_button.custom_minimum_size.x = 0 if header_row.vertical else 180
 	if options_content != null:
 		var use_single_column: bool = viewport_size.x < 980.0 or panel_size.x < 680.0
 		options_content.vertical = use_single_column
@@ -578,6 +596,23 @@ func _animate_overlay(opening: bool) -> void:
 		(overlay_root.get_meta("options_overlay_tween") as Tween).kill()
 	var tween: Tween = overlay_root.create_tween()
 	overlay_root.set_meta("options_overlay_tween", tween)
+	if animated_menus:
+		panel.pivot_offset = panel.size * 0.5
+		if opening:
+			overlay_root.modulate.a = 0.0
+			panel.scale = Vector2.ONE * 0.96
+		tween.set_parallel(true)
+		tween.tween_property(overlay_root, "modulate:a", 1.0 if opening else 0.0, 0.22 if opening else 0.16)
+		tween.tween_property(panel, "scale", Vector2.ONE if opening else Vector2.ONE * 0.98, 0.26 if opening else 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if not opening:
+			tween.chain().tween_callback(func() -> void:
+				panel.hide()
+				overlay_root.hide()
+				overlay_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_closing = false
+				options_closed.emit()
+			)
+		return
 	if opening:
 		overlay_root.modulate.a = 0.0
 		tween.tween_property(overlay_root, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -597,3 +632,10 @@ func _add_section_title(parent: VBoxContainer, text: String) -> void:
 	title.modulate = PremiumUIStyles.GOLD_ACCENT
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(title)
+
+
+func _exit_tree() -> void:
+	# The fallback container is detached on wide screens for reuse. Detached
+	# nodes are not owned by SceneTree and must be released explicitly.
+	if is_instance_valid(options_scroll) and options_scroll.get_parent() == null:
+		options_scroll.free()

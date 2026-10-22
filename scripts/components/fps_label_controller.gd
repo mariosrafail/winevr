@@ -7,7 +7,7 @@ var _elapsed: float = 0.0
 
 
 func _ready() -> void:
-	visible = OS.is_debug_build()
+	visible = "--show-fps" in OS.get_cmdline_user_args()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if label_settings == null:
 		label_settings = LabelSettings.new()

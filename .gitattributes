@@ -1,3 +1,6 @@
 # Normalize EOL for all files that Git considers text files.
 * text=auto eol=lf
 build/WineVR.exe filter=lfs diff=lfs merge=lfs -text
+build/WineVR.pck filter=lfs diff=lfs merge=lfs -text
+build_linux/WineVR.x86_64 filter=lfs diff=lfs merge=lfs -text
+build/grape-room-demo/Grapes-of-Crete.exe filter=lfs diff=lfs merge=lfs -text

@@ -24,7 +24,6 @@ var guided_lock_enabled: bool = false
 var _pulse_tween: Tween
 var _panel_tween: Tween
 var _dim_tween: Tween
-var _text_scroll: ScrollContainer
 var _annotation_max_height_ratio: float = 0.45
 
 
@@ -39,8 +38,20 @@ func setup(hotspots_layer: Control, hotspot_panel: PanelContainer, title: Label,
 	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	PremiumUIStyles.apply_gold_outline_button(close_button)
+	close_button.text = "Συνέχεια στη διαδρομή"
 	close_button.pressed.connect(close_panel)
-	_text_scroll = _wrap_text_with_scroll(text_label)
+	text_label.fit_content = false
+	text_label.scroll_active = true
+	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_label.custom_minimum_size = Vector2(0, 72)
+	text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_label.add_theme_font_size_override("normal_font_size", 17)
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var title_settings: LabelSettings = LabelSettings.new()
+	title_settings.font_size = 24
+	title_settings.font_color = PremiumUIStyles.TEXT_TITLE
+	title_label.label_settings = title_settings
+	panel.add_theme_stylebox_override("panel", PremiumUIStyles.make_panel_style(0.99))
 	panel.modulate.a = 0.0
 	panel.scale = Vector2(0.96, 0.96)
 
@@ -80,6 +91,8 @@ func build_hotspots(raw_hotspots: Array) -> void:
 
 
 func layout_hotspots() -> void:
+	if panel.visible:
+		_layout_annotation()
 	for index in range(mini(active_hotspots.size(), layer.get_child_count())):
 		var hotspot_data: Dictionary = active_hotspots[index]
 		var marker: Control = layer.get_child(index) as Control
@@ -196,14 +209,21 @@ func _show_panel() -> void:
 	annotation_opened.emit()
 	layout_refresh_requested.emit("panel opened")
 	await get_tree().process_frame
-	ResponsiveLayoutController.center_panel_safe(panel, panel.get_viewport(), clampf(panel.get_viewport().get_visible_rect().size.x * 0.36, 360.0, 560.0), _annotation_max_height_ratio)
-	if _text_scroll != null:
-		var qr_reserved_height: float = qr_container.custom_minimum_size.y + 10.0 if qr_container != null and qr_container.visible else 0.0
-		_text_scroll.custom_minimum_size.y = clampf(panel.size.y - 118.0 - qr_reserved_height, 64.0, maxf(64.0, panel.size.y - 96.0 - qr_reserved_height))
+	_layout_annotation()
+	text_label.scroll_to_line(0)
 	panel.pivot_offset = panel.size * 0.5
 	vial_preview.set_idle_rotation_paused(true)
 	_set_panel_dim(true)
 	_panel_tween = PremiumUIStyles.animate_panel_open(panel, 10.0)
+
+
+func _layout_annotation() -> void:
+	var viewport: Vector2 = panel.get_viewport().get_visible_rect().size
+	panel.custom_minimum_size = Vector2.ZERO
+	var has_qr: bool = qr_container != null and qr_container.visible
+	var preferred_height: float = 600.0 if has_qr else 430.0
+	panel.size = Vector2(minf(560.0, viewport.x - 24.0), minf(preferred_height, viewport.y - 132.0))
+	panel.position = Vector2((viewport.x - panel.size.x) * 0.5, maxf(86.0, (viewport.y - panel.size.y) * 0.5))
 
 
 func _hide_panel() -> void:
@@ -281,31 +301,6 @@ func _stop_panel_tween() -> void:
 	if _panel_tween != null:
 		_panel_tween.kill()
 		_panel_tween = null
-
-
-func _wrap_text_with_scroll(rich_text: RichTextLabel) -> ScrollContainer:
-	var vbox: VBoxContainer = rich_text.get_parent() as VBoxContainer
-	if vbox == null:
-		return null
-	var old_index: int = rich_text.get_index()
-	vbox.remove_child(rich_text)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = rich_text.name + "Scroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	var content: VBoxContainer = VBoxContainer.new()
-	content.name = "ContentVBox"
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
-	rich_text.fit_content = true
-	rich_text.scroll_active = false
-	rich_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(rich_text)
-	vbox.add_child(scroll)
-	vbox.move_child(scroll, old_index)
-	return scroll
 
 
 func _set_qr_preview(path: String) -> void:
